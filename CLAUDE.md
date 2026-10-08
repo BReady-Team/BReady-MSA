@@ -109,4 +109,6 @@ H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → 
 | `src/test/.../architecture/` | ArchUnit 레이어·코딩·모듈 경계 규칙. 옛 위반은 기준선(`archunit_store`), 새 위반은 빌드 실패 |
 | `.claude/skills/` | 조각 진행: `/piece-start` `/piece-close` `/gate-review` `/adr` `/trouble` `/verify` `/git-handoff` · 코드: `/new-api` `/domain-model` `/write-test` `/refactor-legacy` |
 | `.claude/scripts/` | `verify.sh` |
+| `.claude/agents/` | `boundary-auditor`(기계가 못 보는 경계 위반), `convention-reviewer`(변경분 리뷰). 둘 다 읽기 전용 |
+| `.claude/README.md` | 사람용 하네스 설명서: 구조, 강제 수준, 훅 동작, 검증·유지보수 방법 |
 | `.claude/rules/` | 규범 10개 + 지도 `00-map.md` |
