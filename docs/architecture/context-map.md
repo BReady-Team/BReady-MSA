@@ -127,7 +127,7 @@
 |---|---|---|---|---|
 | `PlaceCandidate` (place) | `category` | `PlanCategory` (plan) | `@ManyToOne LAZY` | ID 참조 또는 같은 컨텍스트로 이동 |
 | `PlanCategory` (plan) | `candidates` | `PlaceCandidate` (place) | `@OneToMany(mappedBy)` | **양방향 → 순환 C1의 원인** |
-| `PlaceCandidate` (place) | `place` | `Place` (place) | `@ManyToOne LAZY` | 패키지는 같지만 "후보 ↔ 카탈로그"는 다른 개념 (§8) |
+| `PlaceCandidate` (place) | `place` | `Place` (place) | `@ManyToOne LAZY` | 패키지는 같지만 "후보 ↔ 카탈로그"는 다른 개념 (8번) |
 | `Trigger` (trigger) | `plan` | `Plan` (plan) | `@ManyToOne LAZY` | `planId` (Long) |
 | `Trigger` (trigger) | `category` | `PlanCategory` (plan) | `@ManyToOne LAZY` | `categoryId` (Long) |
 | `SwitchLog` (trigger) | `fromCandidate`, `toCandidate` | `PlaceCandidate` (place) | `@ManyToOne LAZY` | `fromCandidateId`, `toCandidateId` |
@@ -216,7 +216,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
   │               │                 │  └─(커밋 후, 다른 스레드) PlanStatsUpdater.recalculate × 3 periods  [stats]
   │◀──────────────│◀────────────────│
 ```
-→ 서비스를 plan / place / trigger로 나누면 이 한 줄짜리 COMMIT이 **세 서비스에 걸친 Saga**가 된다. "그럴 가치가 있나?"가 §8의 질문이다.
+→ 서비스를 plan / place / trigger로 나누면 이 한 줄짜리 COMMIT이 **세 서비스에 걸친 Saga**가 된다. "그럴 가치가 있나?"가 8번의 질문이다.
 
 ---
 

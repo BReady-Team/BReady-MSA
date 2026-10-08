@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # PreToolUse(Write|Edit|MultiEdit|NotebookEdit) — 보호 대상 파일과 시크릿이 담긴 쓰기를 막는다.
 #
-# deny : 시크릿 파일, 옛 팀 배포 자산(D9), 시크릿처럼 보이는 값이 담긴 내용
-# ask  : 빌드·하네스·인프라 설정, 이해 게이트 상태(D7) → 영향이 커서 사용자가 보고 승인한다
+# deny : 시크릿 파일, 옛 팀 배포 자산, 시크릿처럼 보이는 값이 담긴 내용
+# ask  : 빌드·하네스·인프라 설정, 이해 게이트 상태 → 영향이 커서 사용자가 보고 승인한다
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 read_hook_input
@@ -24,11 +24,11 @@ case "$REL" in
 
   # 옛 팀 배포 자산: 두고 쓰기 차단
   deploy/*|nginx/*|docker-compose-blue.yml|docker-compose-green.yml|docker-compose-prod.yml|.coderabbit.yaml|src/main/resources/application-cd.yml)
-    deny "옛 팀 배포·운영 자산이다(D9: 두고 쓰기 차단). Strangler facade(3단계)에서 로컬 구성을 새로 만들 때 함께 정리한다." ;;
+    deny "옛 팀 배포·운영 자산이다(두고 쓰기 차단). Strangler facade(3단계)에서 로컬 구성을 새로 만들 때 함께 정리한다." ;;
 
   # 이해 게이트 상태: 통과 판정은 사용자 승인
   docs/private/roadmap.md)
-    ASK_REASON="로드맵/이해 게이트 상태 변경이다. 게이트를 PASSED 로 바꾸는 편집이라면, 정말 내 말로 설명할 수 있는지 확인하고 승인해라(D7)." ;;
+    ASK_REASON="로드맵/이해 게이트 상태 변경이다. 게이트를 PASSED 로 바꾸는 편집이라면, 정말 내 말로 설명할 수 있는지 확인하고 승인해라." ;;
 
   # 하네스 자체: 규칙·강제 장치를 바꾸는 변경은 사용자가 본다
   CLAUDE.md|.claude/settings.json|.claude/hooks/*)

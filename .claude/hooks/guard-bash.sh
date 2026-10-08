@@ -95,10 +95,10 @@ match "${CMDPOS}aws([[:space:]]|$)" &&
   deny "AWS CLI 금지. 클라우드 리소스(팀 S3·EC2)는 이 프로젝트 범위 밖이다."
 
 match "(deploy-blue-green|rollback-blue-green)\.sh|(^|[[:space:]/])deploy/[^[:space:]]+\.sh" &&
-  deny "옛 블루그린 배포 스크립트는 실행하지 않는다(D9: 두고 실행 차단)."
+  deny "옛 블루그린 배포 스크립트는 실행하지 않는다."
 
 match "docker-compose-(blue|green|prod)\.ya?ml" &&
-  deny "옛 운영/블루그린 compose 는 실행하지 않는다(D9). 로컬은 docker-compose-local.yml(이후 새 구성) 사용."
+  deny "옛 운영/블루그린 compose 는 실행하지 않는다. 로컬은 docker-compose-local.yml(이후 새 구성) 사용."
 
 # 4. 로컬 컨테이너·볼륨 파괴
 match "${CMDPOS}(docker[[:space:]]+compose|docker-compose)[^;|&]*[[:space:]]down[^;|&]*(-v([[:space:]]|$)|--volumes)" &&

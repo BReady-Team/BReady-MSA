@@ -209,6 +209,15 @@ check "router: PASSED + 다음 → 출력 없음" "" "$out"
 out="$(echo '{"prompt":"커밋 명령어 정리해줘"}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/prompt-router.sh")"
 contains "router: 커밋 요청 → git-handoff" "$(context_of "$out")" "/git-handoff" yes
 
+out="$(echo '{"prompt":"플랜 복제 API 추가해줘"}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/prompt-router.sh")"
+contains "router: API 추가 → controller-api" "$(context_of "$out")" "controller-api.md" yes
+out="$(echo '{"prompt":"trigger 모듈 경계 넘는 리포지토리 정리"}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/prompt-router.sh")"
+contains "router: 경계 → msa-boundary 우선" "$(context_of "$out")" "rules/msa-boundary.md .claude/rules/" yes
+out="$(echo '{"prompt":"엔티티 서비스 dto 예외 쿼리 테스트 전부"}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/prompt-router.sh")"
+check "router: 규칙 경로 최대 3개" 3 "$(context_of "$out" | grep -o '\.claude/rules/[a-z-]*\.md' | grep -vc 00-map)"
+out="$(echo '{"prompt":"고마워"}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/prompt-router.sh")"
+check "router: 무관한 요청 → 출력 없음" "" "$out"
+
 write_state SKIPPED
 out="$(echo '{}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/session-context.sh")"
 contains "session: SKIPPED 는 OPEN 경고 없음" "$(context_of "$out")" "이해 게이트 OPEN" no

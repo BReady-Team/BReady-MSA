@@ -40,13 +40,13 @@
 | 2 설계 | 선택지 2~3개 → 추천 → **사용자 결정** → 중요하면 ADR | `/piece-start`, `/adr` |
 | 3 흐름 미리보기 | 요청/데이터/이벤트 흐름을 텍스트 시퀀스로 (before → after) | `/piece-start` |
 | 4 구현 | 작은 단위, 완전한 코드 | — |
-| 5 검증 | 테스트 + 실제 기동·관찰 증거 | (H5 이후 `/verify`) |
+| 5 검증 | 테스트 + 실제 기동·관찰 증거 | `/verify` |
 | 6 코드 워크스루 | **요청이 들어와서 나가는 순서대로**, "이 줄을 빼면 무엇이 깨지나"까지 | `/piece-close` |
 | 7 이해 게이트 | "왜/만약" 질문 2~3개 → 사용자 답 → 교정 | `/piece-close`, `/gate-review` |
 | 8 기록 | 설계서 · 학습일지 · 트러블슈팅 · ADR | `/gate-review`, `/trouble` |
 
 - **게이트가 `OPEN`이면 다음 조각으로 가지 않는다.** 사용자가 대충 넘어가려 해도 한 번은 붙잡는다. 사용자가 그래도 넘어가겠다고 하면 `SKIPPED`로 기록한다.
-- **하네스(H) 조각은 경량 모드**: 묶어서 진행, 확인 질문 1개. **본 작업(0단계~)은 엄격 모드**.
+- **하네스(H) 조각은 경량 모드**: 묶어서 진행, 이해 게이트 질문 없음(`SKIPPED`로 기록). **본 작업(0단계~)은 엄격 모드**.
 - 설명할 땐 **commerce-msa(Phase 1)에서 겪은 것과 연결**한다(예: "commerce-msa 4단계 Outbox와 같은 문제인데, 여기선 ~가 다르다").
 
 ## 5. 로드맵 (요약 — 체크와 현재 위치는 `docs/private/roadmap.md`)
@@ -67,12 +67,20 @@ H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → 
 - 공개 문서에 게이트 질문·사용자 답·개인 메모를 넣지 않는다. 공개 파일에서 비공개 문서를 링크하지 않는다.
 - 커밋 명령어에 `docs/private/`를 넣지 않는다.
 
-## 7. 코드 컨벤션 (요약 — 상세 `.claude/rules/`는 H4에서 작성)
+## 7. 코드 컨벤션 — 상세는 `.claude/rules/` (지도: `00-map.md`)
 
-- **BReady 뼈대 유지**: 도메인별 패키지(`controller/service/repository/domain/dto/exception`) + `global/`, `CommonResponse<T>`, `ApplicationException` + 도메인별 `ErrorCase`, 엔티티 정적 팩토리 + `@NoArgsConstructor(PROTECTED)`, 생성자 주입.
-- **확정된 통일 기준**: 에러 코드 문자열 `{DOMAIN}_{NNN}` + `ApplicationException.from(...)`(D4) · 요청/응답 DTO 모두 `record`(D5, **LoggingAspect 정리 선행**) · 테스트는 `@WebMvcTest(controllers=…)` + `@MockitoBean` + fixture + BDD + AssertJ(D6) · 포매터 palantir-java-format(D2) · ArchUnit + 경계 래칫(D3).
-- **보이스카우트 규칙**: 옛 코드는 건드릴 때 위 기준으로 정리한다. 단, 안전망 테스트가 있는 범위에서만.
-- **MSA 경계**: 남의 Repository·Entity 직접 사용 금지(새 코드), 남의 데이터는 ID + 공개 API로. 기존 위반 목록은 context-map §3~6.
+**코드를 쓰기 전에 해당 규칙 파일을 읽는다.** 주변 옛 코드를 흉내 내지 않는다(BReady 옛 코드는 규칙과 다른 곳이 많다).
+
+- **BReady 뼈대 유지**: 모듈별 패키지(`controller/service/repository/domain/dto/exception`) + `global/`, `CommonResponse<T>`, `ApplicationException` + 모듈별 `ErrorCase`, 엔티티 정적 팩토리 + `@NoArgsConstructor(PROTECTED)`, 생성자 주입.
+- **핵심 기준 한 줄씩**
+  - 엔티티: setter 금지, 의도 드러나는 메서드, 규칙 위반은 ErrorCase, 다른 모듈은 ID 참조, 시간은 파라미터 (`entity.md`)
+  - 서비스: 클래스 `readOnly` + 쓰기만 `@Transactional`, 조회 → 엔티티 검증·변경 → `Response.from()`, 외부 I/O는 트랜잭션 밖, `Clock` 주입 (`service-transaction.md`)
+  - 컨트롤러: 위임만, Swagger는 `{Domain}Api` 인터페이스 (`controller-api.md`)
+  - DTO: 요청·응답 모두 record, `{Resource}{Action}Request/Response` (`dto.md`) — **auth DTO record 전환은 LoggingAspect 인자 로깅 제거 후**
+  - 예외: `ApplicationException.from(...)`만, 코드 `{DOMAIN}_{NNN}`(전환은 ADR과 별도 조각) (`exception.md`)
+  - 테스트: 엔티티 mock 금지·fixture, BDD, AssertJ, `@WebMvcTest(controllers=…)`, 리포지토리·통합은 Testcontainers MySQL (`testing.md`)
+  - 경계: 남의 Repository·Entity·테이블 금지, 이벤트는 발행자 소유, 위반은 래칫으로 늘지 않게 (`msa-boundary.md`)
+- **보이스카우트 규칙**: 옛 코드는 건드릴 때 정리한다. 단, 안전망 테스트가 있는 범위에서만(`/refactor-legacy`).
 
 ## 8. 빌드 · 실행 · 테스트
 
@@ -95,6 +103,6 @@ H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → 
 | 위치 | 역할 |
 |---|---|
 | `.claude/settings.json` | 권한(allow/ask/deny) + 훅 등록 |
-| `.claude/hooks/` | `guard-bash`·`guard-write`(차단), `session-context`(세션 시작 주입), `prompt-router`(게이트 리마인더), `test-hooks.sh`(회귀) |
-| `.claude/skills/` | `/piece-start` `/piece-close` `/gate-review` `/adr` `/trouble` `/git-handoff` |
-| `.claude/rules/` | (H4) 규범 |
+| `.claude/hooks/` | `guard-bash`·`guard-write`(차단), `session-context`(세션 시작 주입), `prompt-router`(게이트 리마인더 + 규칙 파일 라우팅), `test-hooks.sh`(회귀) |
+| `.claude/skills/` | 조각 진행: `/piece-start` `/piece-close` `/gate-review` `/adr` `/trouble` `/git-handoff` · 코드: `/new-api` `/domain-model` `/write-test` `/refactor-legacy` |
+| `.claude/rules/` | 규범 10개 + 지도 `00-map.md` |
