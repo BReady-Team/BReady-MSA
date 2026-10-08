@@ -225,6 +225,14 @@ write_state OPEN
 out="$(echo '{}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/session-context.sh")"
 contains "session: OPEN 경고" "$(context_of "$out")" "이해 게이트 OPEN" yes
 
+# stop-verify-gate.sh — gradle 을 돌리지 않는 경로만 (gradle 경로는 느려서 수동 시연)
+out="$(echo '{"stop_hook_active":true}' | "$HOOKS/stop-verify-gate.sh")"
+check "stop: 훅 재실행 중이면 통과" "" "$out"
+out="$(echo '{}' | CLAUDE_SKIP_VERIFY_GATE=1 "$HOOKS/stop-verify-gate.sh")"
+check "stop: 끄기 변수면 통과" "" "$out"
+out="$(echo '{}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/stop-verify-gate.sh")"
+check "stop: gradlew 없는 곳이면 통과" "" "$out"
+
 printf '\n훅 회귀 테스트: 통과 %d / 실패 %d\n' "$PASS" "$FAIL"
 if [ "$FAIL" -gt 0 ]; then
   printf "%b\n" "$FAILED"
