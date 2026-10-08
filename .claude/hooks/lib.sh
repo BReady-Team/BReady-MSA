@@ -53,6 +53,31 @@ ask() {
   exit 0
 }
 
+# 컨텍스트 주입 (SessionStart / UserPromptSubmit / PostToolUse)
+# 내용이 비면 아무것도 출력하지 않는다.
+emit_context() {
+  local event="$1" text="$2"
+  [ -z "$text" ] && exit 0
+  jq -n --arg e "$event" --arg c "$text" '{
+    hookSpecificOutput: { hookEventName: $e, additionalContext: $c }
+  }'
+  exit 0
+}
+
+# 로드맵 상태 블록 (docs/private/roadmap.md 의 STATE:BEGIN ~ STATE:END)
+# 이 파일이 현재 위치와 이해 게이트 상태의 단일 진실이다.
+ROADMAP="$PROJECT_DIR/docs/private/roadmap.md"
+
+roadmap_state() {
+  [ -f "$ROADMAP" ] || return 0
+  sed -n '/<!-- STATE:BEGIN -->/,/<!-- STATE:END -->/p' "$ROADMAP" | grep -v '<!-- STATE:'
+}
+
+# 게이트 값만 꺼낸다: OPEN | PASSED | SKIPPED | (없으면 빈 문자열)
+gate_status() {
+  roadmap_state | grep -E '게이트:' | head -1 | grep -oE 'OPEN|PASSED|SKIPPED' | head -1
+}
+
 # 명령어 매칭 헬퍼
 # 명령어 "위치"를 고정한다: 줄 시작 또는 셸 연산자 직후 + (선택) 래퍼/환경변수 접두.
 # 이게 없으면 echo 'do not run git push' 같은 인용문 안의 단어를 실행으로 오인한다.

@@ -148,7 +148,10 @@ deny|.env.example|JWT_SECRET=thisIsARealLookingSecretValue
 ask|build.gradle|testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
 ask|.claude/settings.json|{}
 ask|.claude/hooks/guard-bash.sh|# x
-ask|docs/roadmap.md|게이트: PASSED
+ask|docs/private/roadmap.md|직전 게이트: PASSED
+ask|CLAUDE.md|# CLAUDE.md
+allow|docs/private/gates.md|## H2
+allow|docs/LEARNING_JOURNEY.md|## 2026-10-09
 ask|docker-compose-local.yml|services: {}
 ask|.github/workflows/ci.yml|name: ci
 allow|src/main/java/com/bready/server/plan/service/PlanService.java|public class PlanService {}
@@ -171,6 +174,47 @@ out="$(jq -n --arg f "$PWD/src/main/java/A.java" '{tool_input:{file_path:$f, old
 check "edit: new_string 시크릿" deny "$(decision_of "$out")"
 out="$(jq -n --arg f "$PWD/src/main/java/A.java" '{tool_input:{file_path:$f, edits:[{old_string:"a", new_string:"ok"},{old_string:"b", new_string:"-----BEGIN RSA PRIVATE KEY-----"}]}}' | "$HOOKS/guard-write.sh")"
 check "multiedit: edits[] 시크릿" deny "$(decision_of "$out")"
+
+# session-context.sh / prompt-router.sh
+# 실제 roadmap 을 건드리지 않도록 임시 프로젝트 디렉터리에 상태 블록만 만들어 검증한다.
+FAKE="$(mktemp -d)"
+trap 'rm -rf "$FAKE"' EXIT
+mkdir -p "$FAKE/docs/private"
+write_state() {
+  printf '<!-- STATE:BEGIN -->\n현재 조각: 테스트\n단계: 7/8\n직전 게이트: %s\n<!-- STATE:END -->\n' "$1" > "$FAKE/docs/private/roadmap.md"
+}
+context_of() {
+  printf '%s' "$1" | jq -r '.hookSpecificOutput.additionalContext // empty' 2>/dev/null
+}
+contains() {
+  local name="$1" haystack="$2" needle="$3" expected="$4" actual=no
+  printf '%s' "$haystack" | grep -q -- "$needle" && actual=yes
+  check "$name" "$expected" "$actual"
+}
+
+out="$(echo '{}' | "$HOOKS/session-context.sh")"
+contains "session: 로드맵 상태 주입" "$(context_of "$out")" "로드맵 상태" yes
+contains "session: 실제 레포는 upstream 경고 없음" "$(context_of "$out")" "upstream push URL" no
+contains "session: 실제 레포는 private ignore 경고 없음" "$(context_of "$out")" "gitignore 되어 있지 않다" no
+
+write_state OPEN
+out="$(echo '{"prompt":"다음 가자"}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/prompt-router.sh")"
+contains "router: OPEN + 다음 → 붙잡기" "$(context_of "$out")" "한 번은 붙잡아라" yes
+out="$(echo '{"prompt":"트리거는 계획과 같이 바뀌니까 같은 서비스에 둬야 해"}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/prompt-router.sh")"
+contains "router: OPEN + 답변 → gate-review" "$(context_of "$out")" "/gate-review" yes
+
+write_state PASSED
+out="$(echo '{"prompt":"다음 가자"}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/prompt-router.sh")"
+check "router: PASSED + 다음 → 출력 없음" "" "$out"
+out="$(echo '{"prompt":"커밋 명령어 정리해줘"}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/prompt-router.sh")"
+contains "router: 커밋 요청 → git-handoff" "$(context_of "$out")" "/git-handoff" yes
+
+write_state SKIPPED
+out="$(echo '{}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/session-context.sh")"
+contains "session: SKIPPED 는 OPEN 경고 없음" "$(context_of "$out")" "이해 게이트 OPEN" no
+write_state OPEN
+out="$(echo '{}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/session-context.sh")"
+contains "session: OPEN 경고" "$(context_of "$out")" "이해 게이트 OPEN" yes
 
 printf '\n훅 회귀 테스트: 통과 %d / 실패 %d\n' "$PASS" "$FAIL"
 if [ "$FAIL" -gt 0 ]; then

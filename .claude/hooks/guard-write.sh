@@ -27,11 +27,11 @@ case "$REL" in
     deny "옛 팀 배포·운영 자산이다(D9: 두고 쓰기 차단). Strangler facade(3단계)에서 로컬 구성을 새로 만들 때 함께 정리한다." ;;
 
   # 이해 게이트 상태: 통과 판정은 사용자 승인
-  docs/roadmap.md)
+  docs/private/roadmap.md)
     ASK_REASON="로드맵/이해 게이트 상태 변경이다. 게이트를 PASSED 로 바꾸는 편집이라면, 정말 내 말로 설명할 수 있는지 확인하고 승인해라(D7)." ;;
 
-  # 하네스 자체: 규칙을 바꾸는 변경은 사용자가 본다
-  .claude/settings.json|.claude/hooks/*)
+  # 하네스 자체: 규칙·강제 장치를 바꾸는 변경은 사용자가 본다
+  CLAUDE.md|.claude/settings.json|.claude/hooks/*)
     ASK_REASON="하네스(권한·훅) 변경이다(${REL}). 보호 장치를 약하게 만드는 변경이 아닌지 확인하고 승인해라. 수정 후 .claude/hooks/test-hooks.sh 를 돌린다." ;;
 
   # 빌드·인프라·CI
