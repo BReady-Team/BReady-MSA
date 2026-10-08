@@ -19,6 +19,7 @@ public class NaverUserInfoResponse {
         private String email;
         private String nickname;
         private String name;
+
         @JsonProperty("profile_image")
         private String profileImage;
     }

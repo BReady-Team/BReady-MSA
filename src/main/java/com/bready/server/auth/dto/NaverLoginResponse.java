@@ -10,8 +10,10 @@ public class NaverLoginResponse {
 
     private String accessToken;
     private String refreshToken;
+
     @JsonProperty("isNewUser")
     private boolean newUser;
+
     private UserDto user;
 
     @Getter

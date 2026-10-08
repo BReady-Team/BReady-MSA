@@ -1,24 +1,19 @@
 package com.bready.server.trigger.domain;
 
-import com.bready.server.global.entity.BaseEntity;
+import java.time.LocalDateTime;
 import jakarta.persistence.*;
+
+import com.bready.server.global.entity.BaseEntity;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 @Getter
 @Entity
 @Table(
         name = "decisions",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_decision_trigger",
-                        columnNames = "trigger_id"
-                )
-        }
-)
+        uniqueConstraints = {@UniqueConstraint(name = "uk_decision_trigger", columnNames = "trigger_id")})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Decision extends BaseEntity {
 
@@ -38,10 +33,7 @@ public class Decision extends BaseEntity {
     @Column(name = "decided_at", nullable = false)
     private LocalDateTime decidedAt;
 
-    public static Decision create(
-            Trigger trigger,
-            DecisionType decisionType
-    ) {
+    public static Decision create(Trigger trigger, DecisionType decisionType) {
         Decision decision = new Decision();
         decision.trigger = trigger;
         decision.decisionType = decisionType;

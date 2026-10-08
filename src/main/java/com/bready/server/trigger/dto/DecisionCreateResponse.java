@@ -1,13 +1,10 @@
 package com.bready.server.trigger.dto;
 
-import lombok.Builder;
 import java.time.LocalDateTime;
+
+import lombok.Builder;
 
 @Builder
 public record DecisionCreateResponse(
-        Long decisionId,
-        String decisionType,
-        LocalDateTime decidedAt,
-        Boolean needSwitch // SWITCH일 때만 true
-) {
-}
+        Long decisionId, String decisionType, LocalDateTime decidedAt, Boolean needSwitch // SWITCH일 때만 true
+        ) {}

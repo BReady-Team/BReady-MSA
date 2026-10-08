@@ -1,10 +1,11 @@
 package com.bready.server.auth.client;
 
-import com.bready.server.auth.dto.NaverUserInfoResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+
+import com.bready.server.auth.dto.NaverUserInfoResponse;
 
 @Component
 public class NaverUserInfoClient {
@@ -18,7 +19,8 @@ public class NaverUserInfoClient {
     }
 
     public NaverUserInfoResponse getUserInfo(String naverAccessToken) {
-        return webClient.get()
+        return webClient
+                .get()
                 .uri(USER_INFO_URI)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + naverAccessToken)
                 .retrieve()

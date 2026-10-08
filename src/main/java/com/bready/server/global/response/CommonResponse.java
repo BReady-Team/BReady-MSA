@@ -1,6 +1,7 @@
 package com.bready.server.global.response;
 
 import com.bready.server.global.exception.ErrorCase;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Getter;
@@ -15,16 +16,11 @@ public class CommonResponse<T> {
     private final T data;
 
     public static <T> CommonResponse<T> success(T data) {
-        return CommonResponse.<T>builder()
-                .message("success")
-                .data(data)
-                .build();
+        return CommonResponse.<T>builder().message("success").data(data).build();
     }
 
     public static CommonResponse<?> success() {
-        return CommonResponse.builder()
-                .message("success")
-                .build();
+        return CommonResponse.builder().message("success").build();
     }
 
     public static CommonResponse<?> error(ErrorCase errorCase) {
@@ -35,9 +31,6 @@ public class CommonResponse<T> {
     }
 
     public static CommonResponse<?> error(int errorCode, String message) {
-        return CommonResponse.builder()
-                .errorCode(errorCode)
-                .message(message)
-                .build();
+        return CommonResponse.builder().errorCode(errorCode).message(message).build();
     }
 }

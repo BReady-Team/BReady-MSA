@@ -1,0 +1,6 @@
+Constructor <com.bready.server.plan.domain.Plan.<init>()> has modifier PUBLIC in (Plan.java:13)
+Constructor <com.bready.server.stats.domain.PlanStats.<init>()> has modifier PUBLIC in (PlanStats.java:12)
+Constructor <com.bready.server.trigger.domain.SwitchLog.<init>()> has modifier PUBLIC in (SwitchLog.java:12)
+Constructor <com.bready.server.trigger.domain.Trigger.<init>()> has modifier PUBLIC in (Trigger.java:14)
+Constructor <com.bready.server.user.domain.User.<init>()> has modifier PUBLIC in (User.java:18)
+Constructor <com.bready.server.user.domain.UserProfile.<init>()> has modifier PUBLIC in (UserProfile.java:10)

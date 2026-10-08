@@ -1,0 +1,2 @@
+Method <com.bready.server.trigger.service.SwitchService.executeSwitch(java.lang.Long, com.bready.server.trigger.dto.DecisionSwitchRequest)> calls constructor <com.bready.server.stats.event.SwitchLogCreatedEvent.<init>(java.lang.Long)> in (SwitchService.java:102)
+Method <com.bready.server.trigger.service.TriggerService.createTrigger(com.bready.server.trigger.dto.TriggerCreateRequest)> calls constructor <com.bready.server.stats.event.TriggerCreatedEvent.<init>(java.lang.Long, java.time.LocalDateTime)> in (TriggerService.java:65)

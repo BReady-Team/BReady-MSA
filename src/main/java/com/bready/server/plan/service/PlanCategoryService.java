@@ -1,5 +1,15 @@
 package com.bready.server.plan.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.place.domain.PlaceCandidate;
 import com.bready.server.place.repository.PlaceCandidateRepository;
@@ -11,16 +21,8 @@ import com.bready.server.plan.exception.PlanErrorCase;
 import com.bready.server.plan.repository.CategoryStateRepository;
 import com.bready.server.plan.repository.PlanCategoryRepository;
 import com.bready.server.plan.repository.PlanRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -34,24 +36,22 @@ public class PlanCategoryService {
     @Transactional
     public PlanCategoryCreateResponse addCategory(Long userId, Long planId, PlanCategoryCreateRequest request) {
 
-        Plan plan = planRepository.findByIdAndDeletedAtIsNullForUpdate(planId)
+        Plan plan = planRepository
+                .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
         if (!plan.getOwnerId().equals(userId)) {
             throw new ApplicationException(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
         }
 
-        PlanCategory last = planCategoryRepository
-                .findLastByPlanId(planId, PageRequest.of(0, 1))
-                .stream()
+        PlanCategory last = planCategoryRepository.findLastByPlanId(planId, PageRequest.of(0, 1)).stream()
                 .findFirst()
                 .orElse(null);
 
         int nextSequence = (last == null) ? 1 : last.getSequence() + 1;
 
-        PlanCategory saved = planCategoryRepository.save(
-                PlanCategory.create(plan, request.getCategoryType(), nextSequence)
-        );
+        PlanCategory saved =
+                planCategoryRepository.save(PlanCategory.create(plan, request.getCategoryType(), nextSequence));
 
         return PlanCategoryCreateResponse.builder()
                 .planCategoryId(saved.getId())
@@ -60,16 +60,12 @@ public class PlanCategoryService {
                 .sequence(saved.getSequence())
                 .createdAt(saved.getCreatedAt())
                 .build();
-
     }
 
     @Transactional
-    public PlanCategoryDeleteResponse deleteCategory(
-            Long userId,
-            Long planId,
-            Long planCategoryId
-    ) {
-        Plan plan = planRepository.findByIdAndDeletedAtIsNullForUpdate(planId)
+    public PlanCategoryDeleteResponse deleteCategory(Long userId, Long planId, Long planCategoryId) {
+        Plan plan = planRepository
+                .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
         if (!plan.getOwnerId().equals(userId)) {
@@ -89,15 +85,12 @@ public class PlanCategoryService {
                 .build();
     }
 
-
     @Transactional
     public PlanCategoryOrderUpdateResponse updateCategoryOrder(
-            Long userId,
-            Long planId,
-            PlanCategoryOrderUpdateRequest request
-    ) {
+            Long userId, Long planId, PlanCategoryOrderUpdateRequest request) {
 
-        Plan plan = planRepository.findByIdAndDeletedAtIsNullForUpdate(planId)
+        Plan plan = planRepository
+                .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
         if (!plan.getOwnerId().equals(userId)) {
@@ -116,15 +109,14 @@ public class PlanCategoryService {
         }
 
         // plan 소속 + soft delete 차단 일괄 조회
-        List<PlanCategory> categories = planCategoryRepository.findAllByPlan_IdAndDeletedAtIsNullOrderBySequenceAsc(planId);
+        List<PlanCategory> categories =
+                planCategoryRepository.findAllByPlan_IdAndDeletedAtIsNullOrderBySequenceAsc(planId);
 
         if (categories.size() != orders.size()) {
             throw new ApplicationException(CategoryErrorCase.INVALID_ORDERS);
         }
 
-        Set<Long> categoryIds = categories.stream()
-                .map(PlanCategory::getId)
-                .collect(Collectors.toSet());
+        Set<Long> categoryIds = categories.stream().map(PlanCategory::getId).collect(Collectors.toSet());
 
         if (!categoryIds.equals(ids)) {
             throw new ApplicationException(CategoryErrorCase.INVALID_ORDERS);
@@ -149,8 +141,7 @@ public class PlanCategoryService {
         Map<Long, Integer> sequenceMap = orders.stream()
                 .collect(Collectors.toMap(
                         PlanCategoryOrderUpdateRequest.OrderItem::getPlanCategoryId,
-                        PlanCategoryOrderUpdateRequest.OrderItem::getSequence
-                ));
+                        PlanCategoryOrderUpdateRequest.OrderItem::getSequence));
 
         for (PlanCategory category : categories) {
             Integer seq = sequenceMap.get(category.getId());
@@ -174,12 +165,9 @@ public class PlanCategoryService {
 
     @Transactional
     public PlanCategoryTypeUpdateResponse updateCategoryType(
-            Long userId,
-            Long planId,
-            Long planCategoryId,
-            PlanCategoryTypeUpdateRequest request
-    ) {
-        Plan plan = planRepository.findByIdAndDeletedAtIsNullForUpdate(planId)
+            Long userId, Long planId, Long planCategoryId, PlanCategoryTypeUpdateRequest request) {
+        Plan plan = planRepository
+                .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
         if (!plan.getOwnerId().equals(userId)) {
@@ -194,8 +182,7 @@ public class PlanCategoryService {
         category.updateCategoryType(request.getCategoryType());
 
         // 후보 전부 soft delete (락 걸고 조회)
-        List<PlaceCandidate> candidates =
-                placeCandidateRepository.findAllAliveByCategoryIdForUpdate(planCategoryId);
+        List<PlaceCandidate> candidates = placeCandidateRepository.findAllAliveByCategoryIdForUpdate(planCategoryId);
 
         for (PlaceCandidate pc : candidates) {
             pc.softDelete();
@@ -204,7 +191,8 @@ public class PlanCategoryService {
         boolean resetCandidates = !candidates.isEmpty();
 
         // 대표 상태 초기화
-        categoryStateRepository.findByCategory_IdForUpdate(planCategoryId)
+        categoryStateRepository
+                .findByCategory_IdForUpdate(planCategoryId)
                 .ifPresent(cs -> cs.changeRepresentative(null));
 
         return PlanCategoryTypeUpdateResponse.builder()

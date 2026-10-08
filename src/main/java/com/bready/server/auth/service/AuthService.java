@@ -1,25 +1,26 @@
 package com.bready.server.auth.service;
 
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.bready.server.auth.domain.RefreshToken;
 import com.bready.server.auth.dto.*;
 import com.bready.server.auth.exception.AuthErrorCase;
 import com.bready.server.auth.repository.RefreshTokenRepository;
 import com.bready.server.global.config.security.jwt.JwtTokenProvider;
+import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.user.domain.User;
 import com.bready.server.user.domain.UserProfile;
+import com.bready.server.user.exception.UserErrorCase;
 import com.bready.server.user.repository.UserProfileRepository;
 import com.bready.server.user.repository.UserRepository;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
-import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.user.exception.UserErrorCase;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 
 @Service
 @RequiredArgsConstructor
@@ -48,16 +49,12 @@ public class AuthService {
             User user = userRepository.save(User.createLocal(request.getEmail(), encoded));
 
             // 3) UserProfile 저장
-            UserProfile profile = userProfileRepository.save(
-                    UserProfile.create(user, request.getNickname())
-            );
+            UserProfile profile = userProfileRepository.save(UserProfile.create(user, request.getNickname()));
 
             // 4) 응답 구성
             String createdAt = user.getCreatedAt() == null
                     ? null
-                    : user.getCreatedAt()
-                    .atOffset(ZoneOffset.UTC)
-                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                    : user.getCreatedAt().atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
             return SignupResponse.builder()
                     .userId(user.getId())
@@ -74,13 +71,13 @@ public class AuthService {
     @Transactional
     public TokenResponse login(LoginRequest request) {
 
-        User user = userRepository.findByEmail(request.getEmail())
+        User user = userRepository
+                .findByEmail(request.getEmail())
                 .orElseThrow(() -> new ApplicationException(AuthErrorCase.INVALID_CREDENTIALS));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new ApplicationException(AuthErrorCase.INVALID_CREDENTIALS);
         }
-
 
         return tokenIssuer.issue(user.getId());
     }
@@ -95,7 +92,8 @@ public class AuthService {
         Long userId = jwtTokenProvider.getUserId(request.getRefreshToken());
 
         // 3) Redis 에 저장된 refresh 토큰 조회
-        RefreshToken saved = refreshTokenRepository.findById(String.valueOf(userId))
+        RefreshToken saved = refreshTokenRepository
+                .findById(String.valueOf(userId))
                 .orElseThrow(() -> new ApplicationException(AuthErrorCase.REFRESH_TOKEN_INVALID));
 
         // 4) 토큰 일치 여부 확인
@@ -106,7 +104,6 @@ public class AuthService {
         return tokenIssuer.issue(userId);
     }
 
-
     @Transactional
     public void logout(RefreshRequest request) {
         jwtTokenProvider.validateRefreshToken(request.getRefreshToken());
@@ -114,7 +111,8 @@ public class AuthService {
         Long userId = jwtTokenProvider.getUserId(request.getRefreshToken());
 
         // Redis 저장된 토큰 조회
-        RefreshToken saved = refreshTokenRepository.findById(String.valueOf(userId))
+        RefreshToken saved = refreshTokenRepository
+                .findById(String.valueOf(userId))
                 .orElseThrow(() -> new ApplicationException(AuthErrorCase.REFRESH_TOKEN_INVALID));
 
         if (!saved.getToken().equals(request.getRefreshToken())) {

@@ -1,5 +1,16 @@
 package com.bready.server.trigger.service;
 
+import java.time.LocalDateTime;
+import java.util.Optional;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.place.domain.PlaceCandidate;
 import com.bready.server.place.repository.PlaceCandidateRepository;
@@ -16,16 +27,6 @@ import com.bready.server.trigger.dto.DecisionSwitchRequest;
 import com.bready.server.trigger.dto.DecisionSwitchResponse;
 import com.bready.server.trigger.repository.DecisionRepository;
 import com.bready.server.trigger.repository.SwitchLogRepository;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
-
-import java.time.LocalDateTime;
-import java.util.Optional;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
@@ -42,14 +43,19 @@ class SwitchServiceTest {
 
     @Mock
     private DecisionRepository decisionRepository;
+
     @Mock
     private SwitchLogRepository switchLogRepository;
+
     @Mock
     private CategoryStateRepository categoryStateRepository;
+
     @Mock
     private PlaceCandidateRepository placeCandidateRepository;
+
     @Mock
     private PlanStatsService planStatsService;
+
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
@@ -81,32 +87,26 @@ class SwitchServiceTest {
         given(trigger.getPlan()).willReturn(plan);
         given(plan.getId()).willReturn(planId);
 
-        given(decisionRepository.findByIdWithTriggerPlanCategory(decisionId))
-                .willReturn(Optional.of(decision));
+        given(decisionRepository.findByIdWithTriggerPlanCategory(decisionId)).willReturn(Optional.of(decision));
 
-        given(switchLogRepository.existsByDecision_Id(decisionId))
-                .willReturn(false);
+        given(switchLogRepository.existsByDecision_Id(decisionId)).willReturn(false);
 
         given(placeCandidateRepository.findAliveByIdAndCategoryId(toCandidateId, categoryId))
                 .willReturn(Optional.of(toCandidate));
 
-        given(categoryStateRepository.findByCategory_IdForUpdate(categoryId))
-                .willReturn(Optional.of(state));
+        given(categoryStateRepository.findByCategory_IdForUpdate(categoryId)).willReturn(Optional.of(state));
 
-        given(state.getCurrentCandidateId())
-                .willReturn(fromCandidateId);
+        given(state.getCurrentCandidateId()).willReturn(fromCandidateId);
 
-        given(placeCandidateRepository.findAliveById(fromCandidateId))
-                .willReturn(Optional.of(fromCandidate));
+        given(placeCandidateRepository.findAliveById(fromCandidateId)).willReturn(Optional.of(fromCandidate));
 
-        given(switchLogRepository.saveAndFlush(any()))
-                .willReturn(switchLog);
+        given(switchLogRepository.saveAndFlush(any())).willReturn(switchLog);
 
         given(switchLog.getId()).willReturn(100L);
         given(switchLog.getCreatedAt()).willReturn(LocalDateTime.now());
 
-        DecisionSwitchResponse response = switchService.executeSwitch(decisionId, new DecisionSwitchRequest(toCandidateId));
-
+        DecisionSwitchResponse response =
+                switchService.executeSwitch(decisionId, new DecisionSwitchRequest(toCandidateId));
 
         assertThat(response.fromCandidateId()).isEqualTo(fromCandidateId);
         assertThat(response.toCandidateId()).isEqualTo(toCandidateId);
@@ -119,11 +119,9 @@ class SwitchServiceTest {
         Decision decision = mock(Decision.class);
         given(decision.isSwitch()).willReturn(false);
 
-        given(decisionRepository.findByIdWithTriggerPlanCategory(1L))
-                .willReturn(Optional.of(decision));
+        given(decisionRepository.findByIdWithTriggerPlanCategory(1L)).willReturn(Optional.of(decision));
 
-        assertThatThrownBy(() -> switchService.executeSwitch(1L, new DecisionSwitchRequest(20L))
-        )
+        assertThatThrownBy(() -> switchService.executeSwitch(1L, new DecisionSwitchRequest(20L)))
                 .isInstanceOf(ApplicationException.class)
                 .hasMessageContaining("KEEP 결정");
     }
@@ -134,14 +132,11 @@ class SwitchServiceTest {
         Decision decision = mock(Decision.class);
         given(decision.isSwitch()).willReturn(true);
 
-        given(decisionRepository.findByIdWithTriggerPlanCategory(1L))
-                .willReturn(Optional.of(decision));
+        given(decisionRepository.findByIdWithTriggerPlanCategory(1L)).willReturn(Optional.of(decision));
 
-        given(switchLogRepository.existsByDecision_Id(1L))
-                .willReturn(true);
+        given(switchLogRepository.existsByDecision_Id(1L)).willReturn(true);
 
-        assertThatThrownBy(() -> switchService.executeSwitch(1L, new DecisionSwitchRequest(20L))
-        )
+        assertThatThrownBy(() -> switchService.executeSwitch(1L, new DecisionSwitchRequest(20L)))
                 .isInstanceOf(ApplicationException.class)
                 .hasMessageContaining("이미 전환");
     }

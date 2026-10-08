@@ -1,9 +1,11 @@
 package com.bready.server.user.exception;
 
+import org.springframework.http.HttpStatus;
+
 import com.bready.server.global.exception.ErrorCase;
+
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 
 @Getter
 @RequiredArgsConstructor

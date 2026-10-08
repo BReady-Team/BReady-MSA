@@ -1,9 +1,9 @@
 package com.bready.server.place.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-public class PlaceService {
-}
+public class PlaceService {}

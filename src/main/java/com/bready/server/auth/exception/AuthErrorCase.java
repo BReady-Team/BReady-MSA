@@ -1,9 +1,11 @@
 package com.bready.server.auth.exception;
 
+import org.springframework.http.HttpStatus;
+
 import com.bready.server.global.exception.ErrorCase;
+
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 
 @Getter
 @RequiredArgsConstructor
@@ -23,7 +25,7 @@ public enum AuthErrorCase implements ErrorCase {
     REFRESH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, 4012, "리프레시 토큰이 유효하지 않습니다."),
 
     // 카카오 소셜 로그인
-    INVALID_KAKAO_AUTH(HttpStatus.UNAUTHORIZED, 4013,"유효하지 않은 카카오 인증 정보입니다."),
+    INVALID_KAKAO_AUTH(HttpStatus.UNAUTHORIZED, 4013, "유효하지 않은 카카오 인증 정보입니다."),
     KAKAO_API_COMMUNICATION_FAILED(HttpStatus.BAD_GATEWAY, 5021, "카카오 인증 서버와 통신에 실패했습니다."),
 
     // 네이버 소셜 로그인

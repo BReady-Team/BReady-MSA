@@ -1,0 +1,8 @@
+PlaceErrorCase.KAKAO_RESPONSE_PARSE_FAILED code 4105 duplicates [UserErrorCase.NAVER_EMAIL_CONSENT_REQUIRED]
+PlaceErrorCase.KAKAO_SERVER_ERROR code 4104 duplicates [UserErrorCase.KAKAO_EMAIL_CONSENT_REQUIRED]
+PlanErrorCase.PLAN_ACCESS_DENIED code 4002 duplicates [UserErrorCase.INVALID_EMAIL_FORMAT]
+PlanErrorCase.PLAN_NOT_FOUND code 4001 duplicates [UserErrorCase.NICKNAME_POLICY_VIOLATION]
+UserErrorCase.INVALID_EMAIL_FORMAT code 4002 duplicates [PlanErrorCase.PLAN_ACCESS_DENIED]
+UserErrorCase.KAKAO_EMAIL_CONSENT_REQUIRED code 4104 duplicates [PlaceErrorCase.KAKAO_SERVER_ERROR]
+UserErrorCase.NAVER_EMAIL_CONSENT_REQUIRED code 4105 duplicates [PlaceErrorCase.KAKAO_RESPONSE_PARSE_FAILED]
+UserErrorCase.NICKNAME_POLICY_VIOLATION code 4001 duplicates [PlanErrorCase.PLAN_NOT_FOUND]

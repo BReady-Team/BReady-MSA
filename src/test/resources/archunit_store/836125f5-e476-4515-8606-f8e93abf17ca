@@ -1,0 +1,5 @@
+Field <com.bready.server.global.config.redis.RedisConfig.host> is annotated with @Value in (RedisConfig.java:0)
+Field <com.bready.server.global.config.redis.RedisConfig.password> is annotated with @Value in (RedisConfig.java:0)
+Field <com.bready.server.global.config.redis.RedisConfig.port> is annotated with @Value in (RedisConfig.java:0)
+Field <com.bready.server.recommendation.cache.CategoryRecommendationCacheService.categoryCacheTtlSeconds> is annotated with @Value in (CategoryRecommendationCacheService.java:0)
+Field <com.bready.server.recommendation.cache.PlaceRecommendationCacheService.placeCacheTtlSeconds> is annotated with @Value in (PlaceRecommendationCacheService.java:0)

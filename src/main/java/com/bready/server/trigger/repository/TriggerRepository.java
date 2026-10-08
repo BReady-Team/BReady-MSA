@@ -1,22 +1,25 @@
 package com.bready.server.trigger.repository;
 
-import com.bready.server.trigger.domain.Trigger;
-import com.bready.server.trigger.domain.TriggerType;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import com.bready.server.trigger.domain.Trigger;
+import com.bready.server.trigger.domain.TriggerType;
+
 public interface TriggerRepository extends JpaRepository<Trigger, Long> {
     interface TriggerTypeCount {
         TriggerType getTriggerType();
+
         long getCount();
     }
     // 기간 내 전체 트리거 수 (요약)
-    @Query("""
+    @Query(
+            """
         select count(t)
         from Trigger t
         join t.plan p
@@ -26,7 +29,8 @@ public interface TriggerRepository extends JpaRepository<Trigger, Long> {
     long countByOwnerIdAndPeriod(@Param("ownerId") Long ownerId, @Param("startAt") LocalDateTime startAt);
 
     // 트리거 타입별 발생 수 (분석 통계)
-    @Query("""
+    @Query(
+            """
         select t.triggerType as triggerType, count(t) as count
         from Trigger t
         join t.plan p
@@ -36,7 +40,8 @@ public interface TriggerRepository extends JpaRepository<Trigger, Long> {
     """)
     List<TriggerTypeCount> countByTriggerType(@Param("ownerId") Long ownerId, @Param("startAt") LocalDateTime startAt);
 
-    @Query("""
+    @Query(
+            """
     select count(t)
     from Trigger t
     where t.plan.id = :planId

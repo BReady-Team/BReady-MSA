@@ -1,15 +1,17 @@
 package com.bready.server.place.domain;
 
-import com.bready.server.global.entity.BaseEntity;
+import java.math.BigDecimal;
 import jakarta.persistence.*;
+
+import com.bready.server.global.entity.BaseEntity;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
 @Entity
-@Table(name = "places",
+@Table(
+        name = "places",
         uniqueConstraints = @UniqueConstraint(name = "uk_places_external_id", columnNames = "external_id"))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -43,8 +45,7 @@ public class Place extends BaseEntity {
             String address,
             BigDecimal latitude,
             BigDecimal longitude,
-            Boolean isIndoor
-    ) {
+            Boolean isIndoor) {
         if (externalId == null || externalId.isBlank()) {
             throw new IllegalArgumentException("externalId는 필수입니다.");
         }

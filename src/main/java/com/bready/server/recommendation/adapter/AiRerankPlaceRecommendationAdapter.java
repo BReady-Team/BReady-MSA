@@ -1,5 +1,12 @@
 package com.bready.server.recommendation.adapter;
 
+import java.util.*;
+import java.util.stream.Collectors;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Component;
+
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.recommendation.ai.AiRerankResult;
 import com.bready.server.recommendation.ai.AiRerankService;
@@ -7,14 +14,9 @@ import com.bready.server.recommendation.dto.PlaceRecommendationResponse;
 import com.bready.server.recommendation.port.PlaceRecommendationPort;
 import com.bready.server.recommendation.service.PlaceRerankCandidate;
 import com.bready.server.trigger.domain.TriggerType;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Component;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -35,19 +37,17 @@ public class AiRerankPlaceRecommendationAdapter implements PlaceRecommendationPo
             Double longitude,
             int radius,
             int limit,
-            String excludeExternalId
-    ) {
+            String excludeExternalId) {
 
         log.info("[AI] Rerank adapter activated - trigger={}, region={}", triggerType, region);
 
-        List<PlaceRecommendationResponse.RecommendationItem> base =
-                ruleBasedAdapter.recommendPlaceCandidates(category, triggerType, region, latitude, longitude, radius, limit, excludeExternalId);
+        List<PlaceRecommendationResponse.RecommendationItem> base = ruleBasedAdapter.recommendPlaceCandidates(
+                category, triggerType, region, latitude, longitude, radius, limit, excludeExternalId);
 
         if (base.isEmpty()) return base;
 
-        List<PlaceRerankCandidate> targets = base.stream()
-                .map(PlaceRerankCandidate::from)
-                .toList();
+        List<PlaceRerankCandidate> targets =
+                base.stream().map(PlaceRerankCandidate::from).toList();
 
         String context = buildContext(triggerType, region);
         AiRerankResult result = aiRerankService.rerank(context, targets);
@@ -57,12 +57,9 @@ public class AiRerankPlaceRecommendationAdapter implements PlaceRecommendationPo
         List<String> rankedIds = Optional.ofNullable(result.rankedIds()).orElse(List.of());
         if (rankedIds.isEmpty()) return base;
 
-        Map<String, PlaceRecommendationResponse.RecommendationItem> itemMap =
-                base.stream().collect(Collectors.toMap(
-                        PlaceRecommendationResponse.RecommendationItem::externalId,
-                        i -> i,
-                        (a,b) -> a
-                ));
+        Map<String, PlaceRecommendationResponse.RecommendationItem> itemMap = base.stream()
+                .collect(Collectors.toMap(
+                        PlaceRecommendationResponse.RecommendationItem::externalId, i -> i, (a, b) -> a));
 
         List<PlaceRecommendationResponse.RecommendationItem> reordered = new ArrayList<>();
         Set<String> added = new HashSet<>();
@@ -83,8 +80,7 @@ public class AiRerankPlaceRecommendationAdapter implements PlaceRecommendationPo
                         item.longitude(),
                         item.isIndoor(),
                         item.distanceMeters(),
-                        reason
-                ));
+                        reason));
                 added.add(id);
             }
         }

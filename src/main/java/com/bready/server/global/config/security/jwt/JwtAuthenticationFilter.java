@@ -1,16 +1,17 @@
 package com.bready.server.global.config.security.jwt;
 
+import java.io.IOException;
+import java.util.Arrays;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-import java.util.Arrays;
+import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -18,17 +19,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtTokenProvider jwtTokenProvider;
 
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
 
         String token = extractToken(request);
 
         if (token != null && jwtTokenProvider.validateAccessToken(token)) {
             Long userId = jwtTokenProvider.getUserId(token);
-            SecurityContextHolder.getContext()
-                    .setAuthentication(new JwtAuthentication(userId));
+            SecurityContextHolder.getContext().setAuthentication(new JwtAuthentication(userId));
         }
 
         filterChain.doFilter(request, response);

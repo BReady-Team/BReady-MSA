@@ -1,9 +1,9 @@
 package com.bready.server.recommendation.adapter;
 
-import com.bready.server.recommendation.ai.AiRerankResult;
-import com.bready.server.recommendation.ai.AiRerankService;
-import com.bready.server.recommendation.dto.PlaceRecommendationResponse;
-import com.bready.server.trigger.domain.TriggerType;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,9 +11,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
+import com.bready.server.recommendation.ai.AiRerankResult;
+import com.bready.server.recommendation.ai.AiRerankService;
+import com.bready.server.recommendation.dto.PlaceRecommendationResponse;
+import com.bready.server.trigger.domain.TriggerType;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -38,9 +39,10 @@ public class AiRerankPlaceRecommendationAdapterTest {
 
         // given
         List<PlaceRecommendationResponse.RecommendationItem> base = List.of(
-                new PlaceRecommendationResponse.RecommendationItem("id1", "장소1", "주소1", BigDecimal.ONE, BigDecimal.ONE, true, 100, "rule-이유1"),
-                new PlaceRecommendationResponse.RecommendationItem("id2", "장소2", "주소2", BigDecimal.TEN, BigDecimal.TEN, true, 100, "rule-이유2")
-        );
+                new PlaceRecommendationResponse.RecommendationItem(
+                        "id1", "장소1", "주소1", BigDecimal.ONE, BigDecimal.ONE, true, 100, "rule-이유1"),
+                new PlaceRecommendationResponse.RecommendationItem(
+                        "id2", "장소2", "주소2", BigDecimal.TEN, BigDecimal.TEN, true, 100, "rule-이유2"));
 
         given(ruleBasedAdapter.recommendPlaceCandidates(any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
                 .willReturn(base);
@@ -50,13 +52,11 @@ public class AiRerankPlaceRecommendationAdapterTest {
                         List.of("id2", "id1"),
                         Map.of(
                                 "id2", "ai-이유2",
-                                "id1", "ai-이유1"
-                        )
-                ));
+                                "id1", "ai-이유1")));
 
         // when
-        List<PlaceRecommendationResponse.RecommendationItem> result =
-                adapter.recommendPlaceCandidates(null, TriggerType.WEATHER_BAD, "서울", 50.0, 50.0, 2000, 10, "id-original");
+        List<PlaceRecommendationResponse.RecommendationItem> result = adapter.recommendPlaceCandidates(
+                null, TriggerType.WEATHER_BAD, "서울", 50.0, 50.0, 2000, 10, "id-original");
 
         // then
         assertThat(result.size()).isEqualTo(2);
@@ -68,5 +68,4 @@ public class AiRerankPlaceRecommendationAdapterTest {
         verify(ruleBasedAdapter).recommendPlaceCandidates(any(), any(), any(), any(), any(), anyInt(), anyInt(), any());
         verify(aiRerankService).rerank(anyString(), anyList());
     }
-
 }

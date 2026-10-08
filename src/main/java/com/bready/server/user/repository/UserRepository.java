@@ -1,12 +1,13 @@
 package com.bready.server.user.repository;
 
-import com.bready.server.user.domain.User;
-import com.bready.server.user.domain.UserAuthProvider;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Optional;
+import com.bready.server.user.domain.User;
+import com.bready.server.user.domain.UserAuthProvider;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
@@ -14,10 +15,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
-    Optional<User> findByAuthProviderAndProviderUserId(
-            UserAuthProvider authProvider,
-            String providerUserId
-    );
+    Optional<User> findByAuthProviderAndProviderUserId(UserAuthProvider authProvider, String providerUserId);
 
     @Query("""
         select u from User u
@@ -25,5 +23,4 @@ public interface UserRepository extends JpaRepository<User, Long> {
         where u.id = :userId
     """)
     Optional<User> findByIdWithProfile(@Param("userId") Long userId);
-
 }

@@ -1,17 +1,8 @@
 package com.bready.server.plan.controller;
 
-import com.bready.server.global.auth.CurrentUser;
-import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.global.exception.GlobalExceptionHandler;
-import com.bready.server.plan.dto.PlanCreateResponse;
-import com.bready.server.plan.dto.PlanDeleteResponse;
-import com.bready.server.plan.dto.PlanDetailResponse;
-import com.bready.server.plan.dto.PlanDto;
-import com.bready.server.plan.dto.PlanListItemDto;
-import com.bready.server.plan.dto.PlanListResponse;
-import com.bready.server.plan.dto.PlanUpdateResponse;
-import com.bready.server.plan.exception.PlanErrorCase;
-import com.bready.server.plan.service.PlanService;
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,8 +19,18 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import com.bready.server.global.auth.CurrentUser;
+import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.global.exception.GlobalExceptionHandler;
+import com.bready.server.plan.dto.PlanCreateResponse;
+import com.bready.server.plan.dto.PlanDeleteResponse;
+import com.bready.server.plan.dto.PlanDetailResponse;
+import com.bready.server.plan.dto.PlanDto;
+import com.bready.server.plan.dto.PlanListItemDto;
+import com.bready.server.plan.dto.PlanListResponse;
+import com.bready.server.plan.dto.PlanUpdateResponse;
+import com.bready.server.plan.exception.PlanErrorCase;
+import com.bready.server.plan.service.PlanService;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -69,8 +70,7 @@ class PlanControllerTest {
                             MethodParameter parameter,
                             ModelAndViewContainer mavContainer,
                             NativeWebRequest webRequest,
-                            WebDataBinderFactory binderFactory
-                    ) {
+                            WebDataBinderFactory binderFactory) {
                         return 1L;
                     }
                 })
@@ -80,7 +80,8 @@ class PlanControllerTest {
     @Test
     @DisplayName("플랜 생성 성공 → 201")
     void createPlan_success() throws Exception {
-        String requestJson = """
+        String requestJson =
+                """
                 {
                   "title": "서울 여행",
                   "planDate": "2026-03-20",
@@ -93,8 +94,7 @@ class PlanControllerTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        given(planService.createPlan(anyLong(), any()))
-                .willReturn(response);
+        given(planService.createPlan(anyLong(), any())).willReturn(response);
 
         mockMvc.perform(post("/api/v1/plans")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -116,7 +116,8 @@ class PlanControllerTest {
     @Test
     @DisplayName("플랜 수정 성공 → 200")
     void updatePlan_success() throws Exception {
-        String requestJson = """
+        String requestJson =
+                """
                 {
                   "title": "부산 여행",
                   "planDate": "2026-03-18",
@@ -129,8 +130,7 @@ class PlanControllerTest {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        given(planService.updatePlan(anyLong(), anyLong(), any()))
-                .willReturn(response);
+        given(planService.updatePlan(anyLong(), anyLong(), any())).willReturn(response);
 
         mockMvc.perform(patch("/api/v1/plans/10")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -142,7 +142,8 @@ class PlanControllerTest {
     @Test
     @DisplayName("플랜 수정 - 없음 → 404")
     void updatePlan_not_found() throws Exception {
-        String requestJson = """
+        String requestJson =
+                """
                 {
                   "title": "test",
                   "planDate": "2026-03-20",
@@ -163,7 +164,8 @@ class PlanControllerTest {
     @Test
     @DisplayName("플랜 수정 - 권한 없음 → 403")
     void updatePlan_access_denied() throws Exception {
-        String requestJson = """
+        String requestJson =
+                """
                 {
                   "title": "test",
                   "planDate": "2026-03-20",
@@ -184,18 +186,12 @@ class PlanControllerTest {
     @Test
     @DisplayName("플랜 상세 조회 성공 → 200")
     void getPlanDetail_success() throws Exception {
-        PlanDto planDto = PlanDto.builder()
-                .planId(10L)
-                .title("서울 여행")
-                .build();
+        PlanDto planDto = PlanDto.builder().planId(10L).title("서울 여행").build();
 
-        PlanDetailResponse response = PlanDetailResponse.builder()
-                .plan(planDto)
-                .categories(List.of())
-                .build();
+        PlanDetailResponse response =
+                PlanDetailResponse.builder().plan(planDto).categories(List.of()).build();
 
-        given(planService.getPlanDetail(anyLong(), anyLong()))
-                .willReturn(response);
+        given(planService.getPlanDetail(anyLong(), anyLong())).willReturn(response);
 
         mockMvc.perform(get("/api/v1/plans/10"))
                 .andExpect(status().isOk())
@@ -217,18 +213,13 @@ class PlanControllerTest {
     @Test
     @DisplayName("내 플랜 목록 조회 → 200")
     void getMyPlans_success() throws Exception {
-        PlanListItemDto item = PlanListItemDto.builder()
-                .planId(10L)
-                .title("서울 여행")
-                .build();
+        PlanListItemDto item =
+                PlanListItemDto.builder().planId(10L).title("서울 여행").build();
 
-        PlanListResponse response = PlanListResponse.builder()
-                .items(List.of(item))
-                .pageInfo(null)
-                .build();
+        PlanListResponse response =
+                PlanListResponse.builder().items(List.of(item)).pageInfo(null).build();
 
-        given(planService.getMyPlans(anyLong(), anyInt(), anyInt(), any()))
-                .willReturn(response);
+        given(planService.getMyPlans(anyLong(), anyInt(), anyInt(), any())).willReturn(response);
 
         mockMvc.perform(get("/api/v1/plans"))
                 .andExpect(status().isOk())
@@ -239,12 +230,9 @@ class PlanControllerTest {
     @Test
     @DisplayName("플랜 삭제 성공 → 200")
     void deletePlan_success() throws Exception {
-        PlanDeleteResponse response = PlanDeleteResponse.builder()
-                .planId(10L)
-                .build();
+        PlanDeleteResponse response = PlanDeleteResponse.builder().planId(10L).build();
 
-        given(planService.deletePlan(anyLong(), anyLong()))
-                .willReturn(response);
+        given(planService.deletePlan(anyLong(), anyLong())).willReturn(response);
 
         mockMvc.perform(delete("/api/v1/plans/10"))
                 .andExpect(status().isOk())

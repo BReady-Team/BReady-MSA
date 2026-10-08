@@ -1,14 +1,7 @@
 package com.bready.server.auth.service;
 
-import com.bready.server.auth.domain.RefreshToken;
-import com.bready.server.auth.dto.*;
-import com.bready.server.auth.repository.RefreshTokenRepository;
-import com.bready.server.global.config.security.jwt.JwtTokenProvider;
-import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.user.domain.User;
-import com.bready.server.user.domain.UserProfile;
-import com.bready.server.user.repository.UserProfileRepository;
-import com.bready.server.user.repository.UserRepository;
+import java.util.Optional;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -19,7 +12,15 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.Optional;
+import com.bready.server.auth.domain.RefreshToken;
+import com.bready.server.auth.dto.*;
+import com.bready.server.auth.repository.RefreshTokenRepository;
+import com.bready.server.global.config.security.jwt.JwtTokenProvider;
+import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.user.domain.User;
+import com.bready.server.user.domain.UserProfile;
+import com.bready.server.user.repository.UserProfileRepository;
+import com.bready.server.user.repository.UserRepository;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.BDDMockito.*;
@@ -91,8 +92,7 @@ class AuthServiceTest {
 
             given(userRepository.existsByEmail("test@test.com")).willReturn(true);
 
-            assertThatThrownBy(() -> authService.signup(request))
-                    .isInstanceOf(ApplicationException.class);
+            assertThatThrownBy(() -> authService.signup(request)).isInstanceOf(ApplicationException.class);
         }
 
         @Test
@@ -106,11 +106,9 @@ class AuthServiceTest {
 
             given(userRepository.existsByEmail(any())).willReturn(false);
 
-            given(userRepository.save(any()))
-                    .willThrow(DataIntegrityViolationException.class);
+            given(userRepository.save(any())).willThrow(DataIntegrityViolationException.class);
 
-            assertThatThrownBy(() -> authService.signup(request))
-                    .isInstanceOf(ApplicationException.class);
+            assertThatThrownBy(() -> authService.signup(request)).isInstanceOf(ApplicationException.class);
         }
     }
 
@@ -125,12 +123,10 @@ class AuthServiceTest {
             given(request.getEmail()).willReturn("test@test.com");
             given(request.getPassword()).willReturn("password");
 
-            given(userRepository.findByEmail("test@test.com"))
-                    .willReturn(Optional.of(user));
+            given(userRepository.findByEmail("test@test.com")).willReturn(Optional.of(user));
 
             given(user.getPassword()).willReturn("encoded");
-            given(passwordEncoder.matches("password", "encoded"))
-                    .willReturn(true);
+            given(passwordEncoder.matches("password", "encoded")).willReturn(true);
 
             given(user.getId()).willReturn(1L);
 
@@ -152,11 +148,9 @@ class AuthServiceTest {
             LoginRequest request = mock(LoginRequest.class);
             given(request.getEmail()).willReturn("test@test.com");
 
-            given(userRepository.findByEmail(any()))
-                    .willReturn(Optional.empty());
+            given(userRepository.findByEmail(any())).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> authService.login(request))
-                    .isInstanceOf(ApplicationException.class);
+            assertThatThrownBy(() -> authService.login(request)).isInstanceOf(ApplicationException.class);
         }
 
         @Test
@@ -167,15 +161,12 @@ class AuthServiceTest {
             given(request.getEmail()).willReturn("test@test.com");
             given(request.getPassword()).willReturn("wrong");
 
-            given(userRepository.findByEmail(any()))
-                    .willReturn(Optional.of(user));
+            given(userRepository.findByEmail(any())).willReturn(Optional.of(user));
 
             given(user.getPassword()).willReturn("encoded");
-            given(passwordEncoder.matches(any(), any()))
-                    .willReturn(false);
+            given(passwordEncoder.matches(any(), any())).willReturn(false);
 
-            assertThatThrownBy(() -> authService.login(request))
-                    .isInstanceOf(ApplicationException.class);
+            assertThatThrownBy(() -> authService.login(request)).isInstanceOf(ApplicationException.class);
         }
     }
 
@@ -193,8 +184,7 @@ class AuthServiceTest {
             RefreshToken saved = mock(RefreshToken.class);
             given(saved.getToken()).willReturn("refresh");
 
-            given(refreshTokenRepository.findById("1"))
-                    .willReturn(Optional.of(saved));
+            given(refreshTokenRepository.findById("1")).willReturn(Optional.of(saved));
 
             TokenResponse token = TokenResponse.builder()
                     .accessToken("newAccess")
@@ -215,11 +205,9 @@ class AuthServiceTest {
             given(request.getRefreshToken()).willReturn("refresh");
 
             given(jwtTokenProvider.getUserId("refresh")).willReturn(1L);
-            given(refreshTokenRepository.findById("1"))
-                    .willReturn(Optional.empty());
+            given(refreshTokenRepository.findById("1")).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> authService.refresh(request))
-                    .isInstanceOf(ApplicationException.class);
+            assertThatThrownBy(() -> authService.refresh(request)).isInstanceOf(ApplicationException.class);
         }
 
         @Test
@@ -233,11 +221,9 @@ class AuthServiceTest {
             RefreshToken saved = mock(RefreshToken.class);
             given(saved.getToken()).willReturn("different");
 
-            given(refreshTokenRepository.findById("1"))
-                    .willReturn(Optional.of(saved));
+            given(refreshTokenRepository.findById("1")).willReturn(Optional.of(saved));
 
-            assertThatThrownBy(() -> authService.refresh(request))
-                    .isInstanceOf(ApplicationException.class);
+            assertThatThrownBy(() -> authService.refresh(request)).isInstanceOf(ApplicationException.class);
         }
     }
 
@@ -255,8 +241,7 @@ class AuthServiceTest {
             RefreshToken saved = mock(RefreshToken.class);
             given(saved.getToken()).willReturn("refresh");
 
-            given(refreshTokenRepository.findById("1"))
-                    .willReturn(Optional.of(saved));
+            given(refreshTokenRepository.findById("1")).willReturn(Optional.of(saved));
 
             authService.logout(request);
 
@@ -274,11 +259,9 @@ class AuthServiceTest {
             RefreshToken saved = mock(RefreshToken.class);
             given(saved.getToken()).willReturn("different");
 
-            given(refreshTokenRepository.findById("1"))
-                    .willReturn(Optional.of(saved));
+            given(refreshTokenRepository.findById("1")).willReturn(Optional.of(saved));
 
-            assertThatThrownBy(() -> authService.logout(request))
-                    .isInstanceOf(ApplicationException.class);
+            assertThatThrownBy(() -> authService.logout(request)).isInstanceOf(ApplicationException.class);
         }
     }
 }

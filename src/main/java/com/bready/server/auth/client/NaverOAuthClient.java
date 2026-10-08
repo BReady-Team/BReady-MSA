@@ -1,7 +1,5 @@
 package com.bready.server.auth.client;
 
-import com.bready.server.auth.config.NaverOAuthProperties;
-import com.bready.server.auth.dto.NaverTokenResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -10,6 +8,9 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import com.bready.server.auth.config.NaverOAuthProperties;
+import com.bready.server.auth.dto.NaverTokenResponse;
+
 @Component
 public class NaverOAuthClient {
 
@@ -17,10 +18,7 @@ public class NaverOAuthClient {
     private final NaverOAuthProperties properties;
     private final WebClient webClient;
 
-    public NaverOAuthClient(
-            NaverOAuthProperties properties,
-            @Qualifier("naverWebClient") WebClient webClient
-    ) {
+    public NaverOAuthClient(NaverOAuthProperties properties, @Qualifier("naverWebClient") WebClient webClient) {
         this.properties = properties;
         this.webClient = webClient;
     }
@@ -34,7 +32,8 @@ public class NaverOAuthClient {
         formData.add("code", authorizationCode);
         formData.add("state", state);
 
-        return webClient.post()
+        return webClient
+                .post()
                 .uri(TOKEN_URI)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(BodyInserters.fromFormData(formData))

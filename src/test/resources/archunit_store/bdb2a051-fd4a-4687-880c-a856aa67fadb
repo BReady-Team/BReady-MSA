@@ -1,0 +1,2 @@
+Method <com.bready.server.plan.domain.Plan.setShareToken(java.lang.String)> has modifier PUBLIC in (Plan.java:57)
+Method <com.bready.server.user.domain.User.setUserProfile(com.bready.server.user.domain.UserProfile)> has modifier PUBLIC in (User.java:67)

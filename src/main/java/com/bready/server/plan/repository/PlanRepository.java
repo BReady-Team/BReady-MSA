@@ -1,7 +1,10 @@
 package com.bready.server.plan.repository;
 
-import com.bready.server.plan.domain.Plan;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 import jakarta.persistence.LockModeType;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,9 +12,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
+import com.bready.server.plan.domain.Plan;
 
 public interface PlanRepository extends JpaRepository<Plan, Long> {
 
@@ -29,7 +30,8 @@ public interface PlanRepository extends JpaRepository<Plan, Long> {
         Long getTotalSwitches();
     }
 
-    @Query("""
+    @Query(
+            """
                 select p
                 from Plan p
                 where p.id = :planId
@@ -37,7 +39,8 @@ public interface PlanRepository extends JpaRepository<Plan, Long> {
             """)
     Optional<Plan> findByIdAndOwnerId(@Param("planId") Long planId, @Param("ownerId") Long ownerId);
 
-    @Query("""
+    @Query(
+            """
         select count(p)
             from Plan p
         where p.ownerId = :ownerId
@@ -50,7 +53,9 @@ public interface PlanRepository extends JpaRepository<Plan, Long> {
 
     Optional<Plan> findByShareTokenAndDeletedAtIsNull(String shareToken);
 
-    @Query(value = """
+    @Query(
+            value =
+                    """
     SELECT
         p.id as planId,
         p.title as planTitle,
@@ -70,11 +75,9 @@ public interface PlanRepository extends JpaRepository<Plan, Long> {
     LEFT JOIN switch_logs sl ON sl.decision_id = d.id AND sl.deleted_at IS NULL
     GROUP BY p.id, p.title, p.plan_date, p.region
     ORDER BY p.plan_date DESC
-    """, nativeQuery = true)
-    List<PlanSwitchStatsRow> findPlanSwitchStatsOptimized(
-            @Param("ownerId") Long ownerId,
-            @Param("limit") int limit
-    );
+    """,
+            nativeQuery = true)
+    List<PlanSwitchStatsRow> findPlanSwitchStatsOptimized(@Param("ownerId") Long ownerId, @Param("limit") int limit);
 
     // 락 전용 - 카테고리 추가(addCategory)에서만 사용
     @Lock(LockModeType.PESSIMISTIC_WRITE)

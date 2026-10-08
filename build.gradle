@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.5.7'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'com.diffplug.spotless' version '7.2.1'
 }
 
 group = 'com.bready'
@@ -68,6 +69,7 @@ dependencies {
 
 	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.1'
 
 	// JWT
 	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
@@ -85,11 +87,22 @@ dependencies {
 
 	// Spring AI - OpenAI
 	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
-  
+
 	// aws
 	implementation 'software.amazon.awssdk:s3:2.39.2'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+spotless {
+	java {
+		target 'src/**/*.java'
+		palantirJavaFormat('2.57.0')
+		importOrder('java|javax|jakarta', 'org', 'com.bready.server', '', '\\#')
+		removeUnusedImports()
+		trimTrailingWhitespace()
+		endWithNewline()
+	}
 }

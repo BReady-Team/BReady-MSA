@@ -1,15 +1,9 @@
 package com.bready.server.plan.service;
 
-import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.plan.domain.Plan;
-import com.bready.server.plan.dto.*;
-import com.bready.server.plan.exception.PlanErrorCase;
-import com.bready.server.plan.repository.CategoryStateRepository;
-import com.bready.server.plan.repository.PlanCategoryRepository;
-import com.bready.server.plan.repository.PlanRepository;
-import com.bready.server.user.domain.User;
-import com.bready.server.user.domain.UserProfile;
-import com.bready.server.user.repository.UserRepository;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -22,9 +16,16 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
+import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.plan.domain.Plan;
+import com.bready.server.plan.dto.*;
+import com.bready.server.plan.exception.PlanErrorCase;
+import com.bready.server.plan.repository.CategoryStateRepository;
+import com.bready.server.plan.repository.PlanCategoryRepository;
+import com.bready.server.plan.repository.PlanRepository;
+import com.bready.server.user.domain.User;
+import com.bready.server.user.domain.UserProfile;
+import com.bready.server.user.repository.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -62,8 +63,7 @@ class PlanServiceTest {
         void success() {
             Plan plan = Plan.create(USER_ID, "제목", LocalDate.now(), "서울");
 
-            given(planRepository.save(any()))
-                    .willReturn(plan);
+            given(planRepository.save(any())).willReturn(plan);
 
             PlanCreateRequest request = new PlanCreateRequest("제목", LocalDate.now(), "서울");
 
@@ -82,8 +82,7 @@ class PlanServiceTest {
         void success() {
             Plan plan = Plan.create(USER_ID, "old", LocalDate.now(), "서울");
 
-            given(planRepository.findByIdAndDeletedAtIsNull(1L))
-                    .willReturn(Optional.of(plan));
+            given(planRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(plan));
 
             PlanUpdateRequest request = new PlanUpdateRequest("new", LocalDate.now(), "부산");
 
@@ -96,12 +95,11 @@ class PlanServiceTest {
         @Test
         @DisplayName("플랜 없음 → 404")
         void notFound() {
-            given(planRepository.findByIdAndDeletedAtIsNull(1L))
-                    .willReturn(Optional.empty());
+            given(planRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.empty());
 
             assertThatThrownBy(() ->
-                    planService.updatePlan(USER_ID, 1L, new PlanUpdateRequest("t", LocalDate.now(), "서울"))
-            ).isInstanceOf(ApplicationException.class)
+                            planService.updatePlan(USER_ID, 1L, new PlanUpdateRequest("t", LocalDate.now(), "서울")))
+                    .isInstanceOf(ApplicationException.class)
                     .extracting("errorCode")
                     .isEqualTo(PlanErrorCase.PLAN_NOT_FOUND.getErrorCode());
         }
@@ -112,12 +110,11 @@ class PlanServiceTest {
             Plan plan = Plan.create(OTHER_USER_ID, "title", LocalDate.now(), "서울");
             ReflectionTestUtils.setField(plan, "id", 1L);
 
-            given(planRepository.findByIdAndDeletedAtIsNull(1L))
-                    .willReturn(Optional.of(plan));
+            given(planRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(plan));
 
             assertThatThrownBy(() ->
-                    planService.updatePlan(USER_ID, 1L, new PlanUpdateRequest("t", LocalDate.now(), "서울"))
-            ).isInstanceOf(ApplicationException.class)
+                            planService.updatePlan(USER_ID, 1L, new PlanUpdateRequest("t", LocalDate.now(), "서울")))
+                    .isInstanceOf(ApplicationException.class)
                     .extracting("errorCode")
                     .isEqualTo(PlanErrorCase.PLAN_ACCESS_DENIED.getErrorCode());
         }
@@ -130,12 +127,10 @@ class PlanServiceTest {
         @Test
         @DisplayName("플랜 없음 → 404")
         void notFound() {
-            given(planRepository.findByIdAndDeletedAtIsNull(1L))
-                    .willReturn(Optional.empty());
+            given(planRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() ->
-                    planService.getPlanDetail(USER_ID, 1L)
-            ).isInstanceOf(ApplicationException.class)
+            assertThatThrownBy(() -> planService.getPlanDetail(USER_ID, 1L))
+                    .isInstanceOf(ApplicationException.class)
                     .extracting("errorCode")
                     .isEqualTo(PlanErrorCase.PLAN_NOT_FOUND.getErrorCode());
         }
@@ -145,12 +140,10 @@ class PlanServiceTest {
         void accessDenied() {
             Plan plan = Plan.create(OTHER_USER_ID, "title", LocalDate.now(), "서울");
 
-            given(planRepository.findByIdAndDeletedAtIsNull(1L))
-                    .willReturn(Optional.of(plan));
+            given(planRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(plan));
 
-            assertThatThrownBy(() ->
-                    planService.getPlanDetail(USER_ID, 1L)
-            ).isInstanceOf(ApplicationException.class)
+            assertThatThrownBy(() -> planService.getPlanDetail(USER_ID, 1L))
+                    .isInstanceOf(ApplicationException.class)
                     .extracting("errorCode")
                     .isEqualTo(PlanErrorCase.PLAN_ACCESS_DENIED.getErrorCode());
         }
@@ -167,14 +160,11 @@ class PlanServiceTest {
 
             profile.changeProfileImage(null);
 
-            given(userRepository.findByIdWithProfile(USER_ID))
-                    .willReturn(Optional.of(user));
+            given(userRepository.findByIdWithProfile(USER_ID)).willReturn(Optional.of(user));
 
-            given(planRepository.findByIdAndDeletedAtIsNull(1L))
-                    .willReturn(Optional.of(plan));
+            given(planRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(plan));
 
-            given(planCategoryRepository.findAllDetailByPlanId(1L))
-                    .willReturn(List.of());
+            given(planCategoryRepository.findAllDetailByPlanId(1L)).willReturn(List.of());
 
             PlanDetailResponse response = planService.getPlanDetail(USER_ID, 1L);
 
@@ -212,8 +202,7 @@ class PlanServiceTest {
         void success() {
             Plan plan = Plan.create(USER_ID, "title", LocalDate.now(), "서울");
 
-            given(planRepository.findByIdAndDeletedAtIsNull(1L))
-                    .willReturn(Optional.of(plan));
+            given(planRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(plan));
 
             PlanDeleteResponse response = planService.deletePlan(USER_ID, 1L);
 
@@ -224,12 +213,10 @@ class PlanServiceTest {
         @Test
         @DisplayName("플랜 없음 → 404")
         void notFound() {
-            given(planRepository.findByIdAndDeletedAtIsNull(1L))
-                    .willReturn(Optional.empty());
+            given(planRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() ->
-                    planService.deletePlan(USER_ID, 1L)
-            ).isInstanceOf(ApplicationException.class)
+            assertThatThrownBy(() -> planService.deletePlan(USER_ID, 1L))
+                    .isInstanceOf(ApplicationException.class)
                     .extracting("errorCode")
                     .isEqualTo(PlanErrorCase.PLAN_NOT_FOUND.getErrorCode());
         }
@@ -239,12 +226,10 @@ class PlanServiceTest {
         void accessDenied() {
             Plan plan = Plan.create(OTHER_USER_ID, "title", LocalDate.now(), "서울");
 
-            given(planRepository.findByIdAndDeletedAtIsNull(1L))
-                    .willReturn(Optional.of(plan));
+            given(planRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(plan));
 
-            assertThatThrownBy(() ->
-                    planService.deletePlan(USER_ID, 1L)
-            ).isInstanceOf(ApplicationException.class)
+            assertThatThrownBy(() -> planService.deletePlan(USER_ID, 1L))
+                    .isInstanceOf(ApplicationException.class)
                     .extracting("errorCode")
                     .isEqualTo(PlanErrorCase.PLAN_ACCESS_DENIED.getErrorCode());
         }

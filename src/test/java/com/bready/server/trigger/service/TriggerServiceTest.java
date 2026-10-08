@@ -1,20 +1,8 @@
 package com.bready.server.trigger.service;
 
-import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.repository.PlaceCandidateRepository;
-import com.bready.server.plan.domain.CategoryState;
-import com.bready.server.plan.domain.Plan;
-import com.bready.server.plan.domain.PlanCategory;
-import com.bready.server.plan.repository.CategoryStateRepository;
-import com.bready.server.plan.repository.PlanCategoryRepository;
-import com.bready.server.stats.event.TriggerCreatedEvent;
-import com.bready.server.stats.service.PlanStatsService;
-import com.bready.server.trigger.domain.Trigger;
-import com.bready.server.trigger.domain.TriggerType;
-import com.bready.server.trigger.dto.TriggerCreateRequest;
-import com.bready.server.trigger.dto.TriggerCreateResponse;
-import com.bready.server.trigger.exception.TriggerErrorCase;
-import com.bready.server.trigger.repository.TriggerRepository;
+import java.time.LocalDateTime;
+import java.util.Optional;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,8 +11,20 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
-import java.time.LocalDateTime;
-import java.util.Optional;
+import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.place.repository.PlaceCandidateRepository;
+import com.bready.server.plan.domain.CategoryState;
+import com.bready.server.plan.domain.Plan;
+import com.bready.server.plan.domain.PlanCategory;
+import com.bready.server.plan.repository.CategoryStateRepository;
+import com.bready.server.plan.repository.PlanCategoryRepository;
+import com.bready.server.stats.event.TriggerCreatedEvent;
+import com.bready.server.trigger.domain.Trigger;
+import com.bready.server.trigger.domain.TriggerType;
+import com.bready.server.trigger.dto.TriggerCreateRequest;
+import com.bready.server.trigger.dto.TriggerCreateResponse;
+import com.bready.server.trigger.exception.TriggerErrorCase;
+import com.bready.server.trigger.repository.TriggerRepository;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
@@ -39,11 +39,20 @@ class TriggerServiceTest {
     @InjectMocks
     private TriggerService triggerService;
 
-    @Mock private PlanCategoryRepository planCategoryRepository;
-    @Mock private TriggerRepository triggerRepository;
-    @Mock private CategoryStateRepository categoryStateRepository;
-    @Mock private ApplicationEventPublisher eventPublisher;
-    @Mock private PlaceCandidateRepository placeCandidateRepository;
+    @Mock
+    private PlanCategoryRepository planCategoryRepository;
+
+    @Mock
+    private TriggerRepository triggerRepository;
+
+    @Mock
+    private CategoryStateRepository categoryStateRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private PlaceCandidateRepository placeCandidateRepository;
 
     @Test
     @DisplayName("트리거 생성 성공")
@@ -65,13 +74,11 @@ class TriggerServiceTest {
 
         given(category.getId()).willReturn(categoryId);
 
-        given(categoryStateRepository.findByCategory_Id(categoryId))
-                .willReturn(Optional.of(state));
+        given(categoryStateRepository.findByCategory_Id(categoryId)).willReturn(Optional.of(state));
 
         given(state.getCurrentCandidateId()).willReturn(currentCandidateId);
 
-        given(placeCandidateRepository
-                .existsAliveByIdAndCategoryId(currentCandidateId, categoryId))
+        given(placeCandidateRepository.existsAliveByIdAndCategoryId(currentCandidateId, categoryId))
                 .willReturn(true);
 
         given(triggerRepository.save(any())).willReturn(trigger);
@@ -94,12 +101,9 @@ class TriggerServiceTest {
         given(planCategoryRepository.findByIdAndPlan_IdAndDeletedAtIsNull(1L, 1L))
                 .willReturn(Optional.of(category));
 
-        given(categoryStateRepository.findByCategory_Id(any()))
-                .willReturn(Optional.empty());
+        given(categoryStateRepository.findByCategory_Id(any())).willReturn(Optional.empty());
 
-        assertThatThrownBy(() ->
-                triggerService.createTrigger(new TriggerCreateRequest(1L, 1L, TriggerType.FATIGUE))
-        )
+        assertThatThrownBy(() -> triggerService.createTrigger(new TriggerCreateRequest(1L, 1L, TriggerType.FATIGUE)))
                 .isInstanceOf(ApplicationException.class)
                 .satisfies(ex -> {
                     ApplicationException ae = (ApplicationException) ex;
@@ -113,9 +117,8 @@ class TriggerServiceTest {
         given(planCategoryRepository.findByIdAndPlan_IdAndDeletedAtIsNull(any(), any()))
                 .willReturn(Optional.empty());
 
-        assertThatThrownBy(() ->
-                triggerService.createTrigger(new TriggerCreateRequest(1L, 999L, TriggerType.WEATHER_BAD))
-        )
+        assertThatThrownBy(
+                        () -> triggerService.createTrigger(new TriggerCreateRequest(1L, 999L, TriggerType.WEATHER_BAD)))
                 .isInstanceOf(ApplicationException.class)
                 .satisfies(ex -> {
                     ApplicationException ae = (ApplicationException) ex;

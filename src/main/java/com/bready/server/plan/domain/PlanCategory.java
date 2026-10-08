@@ -1,15 +1,16 @@
 package com.bready.server.plan.domain;
 
+import java.util.ArrayList;
+import java.util.List;
+import jakarta.persistence.*;
+
 import com.bready.server.global.entity.BaseEntity;
 import com.bready.server.place.domain.PlaceCandidate;
 import com.bready.server.place.domain.PlaceCategoryType;
-import jakarta.persistence.*;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -47,5 +48,7 @@ public class PlanCategory extends BaseEntity {
         this.sequence = sequence;
     }
 
-    public void updateCategoryType(PlaceCategoryType newType) { this.categoryType = newType; }
+    public void updateCategoryType(PlaceCategoryType newType) {
+        this.categoryType = newType;
+    }
 }

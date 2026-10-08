@@ -1,0 +1,8 @@
+Method <com.bready.server.global.auth.AuthUtils.getCurrentUserId()> gets field <com.bready.server.auth.exception.AuthErrorCase.INVALID_TOKEN> in (AuthUtils.java:18)
+Method <com.bready.server.global.auth.AuthUtils.getCurrentUserId()> gets field <com.bready.server.auth.exception.AuthErrorCase.INVALID_TOKEN> in (AuthUtils.java:24)
+Method <com.bready.server.global.auth.AuthUtils.getCurrentUserId()> gets field <com.bready.server.auth.exception.AuthErrorCase.INVALID_TOKEN> in (AuthUtils.java:34)
+Method <com.bready.server.global.config.security.jwt.JwtTokenProvider.validateRefreshToken(java.lang.String)> gets field <com.bready.server.auth.exception.AuthErrorCase.EXPIRED_TOKEN> in (JwtTokenProvider.java:99)
+Method <com.bready.server.global.config.security.jwt.JwtTokenProvider.validateRefreshToken(java.lang.String)> gets field <com.bready.server.auth.exception.AuthErrorCase.REFRESH_TOKEN_INVALID> in (JwtTokenProvider.java:101)
+Method <com.bready.server.global.config.security.jwt.JwtTokenProvider.validateRefreshToken(java.lang.String)> gets field <com.bready.server.auth.exception.AuthErrorCase.REFRESH_TOKEN_INVALID> in (JwtTokenProvider.java:96)
+Method <com.bready.server.global.exception.GlobalExceptionHandler.handleMissingPart(org.springframework.web.multipart.support.MissingServletRequestPartException)> gets field <com.bready.server.s3.exception.S3ErrorCase.FILE_REQUIRED> in (GlobalExceptionHandler.java:134)
+Method <com.bready.server.global.exception.GlobalExceptionHandler.handleTypeMismatch(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException)> gets field <com.bready.server.stats.exception.StatsErrorCase.INVALID_PERIOD> in (GlobalExceptionHandler.java:108)

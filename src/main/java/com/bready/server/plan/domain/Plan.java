@@ -1,10 +1,11 @@
 package com.bready.server.plan.domain;
 
-import com.bready.server.global.entity.BaseEntity;
-import jakarta.persistence.*;
-import lombok.Getter;
-
 import java.time.LocalDate;
+import jakarta.persistence.*;
+
+import com.bready.server.global.entity.BaseEntity;
+
+import lombok.Getter;
 
 @Getter
 @Entity

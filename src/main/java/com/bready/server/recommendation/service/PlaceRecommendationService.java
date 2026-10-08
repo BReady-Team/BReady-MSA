@@ -1,5 +1,11 @@
 package com.bready.server.recommendation.service;
 
+import java.math.BigDecimal;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.place.domain.PlaceCandidate;
 import com.bready.server.place.exception.PlaceErrorCase;
@@ -18,13 +24,9 @@ import com.bready.server.trigger.domain.Trigger;
 import com.bready.server.trigger.domain.TriggerType;
 import com.bready.server.trigger.exception.TriggerErrorCase;
 import com.bready.server.trigger.repository.TriggerRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.util.List;
 
 @Slf4j
 @Service
@@ -42,12 +44,14 @@ public class PlaceRecommendationService {
     private final PlaceRecommendationCacheService placeRecommendationCacheService;
 
     @Transactional(readOnly = true)
-    public PlaceRecommendationResponse recommendPlaces(Long userId, PlaceRecommendationRequest request, PlaceRecommendationQuery query) {
+    public PlaceRecommendationResponse recommendPlaces(
+            Long userId, PlaceRecommendationRequest request, PlaceRecommendationQuery query) {
 
         long start = System.currentTimeMillis();
 
         // trigger 존재 검증
-        Trigger trigger = triggerRepository.findByIdAndDeletedAtIsNull(request.triggerId())
+        Trigger trigger = triggerRepository
+                .findByIdAndDeletedAtIsNull(request.triggerId())
                 .orElseThrow(() -> new ApplicationException(TriggerErrorCase.TRIGGER_NOT_FOUND));
 
         long t1 = System.currentTimeMillis();
@@ -60,7 +64,8 @@ public class PlaceRecommendationService {
 
         PlanCategory category = trigger.getCategory();
 
-        if (trigger.getTriggerType() == TriggerType.WEATHER_BAD && !category.getCategoryType().isIndoor()) {
+        if (trigger.getTriggerType() == TriggerType.WEATHER_BAD
+                && !category.getCategoryType().isIndoor()) {
             return new PlaceRecommendationResponse(List.of());
         }
 
@@ -71,19 +76,13 @@ public class PlaceRecommendationService {
         long t2 = System.currentTimeMillis();
 
         String region = firstNonBlank(
-                normalizeRegion(resolved.region()),
-                normalizeRegion(query.region()),
-                normalizeRegion(plan.getRegion())
-        );
+                normalizeRegion(resolved.region()), normalizeRegion(query.region()), normalizeRegion(plan.getRegion()));
 
         Coordinate base = resolved.coordinate();
 
         // 캐시 key 생성
         String cacheKey = placeRecommendationCacheService.generateKey(
-                category.getCategoryType().name(),
-                base.latitude,
-                base.longitude
-        );
+                category.getCategoryType().name(), base.latitude, base.longitude);
 
         // 캐시 조회
         List<PlaceRecommendationResponse.RecommendationItem> cachedItems =
@@ -97,17 +96,15 @@ public class PlaceRecommendationService {
         }
 
         // 캐시 MISS
-        List<PlaceRecommendationResponse.RecommendationItem> items =
-                placeRecommendationPort.recommendPlaceCandidates(
-                        category,
-                        trigger.getTriggerType(),
-                        region,
-                        base.latitude(),
-                        base.longitude(),
-                        radius,
-                        limit,
-                        resolved.excludeExternalId()
-                );
+        List<PlaceRecommendationResponse.RecommendationItem> items = placeRecommendationPort.recommendPlaceCandidates(
+                category,
+                trigger.getTriggerType(),
+                region,
+                base.latitude(),
+                base.longitude(),
+                radius,
+                limit,
+                resolved.excludeExternalId());
 
         long t3 = System.currentTimeMillis();
 
@@ -117,8 +114,12 @@ public class PlaceRecommendationService {
 
         placeRecommendationCacheService.put(cacheKey, items);
 
-        log.info("placeReco validate={}ms, resolveBase={}ms, portCall={}ms, total={}ms",
-                t1 - start, t2 - t1, t3 - t2, t3 - start);
+        log.info(
+                "placeReco validate={}ms, resolveBase={}ms, portCall={}ms, total={}ms",
+                t1 - start,
+                t2 - t1,
+                t3 - t2,
+                t3 - start);
 
         return new PlaceRecommendationResponse(items);
     }
@@ -128,13 +129,12 @@ public class PlaceRecommendationService {
         // trigger 중 현재 위치 기반으로 탐색해야 하는 trigger
         if (triggerType == TriggerType.FATIGUE || triggerType == TriggerType.DISTANCE_TOO_FAR) {
             if (query.latitude() != null && query.longitude() != null) {
-                return new ResolvedBase(
-                        new Coordinate(query.latitude(), query.longitude()), null, null
-                );
+                return new ResolvedBase(new Coordinate(query.latitude(), query.longitude()), null, null);
             }
         }
 
-        CategoryState state = categoryStateRepository.findByCategory_Id(categoryId)
+        CategoryState state = categoryStateRepository
+                .findByCategory_Id(categoryId)
                 .orElseThrow(() -> new ApplicationException(TriggerErrorCase.CATEGORY_STATE_NOT_FOUND));
 
         Long representativeCandidateId = state.getCurrentCandidateId();

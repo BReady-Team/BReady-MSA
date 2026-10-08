@@ -1,10 +1,11 @@
 package com.bready.server.global.aop;
 
-import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.stereotype.Component;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Aspect
@@ -18,11 +19,11 @@ public class ExecutionTimeAspect {
         Object result = joinPoint.proceed();
 
         long executionTime = System.currentTimeMillis() - start;
-        log.info("[API 실행 시간] {}ms - {}.{}",
+        log.info(
+                "[API 실행 시간] {}ms - {}.{}",
                 executionTime,
                 joinPoint.getSignature().getDeclaringTypeName(),
-                joinPoint.getSignature().getName()
-        );
+                joinPoint.getSignature().getName());
 
         return result;
     }

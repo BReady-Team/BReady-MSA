@@ -1,14 +1,8 @@
 package com.bready.server.place.controller;
 
-import com.bready.server.global.config.security.TestSecurityConfig;
-import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.dto.PlaceCandidateCreateRequest;
-import com.bready.server.place.dto.PlaceCandidateCreateResponse;
-import com.bready.server.place.dto.PlaceCandidateDeleteResponse;
-import com.bready.server.place.dto.PlaceCandidateRepresentativeResponse;
-import com.bready.server.place.exception.PlaceErrorCase;
-import com.bready.server.place.service.PlaceCandidateService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,8 +12,16 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import com.bready.server.global.config.security.TestSecurityConfig;
+import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.place.dto.PlaceCandidateCreateRequest;
+import com.bready.server.place.dto.PlaceCandidateCreateResponse;
+import com.bready.server.place.dto.PlaceCandidateDeleteResponse;
+import com.bready.server.place.dto.PlaceCandidateRepresentativeResponse;
+import com.bready.server.place.exception.PlaceErrorCase;
+import com.bready.server.place.service.PlaceCandidateService;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -45,32 +47,19 @@ class PlaceCandidateControllerTest {
     @DisplayName("장소 후보 등록 성공 → 200 성공")
     void createCandidate_success() throws Exception {
 
-        PlaceCandidateCreateRequest request =
-                new PlaceCandidateCreateRequest(
-                        1L,
-                        1L,
-                        "kakao-123",
-                        "성수 카페",
-                        "서울 성동구",
-                        BigDecimal.valueOf(37.5),
-                        BigDecimal.valueOf(127.0),
-                        true
-                );
+        PlaceCandidateCreateRequest request = new PlaceCandidateCreateRequest(
+                1L, 1L, "kakao-123", "성수 카페", "서울 성동구", BigDecimal.valueOf(37.5), BigDecimal.valueOf(127.0), true);
 
-        PlaceCandidateCreateResponse response =
-                PlaceCandidateCreateResponse.builder()
-                        .candidateId(10L)
-                        .createdAt(LocalDateTime.now())
-                        .build();
+        PlaceCandidateCreateResponse response = PlaceCandidateCreateResponse.builder()
+                .candidateId(10L)
+                .createdAt(LocalDateTime.now())
+                .build();
 
-        given(placeCandidateService.createCandidate(any()))
-                .willReturn(response);
+        given(placeCandidateService.createCandidate(any())).willReturn(response);
 
-        mockMvc.perform(
-                        post("/api/v1/places/candidates")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request))
-                )
+        mockMvc.perform(post("/api/v1/places/candidates")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("success"))
                 .andExpect(jsonPath("$.data.candidateId").value(10L));
@@ -81,14 +70,13 @@ class PlaceCandidateControllerTest {
     void createCandidate_duplicate() throws Exception {
 
         given(placeCandidateService.createCandidate(any()))
-                .willThrow(ApplicationException.from(
-                        PlaceErrorCase.DUPLICATE_PLACE_CANDIDATE
-                ));
+                .willThrow(ApplicationException.from(PlaceErrorCase.DUPLICATE_PLACE_CANDIDATE));
 
         mockMvc.perform(
                         post("/api/v1/places/candidates")
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
+                                .content(
+                                        """
                         {
                           "planId": 1,
                           "categoryId": 1,
@@ -98,8 +86,7 @@ class PlaceCandidateControllerTest {
                           "longitude": 127.0,
                           "isIndoor": true
                         }
-                    """)
-                )
+                    """))
                 .andExpect(status().isConflict());
     }
 
@@ -107,19 +94,15 @@ class PlaceCandidateControllerTest {
     @DisplayName("대표 후보 선택 성공 → 200 성공")
     void setRepresentative_success() throws Exception {
 
-        PlaceCandidateRepresentativeResponse response =
-                PlaceCandidateRepresentativeResponse.builder()
-                        .categoryId(1L)
-                        .representativeCandidateId(10L)
-                        .changedAt(LocalDateTime.now())
-                        .build();
+        PlaceCandidateRepresentativeResponse response = PlaceCandidateRepresentativeResponse.builder()
+                .categoryId(1L)
+                .representativeCandidateId(10L)
+                .changedAt(LocalDateTime.now())
+                .build();
 
-        given(placeCandidateService.setRepresentative(10L))
-                .willReturn(response);
+        given(placeCandidateService.setRepresentative(10L)).willReturn(response);
 
-        mockMvc.perform(
-                        post("/api/v1/places/candidates/10/representative")
-                )
+        mockMvc.perform(post("/api/v1/places/candidates/10/representative"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.representativeCandidateId").value(10L));
     }
@@ -128,18 +111,14 @@ class PlaceCandidateControllerTest {
     @DisplayName("장소 후보 삭제 성공 → 200 성공")
     void deleteCandidate_success() throws Exception {
 
-        PlaceCandidateDeleteResponse response =
-                PlaceCandidateDeleteResponse.builder()
-                        .candidateId(10L)
-                        .deletedAt(LocalDateTime.now())
-                        .build();
+        PlaceCandidateDeleteResponse response = PlaceCandidateDeleteResponse.builder()
+                .candidateId(10L)
+                .deletedAt(LocalDateTime.now())
+                .build();
 
-        given(placeCandidateService.deleteCandidate(10L))
-                .willReturn(response);
+        given(placeCandidateService.deleteCandidate(10L)).willReturn(response);
 
-        mockMvc.perform(
-                        delete("/api/v1/places/candidates/10")
-                )
+        mockMvc.perform(delete("/api/v1/places/candidates/10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.candidateId").value(10L));
     }

@@ -1,5 +1,11 @@
 package com.bready.server.recommendation.adapter;
 
+import java.util.*;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Component;
+
 import com.bready.server.place.domain.PlaceCategoryType;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.recommendation.ai.AiRerankResult;
@@ -8,13 +14,9 @@ import com.bready.server.recommendation.ai.AiRerankTarget;
 import com.bready.server.recommendation.dto.CategoryRecommendationResponse;
 import com.bready.server.recommendation.port.CategoryRecommendationPort;
 import com.bready.server.trigger.domain.TriggerType;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Component;
-
-import java.util.*;
 
 @Slf4j
 @Component
@@ -27,8 +29,10 @@ public class AiRerankCategoryRecommendationAdapter implements CategoryRecommenda
     private final AiRerankService aiRerankService;
 
     @Override
-    public List<CategoryRecommendationResponse.CategoryItem> recommendCategories(List<PlanCategory> planCategories, PlanCategory currentCategory, TriggerType triggerType) {
-        List<CategoryRecommendationResponse.CategoryItem> base = ruleBasedAdapter.recommendCategories(planCategories, currentCategory, triggerType);
+    public List<CategoryRecommendationResponse.CategoryItem> recommendCategories(
+            List<PlanCategory> planCategories, PlanCategory currentCategory, TriggerType triggerType) {
+        List<CategoryRecommendationResponse.CategoryItem> base =
+                ruleBasedAdapter.recommendCategories(planCategories, currentCategory, triggerType);
 
         if (base.isEmpty()) return base;
 
@@ -62,11 +66,7 @@ public class AiRerankCategoryRecommendationAdapter implements CategoryRecommenda
                     ? result.reasonsById().getOrDefault(id, item.reason())
                     : item.reason();
 
-            reordered.add(new CategoryRecommendationResponse.CategoryItem(
-                    item.categoryType(),
-                    item.label(),
-                    reason
-            ));
+            reordered.add(new CategoryRecommendationResponse.CategoryItem(item.categoryType(), item.label(), reason));
         }
 
         for (CategoryRecommendationResponse.CategoryItem item : base) {
@@ -79,7 +79,8 @@ public class AiRerankCategoryRecommendationAdapter implements CategoryRecommenda
         return reordered;
     }
 
-    private String buildContext(TriggerType triggerType, PlanCategory currentCategory, List<PlanCategory> planCategories) {
+    private String buildContext(
+            TriggerType triggerType, PlanCategory currentCategory, List<PlanCategory> planCategories) {
         String flow = planCategories.stream()
                 .sorted(Comparator.comparing(PlanCategory::getSequence))
                 .map(c -> c.getSequence() + ":" + c.getCategoryType().name())
@@ -99,23 +100,14 @@ public class AiRerankCategoryRecommendationAdapter implements CategoryRecommenda
         trigger=%s
         current=%s
         planFlow=[%s]
-        """.formatted(
-                triggerType,
-                currentCategory.getCategoryType().name(),
-                flow
-        );
+        """
+                .formatted(triggerType, currentCategory.getCategoryType().name(), flow);
     }
 
     private record CategoryRerankCandidate(String id, String name, PlaceCategoryType type) implements AiRerankTarget {
         @Override
         public Map<String, Object> toPromptAttributes() {
-            return Map.of(
-                    "id", id,
-                    "name", name,
-                    "indoor", type.isIndoor(),
-                    "keyword", type.getKeyword()
-            );
+            return Map.of("id", id, "name", name, "indoor", type.isIndoor(), "keyword", type.getKeyword());
         }
     }
-
 }

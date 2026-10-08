@@ -1,13 +1,7 @@
 package com.bready.server.trigger.controller;
 
-import com.bready.server.global.config.security.TestSecurityConfig;
-import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.trigger.domain.DecisionType;
-import com.bready.server.trigger.dto.DecisionCreateRequest;
-import com.bready.server.trigger.dto.DecisionCreateResponse;
-import com.bready.server.trigger.exception.TriggerDecisionErrorCase;
-import com.bready.server.trigger.service.DecisionService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDateTime;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +11,15 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.LocalDateTime;
+import com.bready.server.global.config.security.TestSecurityConfig;
+import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.trigger.domain.DecisionType;
+import com.bready.server.trigger.dto.DecisionCreateRequest;
+import com.bready.server.trigger.dto.DecisionCreateResponse;
+import com.bready.server.trigger.exception.TriggerDecisionErrorCase;
+import com.bready.server.trigger.service.DecisionService;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -43,25 +45,20 @@ class DecisionControllerTest {
     @DisplayName("트리거 결정 등록 성공 (SWITCH) → 200")
     void createDecision_switch_success() throws Exception {
 
-        DecisionCreateRequest request =
-                new DecisionCreateRequest(DecisionType.SWITCH);
+        DecisionCreateRequest request = new DecisionCreateRequest(DecisionType.SWITCH);
 
-        DecisionCreateResponse response =
-                DecisionCreateResponse.builder()
-                        .decisionId(15L)
-                        .decisionType("SWITCH")
-                        .decidedAt(LocalDateTime.now())
-                        .needSwitch(true)
-                        .build();
+        DecisionCreateResponse response = DecisionCreateResponse.builder()
+                .decisionId(15L)
+                .decisionType("SWITCH")
+                .decidedAt(LocalDateTime.now())
+                .needSwitch(true)
+                .build();
 
-        given(decisionService.createDecision(eq(10L), any()))
-                .willReturn(response);
+        given(decisionService.createDecision(eq(10L), any())).willReturn(response);
 
-        mockMvc.perform(
-                        post("/api/v1/triggers/10/decision")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request))
-                )
+        mockMvc.perform(post("/api/v1/triggers/10/decision")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.decisionId").value(15L))
                 .andExpect(jsonPath("$.data.decisionType").value("SWITCH"))
@@ -72,17 +69,14 @@ class DecisionControllerTest {
     @DisplayName("트리거 결정 실패 - 이미 결정된 트리거 → 409")
     void createDecision_alreadyDecided() throws Exception {
 
-        DecisionCreateRequest request =
-                new DecisionCreateRequest(DecisionType.KEEP);
+        DecisionCreateRequest request = new DecisionCreateRequest(DecisionType.KEEP);
 
         given(decisionService.createDecision(eq(10L), any()))
                 .willThrow(ApplicationException.from(TriggerDecisionErrorCase.DECISION_ALREADY_MADE));
 
-        mockMvc.perform(
-                        post("/api/v1/triggers/10/decision")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request))
-                )
+        mockMvc.perform(post("/api/v1/triggers/10/decision")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict());
     }
 }

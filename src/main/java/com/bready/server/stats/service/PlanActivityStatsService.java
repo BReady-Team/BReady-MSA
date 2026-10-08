@@ -1,5 +1,13 @@
 package com.bready.server.stats.service;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.repository.PlanRepository;
@@ -9,14 +17,8 @@ import com.bready.server.stats.exception.StatsErrorCase;
 import com.bready.server.trigger.domain.DecisionType;
 import com.bready.server.trigger.repository.DecisionRepository;
 import com.bready.server.trigger.repository.SwitchLogRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -34,7 +36,8 @@ public class PlanActivityStatsService {
 
         int limit = normalizeLimit(limitParam);
 
-        Plan plan = planRepository.findByIdAndOwnerId(planId, ownerId)
+        Plan plan = planRepository
+                .findByIdAndOwnerId(planId, ownerId)
                 .orElseThrow(() -> ApplicationException.from(StatsErrorCase.INVALID_PARAMETER));
 
         PageRequest pageable = PageRequest.of(0, limit * 2);

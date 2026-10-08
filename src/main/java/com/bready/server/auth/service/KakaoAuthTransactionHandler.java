@@ -1,5 +1,13 @@
 package com.bready.server.auth.service;
 
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.UUID;
+
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.bready.server.auth.dto.*;
 import com.bready.server.auth.exception.AuthErrorCase;
 import com.bready.server.global.exception.ApplicationException;
@@ -9,14 +17,8 @@ import com.bready.server.user.domain.UserProfile;
 import com.bready.server.user.exception.UserErrorCase;
 import com.bready.server.user.repository.UserProfileRepository;
 import com.bready.server.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -39,7 +41,9 @@ public class KakaoAuthTransactionHandler {
 
         if (user == null) {
 
-            String email = (userInfo.getKakaoAccount() == null) ? null : userInfo.getKakaoAccount().getEmail();
+            String email = (userInfo.getKakaoAccount() == null)
+                    ? null
+                    : userInfo.getKakaoAccount().getEmail();
             if (email == null || email.isBlank()) {
                 throw new ApplicationException(UserErrorCase.KAKAO_EMAIL_CONSENT_REQUIRED);
             }
@@ -48,7 +52,9 @@ public class KakaoAuthTransactionHandler {
                 throw new ApplicationException(UserErrorCase.DUPLICATED_EMAIL);
             }
 
-            String nickname = (userInfo.getProperties() == null) ? null : userInfo.getProperties().getNickname();
+            String nickname = (userInfo.getProperties() == null)
+                    ? null
+                    : userInfo.getProperties().getNickname();
             if (nickname == null || nickname.isBlank()) {
                 nickname = generateRandomNickname();
             }
@@ -56,9 +62,7 @@ public class KakaoAuthTransactionHandler {
             isNewUser = true;
 
             try {
-                user = userRepository.save(
-                        User.createSocial(UserAuthProvider.KAKAO, providerUserId, email)
-                );
+                user = userRepository.save(User.createSocial(UserAuthProvider.KAKAO, providerUserId, email));
                 userProfileRepository.save(UserProfile.create(user, nickname));
             } catch (DataIntegrityViolationException e) {
                 if (userRepository.existsByEmail(email)) {
@@ -70,18 +74,21 @@ public class KakaoAuthTransactionHandler {
                 user = userRepository
                         .findByAuthProviderAndProviderUserId(UserAuthProvider.KAKAO, providerUserId)
                         .orElseThrow(() -> e);
-
             }
         }
 
         TokenResponse tokens = tokenIssuer.issue(user.getId());
 
-        User userWithProfile = userRepository.findByIdWithProfile(user.getId())
+        User userWithProfile = userRepository
+                .findByIdWithProfile(user.getId())
                 .orElseThrow(() -> new ApplicationException(AuthErrorCase.INVALID_KAKAO_AUTH));
 
-        String joinedAt = userWithProfile.getCreatedAt() == null ? null
-                : userWithProfile.getCreatedAt().atOffset(ZoneOffset.UTC)
-                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        String joinedAt = userWithProfile.getCreatedAt() == null
+                ? null
+                : userWithProfile
+                        .getCreatedAt()
+                        .atOffset(ZoneOffset.UTC)
+                        .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
         String nicknameForResponse = userWithProfile.getUserProfile() != null
                 ? userWithProfile.getUserProfile().getNickname()

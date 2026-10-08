@@ -1,11 +1,9 @@
 package com.bready.server.user.service;
 
-import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.s3.service.S3Uploader;
-import com.bready.server.user.domain.User;
-import com.bready.server.user.domain.UserProfile;
-import com.bready.server.user.dto.UserProfileDto;
-import com.bready.server.user.repository.UserRepository;
+import java.time.LocalDateTime;
+import java.time.Month;
+import java.util.Optional;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -16,9 +14,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
-import java.time.LocalDateTime;
-import java.time.Month;
-import java.util.Optional;
+import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.s3.service.S3Uploader;
+import com.bready.server.user.domain.User;
+import com.bready.server.user.domain.UserProfile;
+import com.bready.server.user.dto.UserProfileDto;
+import com.bready.server.user.repository.UserRepository;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -75,8 +76,7 @@ class UserServiceTest {
         @Test
         @DisplayName("userId가 null이면 AUTH_REQUIRED 예외")
         void getMyProfile_authRequired() {
-            assertThatThrownBy(() -> userService.getMyProfile(null))
-                    .isInstanceOf(ApplicationException.class);
+            assertThatThrownBy(() -> userService.getMyProfile(null)).isInstanceOf(ApplicationException.class);
         }
 
         @Test
@@ -84,8 +84,7 @@ class UserServiceTest {
         void getMyProfile_userNotFound() {
             given(userRepository.findByIdWithProfile(1L)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> userService.getMyProfile(1L))
-                    .isInstanceOf(ApplicationException.class);
+            assertThatThrownBy(() -> userService.getMyProfile(1L)).isInstanceOf(ApplicationException.class);
         }
 
         @Test
@@ -94,8 +93,7 @@ class UserServiceTest {
             given(userRepository.findByIdWithProfile(1L)).willReturn(Optional.of(user));
             given(user.getUserProfile()).willReturn(null);
 
-            assertThatThrownBy(() -> userService.getMyProfile(1L))
-                    .isInstanceOf(ApplicationException.class);
+            assertThatThrownBy(() -> userService.getMyProfile(1L)).isInstanceOf(ApplicationException.class);
         }
 
         @Test
@@ -162,8 +160,7 @@ class UserServiceTest {
         void updateBio_userNotFound() {
             given(userRepository.findByIdWithProfile(1L)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> userService.updateBio(1L, "new bio"))
-                    .isInstanceOf(ApplicationException.class);
+            assertThatThrownBy(() -> userService.updateBio(1L, "new bio")).isInstanceOf(ApplicationException.class);
         }
     }
 
@@ -174,16 +171,12 @@ class UserServiceTest {
         @Test
         @DisplayName("프로필 이미지 수정 성공 - 기존 이미지도 삭제")
         void updateProfileImage_success() {
-            MockMultipartFile file = new MockMultipartFile(
-                    "file",
-                    "profile.png",
-                    "image/png",
-                    "content".getBytes()
-            );
+            MockMultipartFile file = new MockMultipartFile("file", "profile.png", "image/png", "content".getBytes());
 
             given(userRepository.findByIdWithProfile(1L)).willReturn(Optional.of(user));
             given(user.getUserProfile()).willReturn(userProfile);
-            given(userProfile.getProfileImageUrl()).willReturn("https://my-bucket.s3.ap-northeast-2.amazonaws.com/profiles/old.png");
+            given(userProfile.getProfileImageUrl())
+                    .willReturn("https://my-bucket.s3.ap-northeast-2.amazonaws.com/profiles/old.png");
 
             given(s3Uploader.uploadAndReturnKey(file, "profiles")).willReturn("profiles/new.png");
             given(s3Uploader.buildUrl("profiles/new.png"))
@@ -196,19 +189,15 @@ class UserServiceTest {
             InOrder inOrder = inOrder(s3Uploader, userProfile);
             inOrder.verify(s3Uploader).uploadAndReturnKey(file, "profiles");
             inOrder.verify(s3Uploader).buildUrl("profiles/new.png");
-            inOrder.verify(userProfile).changeProfileImage("https://my-bucket.s3.ap-northeast-2.amazonaws.com/profiles/new.png");
+            inOrder.verify(userProfile)
+                    .changeProfileImage("https://my-bucket.s3.ap-northeast-2.amazonaws.com/profiles/new.png");
             inOrder.verify(s3Uploader).delete("profiles/old.png");
         }
 
         @Test
         @DisplayName("기존 이미지가 없으면 delete 호출 안 함")
         void updateProfileImage_withoutOldImage() {
-            MockMultipartFile file = new MockMultipartFile(
-                    "file",
-                    "profile.png",
-                    "image/png",
-                    "content".getBytes()
-            );
+            MockMultipartFile file = new MockMultipartFile("file", "profile.png", "image/png", "content".getBytes());
 
             given(userRepository.findByIdWithProfile(1L)).willReturn(Optional.of(user));
             given(user.getUserProfile()).willReturn(userProfile);
@@ -221,19 +210,16 @@ class UserServiceTest {
             String result = userService.updateProfileImage(1L, file);
 
             assertThat(result).isEqualTo("https://my-bucket.s3.ap-northeast-2.amazonaws.com/profiles/new.png");
-            then(userProfile).should().changeProfileImage("https://my-bucket.s3.ap-northeast-2.amazonaws.com/profiles/new.png");
+            then(userProfile)
+                    .should()
+                    .changeProfileImage("https://my-bucket.s3.ap-northeast-2.amazonaws.com/profiles/new.png");
             then(s3Uploader).should(never()).delete(any());
         }
 
         @Test
         @DisplayName("기존 이미지 URL이 공백이면 delete 호출 안 함")
         void updateProfileImage_blankOldImage() {
-            MockMultipartFile file = new MockMultipartFile(
-                    "file",
-                    "profile.png",
-                    "image/png",
-                    "content".getBytes()
-            );
+            MockMultipartFile file = new MockMultipartFile("file", "profile.png", "image/png", "content".getBytes());
 
             given(userRepository.findByIdWithProfile(1L)).willReturn(Optional.of(user));
             given(user.getUserProfile()).willReturn(userProfile);
@@ -251,12 +237,7 @@ class UserServiceTest {
         @Test
         @DisplayName("기존 이미지 URL이 S3 형식이 아니면 delete 호출 안 함")
         void updateProfileImage_invalidOldImageUrl() {
-            MockMultipartFile file = new MockMultipartFile(
-                    "file",
-                    "profile.png",
-                    "image/png",
-                    "content".getBytes()
-            );
+            MockMultipartFile file = new MockMultipartFile("file", "profile.png", "image/png", "content".getBytes());
 
             given(userRepository.findByIdWithProfile(1L)).willReturn(Optional.of(user));
             given(user.getUserProfile()).willReturn(userProfile);
@@ -274,43 +255,34 @@ class UserServiceTest {
         @Test
         @DisplayName("기존 이미지 삭제 실패여도 새 이미지 변경은 성공")
         void updateProfileImage_deleteFailButSuccess() {
-            MockMultipartFile file = new MockMultipartFile(
-                    "file",
-                    "profile.png",
-                    "image/png",
-                    "content".getBytes()
-            );
+            MockMultipartFile file = new MockMultipartFile("file", "profile.png", "image/png", "content".getBytes());
 
             given(userRepository.findByIdWithProfile(1L)).willReturn(Optional.of(user));
             given(user.getUserProfile()).willReturn(userProfile);
-            given(userProfile.getProfileImageUrl()).willReturn("https://my-bucket.s3.ap-northeast-2.amazonaws.com/profiles/old.png");
+            given(userProfile.getProfileImageUrl())
+                    .willReturn("https://my-bucket.s3.ap-northeast-2.amazonaws.com/profiles/old.png");
 
             given(s3Uploader.uploadAndReturnKey(file, "profiles")).willReturn("profiles/new.png");
             given(s3Uploader.buildUrl("profiles/new.png"))
                     .willReturn("https://my-bucket.s3.ap-northeast-2.amazonaws.com/profiles/new.png");
-            willThrow(new RuntimeException("s3 delete fail"))
-                    .given(s3Uploader).delete("profiles/old.png");
+            willThrow(new RuntimeException("s3 delete fail")).given(s3Uploader).delete("profiles/old.png");
 
             String result = userService.updateProfileImage(1L, file);
 
             assertThat(result).isEqualTo("https://my-bucket.s3.ap-northeast-2.amazonaws.com/profiles/new.png");
-            then(userProfile).should().changeProfileImage("https://my-bucket.s3.ap-northeast-2.amazonaws.com/profiles/new.png");
+            then(userProfile)
+                    .should()
+                    .changeProfileImage("https://my-bucket.s3.ap-northeast-2.amazonaws.com/profiles/new.png");
         }
 
         @Test
         @DisplayName("유저가 없으면 USER_NOT_FOUND 예외")
         void updateProfileImage_userNotFound() {
-            MockMultipartFile file = new MockMultipartFile(
-                    "file",
-                    "profile.png",
-                    "image/png",
-                    "content".getBytes()
-            );
+            MockMultipartFile file = new MockMultipartFile("file", "profile.png", "image/png", "content".getBytes());
 
             given(userRepository.findByIdWithProfile(1L)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> userService.updateProfileImage(1L, file))
-                    .isInstanceOf(ApplicationException.class);
+            assertThatThrownBy(() -> userService.updateProfileImage(1L, file)).isInstanceOf(ApplicationException.class);
         }
     }
 }

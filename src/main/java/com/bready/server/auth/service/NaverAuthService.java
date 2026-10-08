@@ -1,5 +1,8 @@
 package com.bready.server.auth.service;
 
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+
 import com.bready.server.auth.client.NaverOAuthClient;
 import com.bready.server.auth.client.NaverUserInfoClient;
 import com.bready.server.auth.dto.NaverLoginResponse;
@@ -7,9 +10,8 @@ import com.bready.server.auth.dto.NaverTokenResponse;
 import com.bready.server.auth.dto.NaverUserInfoResponse;
 import com.bready.server.auth.exception.AuthErrorCase;
 import com.bready.server.global.exception.ApplicationException;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 @Service
 @RequiredArgsConstructor
@@ -37,7 +39,9 @@ public class NaverAuthService {
 
         NaverUserInfoResponse userInfo = fetchNaverUserInfo(naverAccessToken);
 
-        if (userInfo == null || userInfo.getResponse() == null || userInfo.getResponse().getId() == null) {
+        if (userInfo == null
+                || userInfo.getResponse() == null
+                || userInfo.getResponse().getId() == null) {
             throw new ApplicationException(AuthErrorCase.INVALID_NAVER_AUTH);
         }
 
