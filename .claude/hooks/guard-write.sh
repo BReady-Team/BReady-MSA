@@ -34,6 +34,10 @@ case "$REL" in
   CLAUDE.md|.claude/settings.json|.claude/hooks/*)
     ASK_REASON="하네스(권한·훅) 변경이다(${REL}). 보호 장치를 약하게 만드는 변경이 아닌지 확인하고 승인해라. 수정 후 .claude/hooks/test-hooks.sh 를 돌린다." ;;
 
+  # 구조 규칙 기준선: 손으로 고쳐 새 위반을 "인정"하지 않는다. 위반을 고치면 ArchUnit이 알아서 줄인다
+  src/test/resources/archunit_store/*|src/test/resources/archunit.properties)
+    ASK_REASON="ArchUnit 기준선 변경(${REL})이다. 새 위반을 기준선에 넣어 통과시키는 편집이면 승인하지 말고 코드를 고쳐라." ;;
+
   # 빌드·인프라·CI
   build.gradle|settings.gradle|gradle.properties|gradle/*|gradlew|gradlew.bat)
     ASK_REASON="빌드 설정 변경(${REL})이다. 의존성·플러그인 추가는 조각의 설계 단계에서 합의된 것만 넣는다." ;;

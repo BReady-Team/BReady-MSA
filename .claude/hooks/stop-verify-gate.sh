@@ -33,7 +33,7 @@ block() {
   exit 0
 }
 
-OUT="$(./gradlew spotlessCheck compileJava compileTestJava -q --console=plain 2>&1)"
+OUT="$(./gradlew spotlessCheck compileJava compileTestJava test --tests 'com.bready.server.architecture.*' -q --console=plain 2>&1)"
 STATUS=$?
 
 if [ $STATUS -ne 0 ]; then
@@ -48,8 +48,24 @@ if [ $STATUS -ne 0 ]; then
   fi
 
   ERRORS="$(printf '%s' "$OUT" | grep -E 'error:' | sed -E "s|^[[:space:]]*||; s|${PROJECT_DIR}/||" | awk '!seen[$0]++' | head -10)"
-  block "컴파일이 실패한다. 고친 뒤 다시 끝내라.
+  if [ -n "$ERRORS" ]; then
+    block "컴파일이 실패한다. 고친 뒤 다시 끝내라.
 ${ERRORS}"
+  fi
+
+  # 아키텍처 테스트 실패: 기준선에 없는 새 위반만 리포트에 나온다.
+  VIOLATIONS="$(grep -h -A20 '<failure' build/test-results/test/TEST-com.bready.server.architecture.*.xml 2>/dev/null \
+    | sed -E "s/&lt;/</g; s/&gt;/>/g; s/&apos;/'/g; s/&quot;/\"/g" \
+    | grep -E "^(Method|Field|Class|Constructor) <" \
+    | sed -E 's/ in \([A-Za-z]+\.java:[0-9]+\)$//' \
+    | awk '!seen[$0]++' | cut -c1-220 | head -12)"
+  if [ -n "$VIOLATIONS" ]; then
+    block "구조 규칙(ArchUnit)에 새 위반이 생겼다. 기준선(src/test/resources/archunit_store)을 고쳐 통과시키지 말고 코드를 고쳐라. 규칙 근거는 .claude/rules/.
+${VIOLATIONS}"
+  fi
+
+  block "검사가 실패했다. 출력:
+$(printf '%s' "$OUT" | tail -15)"
 fi
 
 printf '%s' "$FINGERPRINT" > "$CACHE_DIR/verify-gate-ok"

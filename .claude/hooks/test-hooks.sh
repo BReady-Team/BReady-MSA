@@ -154,6 +154,8 @@ allow|docs/private/gates.md|## H2
 allow|docs/LEARNING_JOURNEY.md|## 2026-10-09
 ask|docker-compose-local.yml|services: {}
 ask|.github/workflows/ci.yml|name: ci
+ask|src/test/resources/archunit_store/stored.rules|x=y
+ask|src/test/resources/archunit.properties|freeze.refreeze=true
 allow|src/main/java/com/bready/server/plan/service/PlanService.java|public class PlanService {}
 allow|docs/architecture/context-map.md|# 경계 지도
 allow|src/main/resources/application-local.yml|  password: ${DB_PASSWORD:local}
@@ -224,6 +226,33 @@ contains "session: SKIPPED 는 OPEN 경고 없음" "$(context_of "$out")" "이�
 write_state OPEN
 out="$(echo '{}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/session-context.sh")"
 contains "session: OPEN 경고" "$(context_of "$out")" "이해 게이트 OPEN" yes
+
+# post-edit-lint.sh — 새로 쓴 내용만 검사한다
+lint() {
+  jq -n --arg f "$PWD/$1" --arg c "$2" '{tool_input:{file_path:$f, content:$c}}' \
+    | "$HOOKS/post-edit-lint.sh" | jq -r '.hookSpecificOutput.additionalContext // empty' 2>/dev/null
+}
+E=src/main/java/com/bready/server/plan/domain/Plan.java
+S=src/main/java/com/bready/server/trigger/service/TriggerService.java
+T=src/test/java/com/bready/server/plan/service/PlanServiceTest.java
+
+contains "lint: 와일드카드 import" "$(lint $S 'import java.util.*;')" "와일드카드" yes
+contains "lint: static 와일드카드는 허용" "$(lint $T 'import static org.assertj.core.api.Assertions.*;')" "와일드카드" no
+contains "lint: new ApplicationException" "$(lint $S 'throw new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND);')" "ApplicationException.from" yes
+contains "lint: from 은 통과" "$(lint $S 'throw ApplicationException.from(PlanErrorCase.PLAN_NOT_FOUND);')" "ApplicationException" no
+contains "lint: 다른 모듈 repository import" "$(lint $S 'import com.bready.server.plan.repository.CategoryStateRepository;')" "다른 모듈(plan)" yes
+contains "lint: 자기 모듈 import 는 통과" "$(lint $S 'import com.bready.server.trigger.repository.TriggerRepository;')" "다른 모듈" no
+contains "lint: LocalDateTime.now()" "$(lint $S 'LocalDateTime at = LocalDateTime.now();')" "Clock" yes
+contains "lint: now(clock) 는 통과" "$(lint $S 'LocalDateTime at = LocalDateTime.now(clock);')" "Clock" no
+contains "lint: 엔티티 @Setter" "$(lint $E '@Setter')" "@Setter/@Data" yes
+contains "lint: 엔티티 public 기본 생성자" "$(lint $E '@NoArgsConstructor')" "PROTECTED" yes
+contains "lint: DTO 통째 로깅" "$(lint $S 'log.info("요청 {}", request);')" "통째로" yes
+contains "lint: ID 로깅은 통과" "$(lint $S 'log.info("planId={}", planId);')" "통째로" no
+contains "lint: 테스트 @MockBean" "$(lint $T '@MockBean PlanService planService;')" "@MockitoBean" yes
+contains "lint: 테스트 when().thenReturn" "$(lint $T 'when(repo.findById(1L)).thenReturn(Optional.empty());')" "given" yes
+contains "lint: 엔티티 mock" "$(lint $T 'Plan plan = mock(Plan.class);')" "fixture" yes
+contains "lint: 서비스 mock 은 통과" "$(lint $T 'PlanService s = mock(PlanService.class);')" "fixture" no
+check "lint: java 아닌 파일은 무시" "" "$(lint docs/README.md 'import java.util.*;')"
 
 # stop-verify-gate.sh — gradle 을 돌리지 않는 경로만 (gradle 경로는 느려서 수동 시연)
 out="$(echo '{"stop_hook_active":true}' | "$HOOKS/stop-verify-gate.sh")"
