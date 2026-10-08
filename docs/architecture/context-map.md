@@ -155,7 +155,9 @@
 | `TriggerRepository` (trigger) | `countByOwnerIdAndPeriod`, `countByTriggerType` | `Trigger ⋈ Plan` (ownerId 필터) | stats |
 | `DecisionRepository` (trigger) | `findByIdWithTriggerPlanCategory` | `Decision ⋈ Trigger ⋈ PlanCategory ⋈ Plan` (fetch) | trigger(Switch) |
 | `DecisionRepository` | `findRecentKeepDecisionActivities`, `countByOwnerIdAndPeriod`, `findRecentKeepActivities` | `Decision ⋈ Trigger ⋈ Plan` | stats |
-| `SwitchLogRepository` (trigger) | `findRecentSwitchActivities`, `countByOwnerIdAndPeriod`, `countSwitchByPlanIdAndPeriod`, `findRecentSwitchActivitiesAllPlans` | `SwitchLog ⋈ Decision ⋈ Trigger ⋈ Plan` | stats |
+| `SwitchLogRepository` (trigger) | `findRecentSwitchActivities`, `countByOwnerIdAndPeriod`, `findRecentSwitchActivitiesAllPlans` | `SwitchLog ⋈ Decision ⋈ Trigger ⋈ Plan` | stats |
+| `SwitchLogRepository` (trigger) | `countSwitchByPlanIdAndPeriod` | `SwitchLog ⋈ Decision ⋈ Trigger`, `t.plan.id` (FK 컬럼만 사용, `plans` JOIN 없음) | stats |
+| `TriggerRepository` (trigger) | `countByPlanIdAndPeriod` | `t.plan.id` (FK 컬럼만 사용, 실제 JOIN은 없음) | stats |
 | `PlanCategoryRepository` (plan) | `findAllDetailByPlanId` | `PlanCategory ⋈ PlaceCandidate ⋈ Place` (fetch) | plan(상세) |
 | `PlaceCandidateRepository` (place) | `findByIdWithCategoryAndPlace`, `findByIdWithCategory`, `findAliveByIdWithCategoryAndPlace` | `PlaceCandidate ⋈ PlanCategory (⋈ Place)` (fetch) | place, recommendation |
 | `PlaceCandidateRepository` | `existsAliveByIdAndCategoryId`, `findAliveByIdAndCategoryId`, `findAllAliveByCategoryIdForUpdate` | `pc.category.id` 경로 (FK 컬럼만 사용, 실제 JOIN은 없음) | trigger, plan |
@@ -338,3 +340,4 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|---|
 | 2026-10-08 | v0 | 최초 작성 (코드 수정 없이 분석) |
 | 2026-10-08 | v0.1 | 경계 위반 기준선(ArchUnit) 추가 |
+| 2026-10-08 | v0.2 | 5.1 정정: `countSwitchByPlanIdAndPeriod`는 `plans`를 JOIN하지 않음, `TriggerRepository.countByPlanIdAndPeriod` 누락 추가 (boundary-auditor 감사로 발견) |
