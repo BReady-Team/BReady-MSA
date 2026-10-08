@@ -1,0 +1,41 @@
+com.bready.server.auth.dto.KakaoLoginRequest is not a record
+com.bready.server.auth.dto.KakaoLoginResponse is not a record
+com.bready.server.auth.dto.KakaoTokenResponse is not a record
+com.bready.server.auth.dto.KakaoUserInfoResponse is not a record
+com.bready.server.auth.dto.LoginRequest is not a record
+com.bready.server.auth.dto.NaverLoginRequest is not a record
+com.bready.server.auth.dto.NaverLoginResponse is not a record
+com.bready.server.auth.dto.NaverTokenResponse is not a record
+com.bready.server.auth.dto.NaverUserInfoResponse is not a record
+com.bready.server.auth.dto.RefreshRequest is not a record
+com.bready.server.auth.dto.SignupRequest is not a record
+com.bready.server.auth.dto.SignupResponse is not a record
+com.bready.server.auth.dto.TokenResponse is not a record
+com.bready.server.place.dto.kakao.KakaoPlaceDocument is not a record and not named *Request/*Response
+com.bready.server.plan.dto.PageInfo is not a record and not named *Request/*Response
+com.bready.server.plan.dto.PlanCategoryCreateRequest is not a record
+com.bready.server.plan.dto.PlanCategoryCreateResponse is not a record
+com.bready.server.plan.dto.PlanCategoryDeleteResponse is not a record
+com.bready.server.plan.dto.PlanCategoryItemDto is not a record and not named *Request/*Response
+com.bready.server.plan.dto.PlanCategoryOrderUpdateRequest is not a record
+com.bready.server.plan.dto.PlanCategoryOrderUpdateResponse is not a record
+com.bready.server.plan.dto.PlanCategoryTypeUpdateRequest is not a record
+com.bready.server.plan.dto.PlanCategoryTypeUpdateResponse is not a record
+com.bready.server.plan.dto.PlanCreateRequest is not a record
+com.bready.server.plan.dto.PlanCreateResponse is not a record
+com.bready.server.plan.dto.PlanDeleteResponse is not a record
+com.bready.server.plan.dto.PlanDetailCandidateDto is not a record and not named *Request/*Response
+com.bready.server.plan.dto.PlanDetailCategoryDto is not a record and not named *Request/*Response
+com.bready.server.plan.dto.PlanDetailPlaceDto is not a record and not named *Request/*Response
+com.bready.server.plan.dto.PlanDetailResponse is not a record
+com.bready.server.plan.dto.PlanDto is not a record and not named *Request/*Response
+com.bready.server.plan.dto.PlanListItemDto is not a record and not named *Request/*Response
+com.bready.server.plan.dto.PlanListResponse is not a record
+com.bready.server.plan.dto.PlanUpdateRequest is not a record
+com.bready.server.plan.dto.PlanUpdateResponse is not a record
+com.bready.server.recommendation.dto.PlaceRecommendationQuery is a record and not named *Request/*Response
+com.bready.server.stats.dto.PlanActivityItem is a record and not named *Request/*Response
+com.bready.server.stats.dto.PlanStatsItem is a record and not named *Request/*Response
+com.bready.server.stats.dto.RecentActivityItem is a record and not named *Request/*Response
+com.bready.server.stats.dto.TriggerStatsItem is a record and not named *Request/*Response
+com.bready.server.user.dto.UserProfileDto is a record and not named *Request/*Response

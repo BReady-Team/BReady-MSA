@@ -1,0 +1,17 @@
+com.bready.server.auth.controller.AuthController does not implement AuthApi
+com.bready.server.place.controller.PlaceCandidateController does not implement PlaceCandidateApi
+com.bready.server.place.controller.PlaceController does not implement PlaceApi
+com.bready.server.place.controller.PlaceSearchController does not implement PlaceSearchApi
+com.bready.server.plan.controller.PlanCategoryController does not implement PlanCategoryApi
+com.bready.server.plan.controller.PlanController does not implement PlanApi
+com.bready.server.recommendation.controller.RecommendationController does not implement RecommendationApi
+com.bready.server.s3.controller.S3Controller does not implement S3Api
+com.bready.server.stats.controller.PlanActivityStatsController does not implement PlanActivityStatsApi
+com.bready.server.stats.controller.PlanStatsController does not implement PlanStatsApi
+com.bready.server.stats.controller.RecentActivityStatsController does not implement RecentActivityStatsApi
+com.bready.server.stats.controller.StatsController does not implement StatsApi
+com.bready.server.stats.controller.TriggerStatsController does not implement TriggerStatsApi
+com.bready.server.trigger.controller.DecisionController does not implement DecisionApi
+com.bready.server.trigger.controller.SwitchController does not implement SwitchApi
+com.bready.server.trigger.controller.TriggerController does not implement TriggerApi
+com.bready.server.user.controller.UserController does not implement UserApi
