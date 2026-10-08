@@ -105,7 +105,8 @@ H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → 
 | 위치 | 역할 |
 |---|---|
 | `.claude/settings.json` | 권한(allow/ask/deny) + 훅 등록 |
-| `.claude/hooks/` | `guard-bash`·`guard-write`(차단), `session-context`(세션 시작 주입), `prompt-router`(게이트 리마인더 + 규칙 파일 라우팅), `stop-verify-gate`(끝내기 전 포맷·컴파일), `test-hooks.sh`(회귀) |
+| `.claude/hooks/` | `guard-bash`·`guard-write`(차단), `session-context`(세션 시작 주입), `prompt-router`(게이트 리마인더 + 규칙 파일 라우팅), `post-edit-lint`(새로 쓴 코드의 규칙 위반 알림), `stop-verify-gate`(끝내기 전 포맷·컴파일·아키텍처 테스트), `test-hooks.sh`(회귀) |
+| `src/test/.../architecture/` | ArchUnit 레이어·코딩·모듈 경계 규칙. 옛 위반은 기준선(`archunit_store`), 새 위반은 빌드 실패 |
 | `.claude/skills/` | 조각 진행: `/piece-start` `/piece-close` `/gate-review` `/adr` `/trouble` `/verify` `/git-handoff` · 코드: `/new-api` `/domain-model` `/write-test` `/refactor-legacy` |
 | `.claude/scripts/` | `verify.sh` |
 | `.claude/rules/` | 규범 10개 + 지도 `00-map.md` |

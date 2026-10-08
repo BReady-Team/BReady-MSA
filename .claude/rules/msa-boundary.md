@@ -35,7 +35,11 @@
 
 - ArchUnit `FreezingArchRule`로 **현재 위반 전부를 기준선으로 기록**한다. 기준선에 없는 위반이 새로 생기면 빌드가 실패한다.
 - 위반을 하나 끊으면 기준선 파일에서 그 줄이 빠진다. 그 diff가 진척도다.
-- 기준선 파일을 손으로 고쳐 새 위반을 "인정"하지 않는다. 피할 수 없는 위반이면 사용자 결정을 받고 ADR이나 설계서에 이유를 남긴다.
+- 기준선 파일을 손으로 고쳐 새 위반을 "인정"하지 않는다. 피할 수 없는 위반이면 사용자 결정을 받고 ADR이나 설계서에 이유를 남긴다. (기준선 편집은 guard-write가 승인을 요구한다)
+- 위치: 테스트 `src/test/java/com/bready/server/architecture/`, 기준선 `src/test/resources/archunit_store/`, 현재 수치 `docs/architecture/context-map.md` 11번.
+- 기준선은 **규칙 설명 문자열**을 키로 위반을 기억한다. `because(...)` 문구를 바꾸면 새 규칙으로 취급된다.
+- 새 규칙을 추가할 때만 `archunit.properties`의 `allowStoreCreation`을 잠깐 `true`로 바꿔 기준선을 만들고 바로 `false`로 돌린다(사용자 승인).
+- 위반을 고쳤다면 `context-map.md` 11번 표의 숫자도 갱신한다.
 
 ## 5. 옛 코드를 건드릴 때
 
