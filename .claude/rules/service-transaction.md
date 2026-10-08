@@ -36,7 +36,7 @@ public class PlanService {
 
 - 클래스에 `@Transactional(readOnly = true)`, 쓰기 메서드에만 `@Transactional`
 - 클래스와 메서드에 같은 설정을 두 번 쓰지 않는다.
-  - BReady 현황: `PlanStatsUpdater`는 클래스와 메서드 모두 `@Transactional`(`stats/service/PlanStatsUpdater.java:18,25`). `PlanService`는 클래스 선언 없이 메서드마다 붙인다.
+  - BReady 현황: `PlanStatsUpdater`는 클래스와 메서드 모두 `@Transactional`(`stats/service/PlanStatsUpdater.java:20,27`). `PlanService`는 클래스 선언 없이 메서드마다 붙인다.
 - `readOnly = true`의 효과: Hibernate가 변경 감지(dirty checking)를 건너뛰고, 읽기 전용 커넥션 라우팅이 가능해진다. 읽기 메서드에서 엔티티를 바꿔도 반영되지 않는다는 점을 안다.
 - 컨트롤러·리포지토리에 `@Transactional`을 두지 않는다.
 
@@ -54,7 +54,7 @@ KakaoAuthService.login()              ← 트랜잭션 없음
   └─ kakaoAuthTransactionHandler.processKakaoLogin(userInfo)   ← @Transactional, DB만
 ```
 
-**BReady 나쁜 예**: `UserService.updateProfileImage`는 `@Transactional` 안에서 S3 업로드와 삭제를 한다(`user/service/UserService.java:79`)
+**BReady 나쁜 예**: `UserService.updateProfileImage`는 `@Transactional` 안에서 S3 업로드와 삭제를 한다(`user/service/UserService.java:80`)
 
 - 외부 호출 결과가 필요한 쓰기는 위처럼 "외부 호출(트랜잭션 없음) → 트랜잭션 빈 호출" 구조로 만든다.
 - 커밋 후에 해야 하는 외부 작업은 커밋 이후 단계로 미룬다
@@ -72,7 +72,7 @@ try {
     throw ApplicationException.from(PlaceErrorCase.DUPLICATE_PLACE_CANDIDATE);
 }
 ```
-(`place/service/PlaceCandidateService.java:47`) — "먼저 조회해서 없으면 저장"은 동시 요청 두 개가 둘 다 "없음"을 본다. 유니크 제약이 최종 판정자다. `saveAndFlush`여야 예외가 이 try 안에서 터진다.
+(`place/service/PlaceCandidateService.java:49`) — "먼저 조회해서 없으면 저장"은 동시 요청 두 개가 둘 다 "없음"을 본다. 유니크 제약이 최종 판정자다. `saveAndFlush`여야 예외가 이 try 안에서 터진다.
 
 **락 선택 기준**
 | 상황 | 방법 |
@@ -84,7 +84,7 @@ try {
 - 락은 항상 같은 순서로 잡는다(예: plan → category → state). 순서가 엇갈리면 데드락이 난다.
 
 **`REQUIRES_NEW`는 이유가 있을 때만**
-- 바깥 트랜잭션이 롤백돼도 남아야 하는 작업에만 쓴다(예: 공용 장소 카탈로그 `getOrCreate` — `place/service/PlacePersistenceService.java:20`).
+- 바깥 트랜잭션이 롤백돼도 남아야 하는 작업에만 쓴다(예: 공용 장소 카탈로그 `getOrCreate` — `place/service/PlacePersistenceService.java:22`).
 - 같은 클래스 안에서 부르면 프록시를 거치지 않아 적용되지 않는다(8번). 반드시 다른 빈으로.
 
 ## 5. Clock 주입
@@ -96,7 +96,7 @@ try {
 ## 6. 이벤트
 
 - **이벤트 클래스는 발행하는 모듈이 소유한다.** 소비자 패키지에 두지 않는다. [빌드]
-  - BReady 현황: `TriggerCreatedEvent`·`SwitchLogCreatedEvent`가 `stats.event`에 있고 trigger가 import한다(`trigger/service/SwitchService.java:9`) → trigger ⇄ stats 순환 의존.
+  - BReady 현황: `TriggerCreatedEvent`·`SwitchLogCreatedEvent`가 `stats.event`에 있고 trigger가 import한다(`trigger/service/SwitchService.java:14`) → trigger ⇄ stats 순환 의존.
 - 이벤트는 사실(과거형) 이름: `SwitchExecutedEvent`, `TriggerOccurredEvent`. 필요한 ID와 값만 담는다. 엔티티를 담지 않는다.
 - `@TransactionalEventListener(AFTER_COMMIT)` + `@Async`의 의미를 알고 쓴다:
   - 커밋된 뒤에만 실행된다(롤백된 변경으로 통계가 바뀌지 않는다)

@@ -1,5 +1,10 @@
 package com.bready.server.trigger.service;
 
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.place.domain.PlaceCandidate;
 import com.bready.server.place.repository.PlaceCandidateRepository;
@@ -14,11 +19,8 @@ import com.bready.server.trigger.dto.DecisionSwitchResponse;
 import com.bready.server.trigger.exception.TriggerSwitchErrorCase;
 import com.bready.server.trigger.repository.DecisionRepository;
 import com.bready.server.trigger.repository.SwitchLogRepository;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,7 +35,8 @@ public class SwitchService {
     @Transactional
     public DecisionSwitchResponse executeSwitch(Long decisionId, DecisionSwitchRequest request) {
 
-        Decision decision = decisionRepository.findByIdWithTriggerPlanCategory(decisionId)
+        Decision decision = decisionRepository
+                .findByIdWithTriggerPlanCategory(decisionId)
                 .orElseThrow(() -> ApplicationException.from(TriggerSwitchErrorCase.DECISION_NOT_FOUND));
 
         // SWITCH 결정인지 검증
@@ -53,19 +56,16 @@ public class SwitchService {
         Long toCandidateId = request.toCandidateId();
 
         // 전환 대상 후보 조회 + 검증 (중복 쿼리 제거)
-        PlaceCandidate toCandidate =
-                placeCandidateRepository.findAliveByIdAndCategoryId(toCandidateId, categoryId)
-                        .orElseThrow(() -> {
-                            boolean existsAlive =
-                                    placeCandidateRepository.findAliveById(toCandidateId).isPresent();
-                            return existsAlive
-                                    ? ApplicationException.from(
-                                            TriggerSwitchErrorCase.TO_CANDIDATE_MISMATCH
-                                    )
-                                    : ApplicationException.from(
-                                            TriggerSwitchErrorCase.TO_CANDIDATE_NOT_FOUND
-                                    );
-                        });
+        PlaceCandidate toCandidate = placeCandidateRepository
+                .findAliveByIdAndCategoryId(toCandidateId, categoryId)
+                .orElseThrow(() -> {
+                    boolean existsAlive = placeCandidateRepository
+                            .findAliveById(toCandidateId)
+                            .isPresent();
+                    return existsAlive
+                            ? ApplicationException.from(TriggerSwitchErrorCase.TO_CANDIDATE_MISMATCH)
+                            : ApplicationException.from(TriggerSwitchErrorCase.TO_CANDIDATE_NOT_FOUND);
+                });
 
         // CategoryState 락 걸고 조회
         CategoryState state = categoryStateRepository
@@ -85,21 +85,15 @@ public class SwitchService {
         }
 
         // 기존의 대표 후보 조회
-        PlaceCandidate fromCandidate =
-                placeCandidateRepository.findAliveById(fromCandidateId)
-                        .orElseThrow(() -> ApplicationException.from(TriggerSwitchErrorCase.FROM_CANDIDATE_NOT_FOUND));
+        PlaceCandidate fromCandidate = placeCandidateRepository
+                .findAliveById(fromCandidateId)
+                .orElseThrow(() -> ApplicationException.from(TriggerSwitchErrorCase.FROM_CANDIDATE_NOT_FOUND));
 
         state.changeRepresentative(toCandidateId);
 
         SwitchLog saved;
         try {
-            saved = switchLogRepository.saveAndFlush(
-                    SwitchLog.create(
-                            decision,
-                            fromCandidate,
-                            toCandidate
-                    )
-            );
+            saved = switchLogRepository.saveAndFlush(SwitchLog.create(decision, fromCandidate, toCandidate));
         } catch (DataIntegrityViolationException e) {
             // 유니크 제약으로 인한 중복 전환 방지
             throw ApplicationException.from(TriggerSwitchErrorCase.ALREADY_SWITCHED);

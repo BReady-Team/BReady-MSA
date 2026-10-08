@@ -1,11 +1,12 @@
 package com.bready.server.stats.domain;
 
-import com.bready.server.global.entity.BaseEntity;
+import java.math.BigDecimal;
 import jakarta.persistence.*;
+
+import com.bready.server.global.entity.BaseEntity;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
 
 @Getter
 @NoArgsConstructor
@@ -13,12 +14,10 @@ import java.math.BigDecimal;
 @Table(
         name = "plan_stats",
         uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_plan_stats_plan_period",
-                        columnNames = {"plan_id", "period"}
-                )
-        }
-)
+            @UniqueConstraint(
+                    name = "uk_plan_stats_plan_period",
+                    columnNames = {"plan_id", "period"})
+        })
 public class PlanStats extends BaseEntity {
 
     @Id
@@ -42,12 +41,7 @@ public class PlanStats extends BaseEntity {
     private BigDecimal reliabilityScore;
 
     public static PlanStats create(
-            Long planId,
-            StatsPeriod period,
-            int totalTriggers,
-            int totalSwitches,
-            BigDecimal reliabilityScore
-    ) {
+            Long planId, StatsPeriod period, int totalTriggers, int totalSwitches, BigDecimal reliabilityScore) {
         PlanStats stats = new PlanStats();
         stats.planId = planId;
         stats.period = period;
@@ -57,11 +51,7 @@ public class PlanStats extends BaseEntity {
         return stats;
     }
 
-    public void update(
-            int totalTriggers,
-            int totalSwitches,
-            BigDecimal reliabilityScore
-    ) {
+    public void update(int totalTriggers, int totalSwitches, BigDecimal reliabilityScore) {
         this.totalTriggers = totalTriggers;
         this.totalSwitches = totalSwitches;
         this.reliabilityScore = reliabilityScore;

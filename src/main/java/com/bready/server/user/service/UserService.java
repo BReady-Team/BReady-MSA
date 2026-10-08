@@ -1,5 +1,12 @@
 package com.bready.server.user.service;
 
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.s3.service.S3Uploader;
 import com.bready.server.user.domain.User;
@@ -7,14 +14,9 @@ import com.bready.server.user.domain.UserProfile;
 import com.bready.server.user.dto.UserProfileDto;
 import com.bready.server.user.exception.UserErrorCase;
 import com.bready.server.user.repository.UserRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 
 @Slf4j
 @Service
@@ -30,7 +32,8 @@ public class UserService {
             throw new ApplicationException(UserErrorCase.AUTH_REQUIRED);
         }
 
-        User user = userRepository.findByIdWithProfile(userId)
+        User user = userRepository
+                .findByIdWithProfile(userId)
                 .orElseThrow(() -> new ApplicationException(UserErrorCase.USER_NOT_FOUND));
 
         UserProfile profile = user.getUserProfile();
@@ -40,9 +43,7 @@ public class UserService {
 
         String joinedAt = user.getCreatedAt() == null
                 ? null
-                : user.getCreatedAt()
-                .atZone(ZoneId.of("Asia/Seoul"))
-                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                : user.getCreatedAt().atZone(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
         return UserProfileDto.builder()
                 .userId(user.getId())
@@ -98,16 +99,18 @@ public class UserService {
     private String extractKeyFromUrl(String url) {
         int index = url.indexOf(".amazonaws.com/");
 
-        if (index == -1) { return null;}
+        if (index == -1) {
+            return null;
+        }
 
         return url.substring(index + ".amazonaws.com/".length());
     }
 
     private UserProfile getUserProfile(Long userId) {
-        User user = userRepository.findByIdWithProfile(userId)
+        User user = userRepository
+                .findByIdWithProfile(userId)
                 .orElseThrow(() -> new ApplicationException(UserErrorCase.USER_NOT_FOUND));
 
         return user.getUserProfile();
     }
 }
-

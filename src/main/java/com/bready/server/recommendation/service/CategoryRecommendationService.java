@@ -1,16 +1,17 @@
 package com.bready.server.recommendation.service;
 
-import com.bready.server.recommendation.dto.CategoryRecommendationRequest;
-import com.bready.server.recommendation.dto.CategoryRecommendationResponse;
-import com.bready.server.recommendation.port.CategoryRecommendationPort;
-import com.bready.server.recommendation.cache.CategoryRecommendationCacheService;
+import java.util.List;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import com.bready.server.recommendation.cache.CategoryRecommendationCacheService;
+import com.bready.server.recommendation.dto.CategoryRecommendationRequest;
+import com.bready.server.recommendation.dto.CategoryRecommendationResponse;
+import com.bready.server.recommendation.port.CategoryRecommendationPort;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -22,9 +23,7 @@ public class CategoryRecommendationService {
     private final CategoryRecommendationCacheService categoryRecommendationCacheService;
 
     @Transactional(readOnly = true)
-    public CategoryRecommendationResponse recommendCategories(
-            Long userId, CategoryRecommendationRequest request
-    ) {
+    public CategoryRecommendationResponse recommendCategories(Long userId, CategoryRecommendationRequest request) {
 
         long start = System.currentTimeMillis();
 
@@ -33,19 +32,18 @@ public class CategoryRecommendationService {
 
         String cacheKey = categoryRecommendationCacheService.generateKey(request.triggerId());
 
-        List<CategoryRecommendationResponse.CategoryItem> cachedItems = categoryRecommendationCacheService.get(cacheKey);
+        List<CategoryRecommendationResponse.CategoryItem> cachedItems =
+                categoryRecommendationCacheService.get(cacheKey);
 
         if (cachedItems != null && !cachedItems.isEmpty()) {
             return new CategoryRecommendationResponse(cachedItems);
         }
 
         List<CategoryRecommendationResponse.CategoryItem> items = categoryRecommendationPort.recommendCategories(
-                v.planCategories(), v.currentCategory(), v.trigger().getTriggerType()
-        );
+                v.planCategories(), v.currentCategory(), v.trigger().getTriggerType());
         long t2 = System.currentTimeMillis();
 
-        log.info("categoryReco validate={}ms, recommend={}ms, total={}ms",
-                t1 - start, t2 - t1, t2 - start);
+        log.info("categoryReco validate={}ms, recommend={}ms, total={}ms", t1 - start, t2 - t1, t2 - start);
 
         categoryRecommendationCacheService.put(cacheKey, items);
 

@@ -1,11 +1,11 @@
 package com.bready.server.plan.domain;
 
+import java.time.LocalDateTime;
 import jakarta.persistence.*;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -26,11 +26,7 @@ public class CategorySelectionLog {
     @Column(name = "selected_at", nullable = false)
     private LocalDateTime selectedAt;
 
-    public static CategorySelectionLog of(
-            Long categoryId,
-            Long candidateId,
-            LocalDateTime selectedAt
-    ) {
+    public static CategorySelectionLog of(Long categoryId, Long candidateId, LocalDateTime selectedAt) {
         CategorySelectionLog log = new CategorySelectionLog();
         log.categoryId = categoryId;
         log.candidateId = candidateId;

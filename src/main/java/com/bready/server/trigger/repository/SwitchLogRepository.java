@@ -1,31 +1,39 @@
 package com.bready.server.trigger.repository;
 
-import com.bready.server.trigger.domain.SwitchLog;
-import com.bready.server.trigger.domain.TriggerType;
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import com.bready.server.trigger.domain.SwitchLog;
+import com.bready.server.trigger.domain.TriggerType;
 
 public interface SwitchLogRepository extends JpaRepository<SwitchLog, Long> {
     interface SwitchActivityRow {
         Long getLogId();
+
         TriggerType getTriggerType();
+
         LocalDateTime getCreatedAt();
     }
 
     interface RecentSwitchActivityRow {
         Long getLogId();
+
         Long getPlanId();
+
         String getPlanTitle();
+
         TriggerType getTriggerType();
+
         LocalDateTime getCreatedAt();
     }
 
-    @Query("""
+    @Query(
+            """
         select
             sl.id as logId,
             t.triggerType as triggerType,
@@ -39,12 +47,10 @@ public interface SwitchLogRepository extends JpaRepository<SwitchLog, Long> {
         order by sl.createdAt desc
     """)
     List<SwitchActivityRow> findRecentSwitchActivities(
-            @Param("ownerId") Long ownerId,
-            @Param("planId") Long planId,
-            Pageable pageable
-    );
+            @Param("ownerId") Long ownerId, @Param("planId") Long planId, Pageable pageable);
 
-    @Query("""
+    @Query(
+            """
         select count(sl)
         from SwitchLog sl
         join sl.decision d
@@ -53,9 +59,10 @@ public interface SwitchLogRepository extends JpaRepository<SwitchLog, Long> {
         where p.ownerId = :ownerId
           and (:startAt is null or sl.createdAt >= :startAt)
     """)
-    long countByOwnerIdAndPeriod(@Param("ownerId")Long ownerId, @Param("startAt")LocalDateTime startAt);
+    long countByOwnerIdAndPeriod(@Param("ownerId") Long ownerId, @Param("startAt") LocalDateTime startAt);
 
-    @Query("""
+    @Query(
+            """
         select count(sl)
         from SwitchLog sl
         join sl.decision d
@@ -65,7 +72,8 @@ public interface SwitchLogRepository extends JpaRepository<SwitchLog, Long> {
     """)
     long countSwitchByPlanIdAndPeriod(@Param("planId") Long planId, @Param("from") LocalDateTime from);
 
-    @Query("""
+    @Query(
+            """
         select
             sl.id as logId,
             p.id as planId,
@@ -82,10 +90,7 @@ public interface SwitchLogRepository extends JpaRepository<SwitchLog, Long> {
         order by sl.createdAt desc
     """)
     List<RecentSwitchActivityRow> findRecentSwitchActivitiesAllPlans(
-            @Param("ownerId") Long ownerId,
-            @Param("startAt") LocalDateTime startAt,
-            Pageable pageable
-    );
+            @Param("ownerId") Long ownerId, @Param("startAt") LocalDateTime startAt, Pageable pageable);
 
     boolean existsByDecision_Id(Long decisionId);
 }

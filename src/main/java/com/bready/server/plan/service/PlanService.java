@@ -1,5 +1,17 @@
 package com.bready.server.plan.service;
 
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.Plan;
@@ -12,18 +24,8 @@ import com.bready.server.plan.repository.PlanRepository;
 import com.bready.server.user.domain.User;
 import com.bready.server.user.domain.UserProfile;
 import com.bready.server.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -49,17 +51,15 @@ public class PlanService {
 
     @Transactional
     public PlanUpdateResponse updatePlan(Long userId, Long planId, PlanUpdateRequest request) {
-        Plan plan = planRepository.findByIdAndDeletedAtIsNull(planId)
+        Plan plan = planRepository
+                .findByIdAndDeletedAtIsNull(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
         if (!plan.getOwnerId().equals(userId)) {
             throw new ApplicationException(PlanErrorCase.PLAN_ACCESS_DENIED);
         }
 
-        plan.update(
-                request.getTitle(),
-                request.getPlanDate(),
-                request.getRegion());
+        plan.update(request.getTitle(), request.getPlanDate(), request.getRegion());
 
         return PlanUpdateResponse.builder()
                 .planId(plan.getId())
@@ -70,7 +70,8 @@ public class PlanService {
     @Transactional(readOnly = true)
     public PlanDetailResponse getPlanDetail(Long userId, Long planId) {
 
-        Plan plan = planRepository.findByIdAndDeletedAtIsNull(planId)
+        Plan plan = planRepository
+                .findByIdAndDeletedAtIsNull(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
         // TODO : 플랜 공유 기능 도입 시 소유자 외에도 조회 권한 허용
@@ -83,7 +84,8 @@ public class PlanService {
 
     @Transactional(readOnly = true)
     public PlanDetailResponse getSharedPlanDetail(String shareToken) {
-        Plan plan = planRepository.findByShareTokenAndDeletedAtIsNull(shareToken)
+        Plan plan = planRepository
+                .findByShareTokenAndDeletedAtIsNull(shareToken)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
         return buildPlanDetailResponse(plan);
@@ -101,17 +103,11 @@ public class PlanService {
                     .build();
         }
 
-        List<Long> categoryIds = categories.stream()
-                .map(PlanCategory::getId)
-                .toList();
+        List<Long> categoryIds = categories.stream().map(PlanCategory::getId).toList();
 
-        Map<Long, Long> representativeMap = categoryStateRepository.findAllByCategory_IdIn(categoryIds)
-                .stream()
+        Map<Long, Long> representativeMap = categoryStateRepository.findAllByCategory_IdIn(categoryIds).stream()
                 .filter(cs -> cs.getCurrentCandidateId() != null)
-                .collect(Collectors.toMap(
-                        cs -> cs.getCategory().getId(),
-                        CategoryState::getCurrentCandidateId
-                ));
+                .collect(Collectors.toMap(cs -> cs.getCategory().getId(), CategoryState::getCurrentCandidateId));
 
         List<PlanDetailCategoryDto> categoryDtos = categories.stream()
                 .map(category -> buildCategoryDto(category, representativeMap.get(category.getId())))
@@ -123,9 +119,9 @@ public class PlanService {
                 .build();
     }
 
-
     private PlanDto buildPlanDto(Plan plan) {
-        User user = userRepository.findByIdWithProfile(plan.getOwnerId())
+        User user = userRepository
+                .findByIdWithProfile(plan.getOwnerId())
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
         UserProfile profile = user.getUserProfile();
@@ -177,12 +173,12 @@ public class PlanService {
                 .build();
     }
 
-
     @Transactional(readOnly = true)
     public PlanListResponse getMyPlans(Long userId, int page, int size, SortDirection order) {
         Sort.Direction direction = (order == SortDirection.ASC) ? Sort.Direction.ASC : Sort.Direction.DESC;
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, "planDate").and(Sort.by(Sort.Direction.DESC, "createdAt")));
+        Pageable pageable = PageRequest.of(
+                page, size, Sort.by(direction, "planDate").and(Sort.by(Sort.Direction.DESC, "createdAt")));
 
         Page<Plan> result = planRepository.findAllByOwnerIdAndDeletedAtIsNull(userId, pageable);
 
@@ -205,16 +201,14 @@ public class PlanService {
                 .totalPages(result.getTotalPages())
                 .build();
 
-        return PlanListResponse.builder()
-                .items(items)
-                .pageInfo(pageInfo)
-                .build();
+        return PlanListResponse.builder().items(items).pageInfo(pageInfo).build();
     }
 
     @Transactional
     public PlanDeleteResponse deletePlan(Long userId, Long planId) {
 
-        Plan plan = planRepository.findByIdAndDeletedAtIsNull(planId)
+        Plan plan = planRepository
+                .findByIdAndDeletedAtIsNull(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
         if (!plan.getOwnerId().equals(userId)) {
@@ -231,7 +225,8 @@ public class PlanService {
 
     @Transactional
     public String getOrCreateShareToken(Long userId, Long planId) {
-        Plan plan = planRepository.findByIdAndDeletedAtIsNullForUpdate(planId)
+        Plan plan = planRepository
+                .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
         if (!plan.getOwnerId().equals(userId)) {

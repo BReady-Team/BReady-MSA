@@ -1,37 +1,45 @@
 package com.bready.server.trigger.repository;
 
-import com.bready.server.trigger.domain.Decision;
-import com.bready.server.trigger.domain.DecisionType;
-import com.bready.server.trigger.domain.TriggerType;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+import com.bready.server.trigger.domain.Decision;
+import com.bready.server.trigger.domain.DecisionType;
+import com.bready.server.trigger.domain.TriggerType;
 
 public interface DecisionRepository extends JpaRepository<Decision, Long> {
     interface KeepDecisionActivityRow {
         Long getLogId();
+
         TriggerType getTriggerType();
+
         LocalDateTime getCreatedAt();
     }
 
     interface RecentKeepActivityRow {
         Long getDecisionId();
+
         Long getPlanId();
+
         String getPlanTitle();
+
         TriggerType getTriggerType();
+
         LocalDateTime getCreatedAt();
     }
 
-
     boolean existsByTrigger_Id(Long triggerId);
+
     Optional<Decision> findByTrigger_Id(Long triggerId);
 
-    @Query("""
+    @Query(
+            """
         select d
         from Decision d
         join fetch d.trigger t
@@ -41,7 +49,8 @@ public interface DecisionRepository extends JpaRepository<Decision, Long> {
     """)
     Optional<Decision> findByIdWithTriggerPlanCategory(Long decisionId);
 
-    @Query("""
+    @Query(
+            """
         select
             d.id as logId,
             t.triggerType as triggerType,
@@ -58,10 +67,10 @@ public interface DecisionRepository extends JpaRepository<Decision, Long> {
             @Param("ownerId") Long ownerId,
             @Param("planId") Long planId,
             @Param("decisionType") DecisionType decisionType,
-            Pageable pageable
-    );
+            Pageable pageable);
 
-    @Query("""
+    @Query(
+            """
         select count(d)
         from Decision d
         join d.trigger t
@@ -69,12 +78,10 @@ public interface DecisionRepository extends JpaRepository<Decision, Long> {
         where p.ownerId = :ownerId
             and (:startAt is null or d.decidedAt >= :startAt)
     """)
-    long countByOwnerIdAndPeriod(
-            @Param("ownerId") Long ownerId,
-            @Param("startAt") LocalDateTime startAt
-    );
+    long countByOwnerIdAndPeriod(@Param("ownerId") Long ownerId, @Param("startAt") LocalDateTime startAt);
 
-    @Query("""
+    @Query(
+            """
         select
             d.id as decisionId,
             p.id as planId,
@@ -91,8 +98,5 @@ public interface DecisionRepository extends JpaRepository<Decision, Long> {
         order by d.decidedAt desc
     """)
     List<RecentKeepActivityRow> findRecentKeepActivities(
-            @Param("ownerId") Long ownerId,
-            @Param("startAt") LocalDateTime startAt,
-            Pageable pageable
-    );
+            @Param("ownerId") Long ownerId, @Param("startAt") LocalDateTime startAt, Pageable pageable);
 }

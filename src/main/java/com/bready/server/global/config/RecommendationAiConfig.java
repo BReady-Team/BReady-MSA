@@ -14,5 +14,4 @@ public class RecommendationAiConfig {
     public ChatClient chatClient(ChatModel chatModel) {
         return ChatClient.builder(chatModel).build();
     }
-
 }

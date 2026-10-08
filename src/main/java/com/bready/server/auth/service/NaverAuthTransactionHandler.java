@@ -1,5 +1,13 @@
 package com.bready.server.auth.service;
 
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.UUID;
+
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.bready.server.auth.dto.NaverLoginResponse;
 import com.bready.server.auth.dto.NaverUserInfoResponse;
 import com.bready.server.auth.dto.TokenResponse;
@@ -11,14 +19,8 @@ import com.bready.server.user.domain.UserProfile;
 import com.bready.server.user.exception.UserErrorCase;
 import com.bready.server.user.repository.UserProfileRepository;
 import com.bready.server.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -60,9 +62,7 @@ public class NaverAuthTransactionHandler {
             isNewUser = true;
 
             try {
-                user = userRepository.save(
-                        User.createSocial(UserAuthProvider.NAVER, providerUserId, email)
-                );
+                user = userRepository.save(User.createSocial(UserAuthProvider.NAVER, providerUserId, email));
                 userProfileRepository.save(UserProfile.create(user, nickname));
             } catch (DataIntegrityViolationException e) {
                 if (userRepository.existsByEmail(email)) {
@@ -79,12 +79,16 @@ public class NaverAuthTransactionHandler {
 
         TokenResponse tokens = tokenIssuer.issue(user.getId());
 
-        User userWithProfile = userRepository.findByIdWithProfile(user.getId())
+        User userWithProfile = userRepository
+                .findByIdWithProfile(user.getId())
                 .orElseThrow(() -> new ApplicationException(AuthErrorCase.INVALID_NAVER_AUTH));
 
-        String joinedAt = userWithProfile.getCreatedAt() == null ? null
-                : userWithProfile.getCreatedAt().atOffset(ZoneOffset.UTC)
-                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        String joinedAt = userWithProfile.getCreatedAt() == null
+                ? null
+                : userWithProfile
+                        .getCreatedAt()
+                        .atOffset(ZoneOffset.UTC)
+                        .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
         String nicknameForResponse = userWithProfile.getUserProfile() != null
                 ? userWithProfile.getUserProfile().getNickname()

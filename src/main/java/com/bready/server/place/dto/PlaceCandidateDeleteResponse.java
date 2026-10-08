@@ -1,10 +1,8 @@
 package com.bready.server.place.dto;
 
-import lombok.Builder;
 import java.time.LocalDateTime;
 
+import lombok.Builder;
+
 @Builder
-public record PlaceCandidateDeleteResponse(
-        Long candidateId,
-        LocalDateTime deletedAt
-) {}
+public record PlaceCandidateDeleteResponse(Long candidateId, LocalDateTime deletedAt) {}

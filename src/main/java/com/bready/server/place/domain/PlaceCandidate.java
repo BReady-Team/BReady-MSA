@@ -1,23 +1,24 @@
 package com.bready.server.place.domain;
 
+import jakarta.persistence.*;
+
+import org.hibernate.annotations.SQLRestriction;
+
 import com.bready.server.global.entity.BaseEntity;
 import com.bready.server.plan.domain.PlanCategory;
-import jakarta.persistence.*;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(
         name = "place_candidates",
         uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_category_place",
-                        columnNames = {"category_id", "place_id"}
-                )
-        }
-)
+            @UniqueConstraint(
+                    name = "uk_category_place",
+                    columnNames = {"category_id", "place_id"})
+        })
 @SQLRestriction("deleted_at IS NULL")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -37,10 +38,7 @@ public class PlaceCandidate extends BaseEntity {
     @JoinColumn(name = "place_id", nullable = false)
     private Place place; // Place와의 연관관계 설정 (1:N)
 
-    public static PlaceCandidate create(
-            PlanCategory category,
-            Place place
-    ) {
+    public static PlaceCandidate create(PlanCategory category, Place place) {
         if (category == null) {
             throw new IllegalArgumentException("category는 필수입니다.");
         }

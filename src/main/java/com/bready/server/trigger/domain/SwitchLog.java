@@ -1,8 +1,10 @@
 package com.bready.server.trigger.domain;
 
+import jakarta.persistence.*;
+
 import com.bready.server.global.entity.BaseEntity;
 import com.bready.server.place.domain.PlaceCandidate;
-import jakarta.persistence.*;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -11,10 +13,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "switch_logs",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_switchlog_decision", columnNames = "decision_id")
-        }
-)
+        uniqueConstraints = {@UniqueConstraint(name = "uk_switchlog_decision", columnNames = "decision_id")})
 public class SwitchLog extends BaseEntity {
 
     @Id
@@ -36,11 +35,7 @@ public class SwitchLog extends BaseEntity {
     @JoinColumn(name = "to_candidate_id", nullable = false)
     private PlaceCandidate toCandidate;
 
-    public static SwitchLog create(
-            Decision decision,
-            PlaceCandidate from,
-            PlaceCandidate to
-    ) {
+    public static SwitchLog create(Decision decision, PlaceCandidate from, PlaceCandidate to) {
         SwitchLog log = new SwitchLog();
         log.decision = decision;
         log.fromCandidate = from;

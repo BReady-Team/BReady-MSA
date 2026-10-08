@@ -1,15 +1,17 @@
 package com.bready.server.stats.listener;
 
-import com.bready.server.stats.domain.StatsPeriod;
-import com.bready.server.stats.event.SwitchLogCreatedEvent;
-import com.bready.server.stats.event.TriggerCreatedEvent;
-import com.bready.server.stats.service.PlanStatsUpdater;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+
+import com.bready.server.stats.domain.StatsPeriod;
+import com.bready.server.stats.event.SwitchLogCreatedEvent;
+import com.bready.server.stats.event.TriggerCreatedEvent;
+import com.bready.server.stats.service.PlanStatsUpdater;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component

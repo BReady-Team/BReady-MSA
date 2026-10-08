@@ -1,18 +1,20 @@
 package com.bready.server.user.domain;
 
-import com.bready.server.global.entity.BaseEntity;
 import jakarta.persistence.*;
+
+import com.bready.server.global.entity.BaseEntity;
+
 import lombok.Getter;
 
 @Entity
 @Getter
-@Table(name = "users",
-uniqueConstraints = {
-        @UniqueConstraint(
-                name = "uk_users_provider",
-                columnNames = {"auth_provider", "provider_user_id"}
-        )
-})
+@Table(
+        name = "users",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uk_users_provider",
+                    columnNames = {"auth_provider", "provider_user_id"})
+        })
 public class User extends BaseEntity {
 
     @Id

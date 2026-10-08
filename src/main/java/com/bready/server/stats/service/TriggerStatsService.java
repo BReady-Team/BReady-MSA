@@ -1,17 +1,19 @@
 package com.bready.server.stats.service;
 
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.bready.server.stats.domain.StatsPeriod;
 import com.bready.server.stats.dto.TriggerStatsItem;
 import com.bready.server.stats.dto.TriggerStatsResponse;
 import com.bready.server.trigger.domain.TriggerType;
 import com.bready.server.trigger.repository.TriggerRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -26,20 +28,15 @@ public class TriggerStatsService {
 
         long totalCount = triggerRepository.countByOwnerIdAndPeriod(userId, startAt);
 
-        Map<TriggerType, Long> countsByType =
-                triggerRepository.countByTriggerType(userId, startAt)
-                        .stream()
-                        .collect(Collectors.toMap(
-                                TriggerRepository.TriggerTypeCount::getTriggerType,
-                                TriggerRepository.TriggerTypeCount::getCount
-                        ));
+        Map<TriggerType, Long> countsByType = triggerRepository.countByTriggerType(userId, startAt).stream()
+                .collect(Collectors.toMap(
+                        TriggerRepository.TriggerTypeCount::getTriggerType,
+                        TriggerRepository.TriggerTypeCount::getCount));
 
         List<TriggerStatsItem> items = Arrays.stream(TriggerType.values())
                 .map(type -> {
                     long count = countsByType.getOrDefault(type, 0L);
-                    int percentage = totalCount == 0
-                            ? 0
-                            : (int) Math.round((double) count * 100 / totalCount);
+                    int percentage = totalCount == 0 ? 0 : (int) Math.round((double) count * 100 / totalCount);
 
                     return TriggerStatsItem.builder()
                             .triggerType(type)

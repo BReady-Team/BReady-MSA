@@ -1,9 +1,9 @@
 package com.bready.server.global.config.security.jwt;
 
+import java.util.List;
+
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-
-import java.util.List;
 
 public class JwtAuthentication extends AbstractAuthenticationToken {
 

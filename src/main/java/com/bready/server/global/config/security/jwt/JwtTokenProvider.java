@@ -1,15 +1,17 @@
 package com.bready.server.global.config.security.jwt;
 
-import com.bready.server.auth.exception.AuthErrorCase;
-import com.bready.server.global.exception.ApplicationException;
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.security.Keys;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
+
+import org.springframework.stereotype.Component;
+
+import com.bready.server.auth.exception.AuthErrorCase;
+import com.bready.server.global.exception.ApplicationException;
+
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
@@ -101,14 +103,12 @@ public class JwtTokenProvider {
     }
 
     public Long getUserId(String token) {
-        return Long.parseLong(
-                Jwts.parserBuilder()
-                        .setSigningKey(signingKey)
-                        .build()
-                        .parseClaimsJws(token)
-                        .getBody()
-                        .getSubject()
-        );
+        return Long.parseLong(Jwts.parserBuilder()
+                .setSigningKey(signingKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject());
     }
 
     // TODO: Refresh Token Redis 저장 및 토큰 재발급 API 구현 후에 사용

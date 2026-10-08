@@ -1,5 +1,9 @@
 package com.bready.server.recommendation.adapter;
 
+import java.util.List;
+
+import org.springframework.stereotype.Component;
+
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.place.domain.PlaceCategoryType;
 import com.bready.server.place.dto.PlaceSearchResponse;
@@ -9,10 +13,8 @@ import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.recommendation.dto.PlaceRecommendationResponse;
 import com.bready.server.recommendation.port.PlaceRecommendationPort;
 import com.bready.server.trigger.domain.TriggerType;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
@@ -29,8 +31,7 @@ public class RuleBasedRecommendationAdapter implements PlaceRecommendationPort {
             Double longitude,
             int radius,
             int limit,
-            String excludeExternalId
-    ) {
+            String excludeExternalId) {
 
         PlaceCategoryType categoryType = category.getCategoryType();
         String keyword = normalizedRegion(region);
@@ -38,13 +39,7 @@ public class RuleBasedRecommendationAdapter implements PlaceRecommendationPort {
         List<PlaceSearchResponse> candidates;
 
         try {
-            candidates = placeSearchService.search(
-                    categoryType,
-                    keyword,
-                    latitude,
-                    longitude,
-                    radius
-            );
+            candidates = placeSearchService.search(categoryType, keyword, latitude, longitude, radius);
         } catch (ApplicationException e) {
             if (e.getErrorCase().getErrorCode().equals(PlaceErrorCase.PLACE_NOT_FOUND.getErrorCode())) {
                 return List.of();
@@ -63,7 +58,11 @@ public class RuleBasedRecommendationAdapter implements PlaceRecommendationPort {
                     Integer distanceMeters = null;
 
                     if (latitude != null && longitude != null && p.latitude() != null && p.longitude() != null) {
-                        distanceMeters = (int) Math.round(calculateDistanceMeters(latitude, longitude, p.latitude().doubleValue(), p.longitude().doubleValue()));
+                        distanceMeters = (int) Math.round(calculateDistanceMeters(
+                                latitude,
+                                longitude,
+                                p.latitude().doubleValue(),
+                                p.longitude().doubleValue()));
                     }
 
                     return new PlaceRecommendationResponse.RecommendationItem(
@@ -74,9 +73,9 @@ public class RuleBasedRecommendationAdapter implements PlaceRecommendationPort {
                             p.longitude(),
                             p.isIndoor(),
                             distanceMeters,
-                            buildReason(triggerType)
-                    );
-                }).toList();
+                            buildReason(triggerType));
+                })
+                .toList();
     }
 
     private String normalizedRegion(String region) {
@@ -107,9 +106,9 @@ public class RuleBasedRecommendationAdapter implements PlaceRecommendationPort {
 
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
                 + Math.cos(Math.toRadians(lat1))
-                * Math.cos(Math.toRadians(lat2))
-                * Math.sin(dLng / 2)
-                * Math.sin(dLng / 2);
+                        * Math.cos(Math.toRadians(lat2))
+                        * Math.sin(dLng / 2)
+                        * Math.sin(dLng / 2);
 
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;

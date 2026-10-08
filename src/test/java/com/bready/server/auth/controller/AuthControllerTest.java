@@ -1,14 +1,7 @@
 package com.bready.server.auth.controller;
 
-import com.bready.server.auth.dto.*;
-import com.bready.server.auth.service.AuthService;
-import com.bready.server.auth.service.KakaoAuthService;
-import com.bready.server.auth.service.NaverAuthService;
-import com.bready.server.global.exception.GlobalExceptionHandler;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -17,9 +10,16 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.BDDMockito.given;
-import static org.mockito.ArgumentMatchers.any;
+import com.bready.server.auth.dto.*;
+import com.bready.server.auth.service.AuthService;
+import com.bready.server.auth.service.KakaoAuthService;
+import com.bready.server.auth.service.NaverAuthService;
+import com.bready.server.global.exception.GlobalExceptionHandler;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -47,7 +47,8 @@ class AuthControllerTest {
     @DisplayName("회원가입 성공")
     void signup_success() throws Exception {
 
-        String requestJson = """
+        String requestJson =
+                """
             {
               "email": "test@test.com",
               "password": "password123!",
@@ -76,7 +77,8 @@ class AuthControllerTest {
     @DisplayName("로그인 성공")
     void login_success() throws Exception {
 
-        String requestJson = """
+        String requestJson =
+                """
             {
               "email": "test@test.com",
               "password": "password123!"

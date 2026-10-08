@@ -4,10 +4,4 @@ import lombok.Builder;
 
 @Builder
 public record UserProfileDto(
-        Long userId,
-        String nickname,
-        String email,
-        String bio,
-        String profileImageUrl,
-        String joinedAt
-) {}
+        Long userId, String nickname, String email, String bio, String profileImageUrl, String joinedAt) {}

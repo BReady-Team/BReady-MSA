@@ -4,7 +4,6 @@ import lombok.Getter;
 
 @Getter
 public enum PlaceCategoryType {
-
     MEAL("식사", "음식점", "FD6", true),
     CAFE("카페", "카페", "CE7", true),
     EXHIBITION("전시", "전시관", null, true),
@@ -17,12 +16,7 @@ public enum PlaceCategoryType {
     private final String kakaoCategoryCode;
     private final boolean indoor;
 
-    PlaceCategoryType(
-            String label,
-            String keyword,
-            String kakaoCategoryCode,
-            boolean indoor
-    ) {
+    PlaceCategoryType(String label, String keyword, String kakaoCategoryCode, boolean indoor) {
         this.label = label;
         this.keyword = keyword;
         this.kakaoCategoryCode = kakaoCategoryCode;

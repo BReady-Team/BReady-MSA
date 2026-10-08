@@ -1,11 +1,9 @@
 package com.bready.server.plan.dto;
 
+import java.util.List;
+
 import lombok.Builder;
 import lombok.Getter;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Getter
 @Builder
@@ -15,5 +13,4 @@ public class PlanDetailResponse {
 
     @Builder.Default
     private List<PlanDetailCategoryDto> categories = List.of();
-
 }

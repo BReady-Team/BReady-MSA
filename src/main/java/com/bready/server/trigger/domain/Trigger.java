@@ -1,13 +1,14 @@
 package com.bready.server.trigger.domain;
 
+import java.time.LocalDateTime;
+import jakarta.persistence.*;
+
 import com.bready.server.global.entity.BaseEntity;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
-import jakarta.persistence.*;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 @Getter
 @NoArgsConstructor
@@ -42,13 +43,7 @@ public class Trigger extends BaseEntity {
     @Column(name = "occurred_at", nullable = false)
     private LocalDateTime occurredAt;
 
-
-    public static Trigger create(
-            Plan plan,
-            PlanCategory category,
-            Long candidateId,
-            TriggerType triggerType
-    ) {
+    public static Trigger create(Plan plan, PlanCategory category, Long candidateId, TriggerType triggerType) {
         if (plan == null) {
             throw new IllegalArgumentException("plan은 필수입니다.");
         }

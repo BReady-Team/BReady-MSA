@@ -1,23 +1,26 @@
 package com.bready.server.recommendation.adapter;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+import org.springframework.stereotype.Component;
+
 import com.bready.server.place.domain.PlaceCategoryType;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.recommendation.dto.CategoryRecommendationResponse;
 import com.bready.server.recommendation.port.CategoryRecommendationPort;
 import com.bready.server.trigger.domain.TriggerType;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
 public class RuleBasedCategoryRecommendationAdapter implements CategoryRecommendationPort {
 
     @Override
-    public List<CategoryRecommendationResponse.CategoryItem> recommendCategories(List<PlanCategory> planCategories, PlanCategory currentCategory, TriggerType triggerType) {
+    public List<CategoryRecommendationResponse.CategoryItem> recommendCategories(
+            List<PlanCategory> planCategories, PlanCategory currentCategory, TriggerType triggerType) {
 
         PlaceCategoryType currentType = currentCategory.getCategoryType();
 
@@ -27,7 +30,8 @@ public class RuleBasedCategoryRecommendationAdapter implements CategoryRecommend
         for (int i = 0; i < planCategories.size(); i++) {
             if (Objects.equals(planCategories.get(i).getId(), currentCategory.getId())) {
                 if (i - 1 >= 0) prevType = planCategories.get(i - 1).getCategoryType();
-                if (i + 1 < planCategories.size()) nextType = planCategories.get(i + 1).getCategoryType();
+                if (i + 1 < planCategories.size())
+                    nextType = planCategories.get(i + 1).getCategoryType();
                 break;
             }
         }
@@ -42,17 +46,14 @@ public class RuleBasedCategoryRecommendationAdapter implements CategoryRecommend
             if (prevType != null && type == prevType) continue;
             if (nextType != null && type == nextType) continue;
 
-            if (triggerType == TriggerType.FATIGUE && type == PlaceCategoryType.WALK)  continue;
+            if (triggerType == TriggerType.FATIGUE && type == PlaceCategoryType.WALK) continue;
 
             if (triggerType == TriggerType.WEATHER_BAD && !type.isIndoor()) continue;
 
-            result.add(new CategoryRecommendationResponse.CategoryItem(
-                    type,
-                    type.getLabel(),
-                    buildReason(triggerType)
-            ));
+            result.add(
+                    new CategoryRecommendationResponse.CategoryItem(type, type.getLabel(), buildReason(triggerType)));
         }
-        
+
         return result;
     }
 

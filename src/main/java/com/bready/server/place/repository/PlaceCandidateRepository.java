@@ -1,17 +1,19 @@
 package com.bready.server.place.repository;
 
-import com.bready.server.place.domain.PlaceCandidate;
+import java.util.List;
+import java.util.Optional;
 import jakarta.persistence.LockModeType;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.List;
-import java.util.Optional;
+import com.bready.server.place.domain.PlaceCandidate;
 
 public interface PlaceCandidateRepository extends JpaRepository<PlaceCandidate, Long> {
-    @Query("""
+    @Query(
+            """
         select pc
         from PlaceCandidate pc
         join fetch pc.category c
@@ -20,7 +22,8 @@ public interface PlaceCandidateRepository extends JpaRepository<PlaceCandidate, 
     """)
     Optional<PlaceCandidate> findByIdWithCategoryAndPlace(Long candidateId);
 
-    @Query("""
+    @Query(
+            """
         select pc
         from PlaceCandidate pc
         join fetch pc.category c
@@ -28,7 +31,8 @@ public interface PlaceCandidateRepository extends JpaRepository<PlaceCandidate, 
     """)
     Optional<PlaceCandidate> findByIdWithCategory(Long candidateId);
 
-    @Query("""
+    @Query(
+            """
         select pc
         from PlaceCandidate pc
         where pc.id = :candidateId
@@ -37,7 +41,8 @@ public interface PlaceCandidateRepository extends JpaRepository<PlaceCandidate, 
     Optional<PlaceCandidate> findAliveById(Long candidateId);
 
     // 카테고리 일치 + 살아있는 후보 검증
-    @Query("""
+    @Query(
+            """
         select (count(pc) > 0)
         from PlaceCandidate pc
         where pc.id = :candidateId
@@ -46,7 +51,8 @@ public interface PlaceCandidateRepository extends JpaRepository<PlaceCandidate, 
     """)
     boolean existsAliveByIdAndCategoryId(Long candidateId, Long categoryId);
 
-    @Query("""
+    @Query(
+            """
         select pc
         from PlaceCandidate pc
         where pc.id = :candidateId
@@ -57,7 +63,8 @@ public interface PlaceCandidateRepository extends JpaRepository<PlaceCandidate, 
 
     // 카테고리의 살아있는 후보 전부 조회
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("""
+    @Query(
+            """
         select pc
         from PlaceCandidate pc
         where pc.category.id = :categoryId
@@ -65,7 +72,8 @@ public interface PlaceCandidateRepository extends JpaRepository<PlaceCandidate, 
     """)
     List<PlaceCandidate> findAllAliveByCategoryIdForUpdate(@Param("categoryId") Long categoryId);
 
-    @Query("""
+    @Query(
+            """
     select pc
     from PlaceCandidate pc
     join fetch pc.category c

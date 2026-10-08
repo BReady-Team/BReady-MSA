@@ -1,6 +1,7 @@
 package com.bready.server.user.domain;
 
 import jakarta.persistence.*;
+
 import lombok.Getter;
 
 @Entity

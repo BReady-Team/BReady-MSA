@@ -1,12 +1,5 @@
 package com.bready.server.user.controller;
 
-import com.bready.server.global.auth.CurrentUser;
-import com.bready.server.global.exception.GlobalExceptionHandler;
-import com.bready.server.user.dto.UpdateBioRequest;
-import com.bready.server.user.dto.UpdateNicknameRequest;
-import com.bready.server.user.dto.UserProfileDto;
-import com.bready.server.user.service.UserService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,6 +18,15 @@ import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
+
+import com.bready.server.global.auth.CurrentUser;
+import com.bready.server.global.exception.GlobalExceptionHandler;
+import com.bready.server.user.dto.UpdateBioRequest;
+import com.bready.server.user.dto.UpdateNicknameRequest;
+import com.bready.server.user.dto.UserProfileDto;
+import com.bready.server.user.service.UserService;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -67,14 +69,12 @@ class UserControllerTest {
                     MethodParameter parameter,
                     ModelAndViewContainer mavContainer,
                     NativeWebRequest webRequest,
-                    WebDataBinderFactory binderFactory
-            ) {
+                    WebDataBinderFactory binderFactory) {
                 return userId;
             }
         };
 
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(userController)
+        mockMvc = MockMvcBuilders.standaloneSetup(userController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(currentUserResolver)
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
@@ -84,14 +84,8 @@ class UserControllerTest {
     @Test
     @DisplayName("내 정보 조회 성공")
     void getMyProfile_success() throws Exception {
-        UserProfileDto dto = new UserProfileDto(
-                userId,
-                "testNickname",
-                "test@test.com",
-                "testBio",
-                "imageUrl",
-                "2026-03-29"
-        );
+        UserProfileDto dto =
+                new UserProfileDto(userId, "testNickname", "test@test.com", "testBio", "imageUrl", "2026-03-29");
 
         given(userService.getMyProfile(userId)).willReturn(dto);
 
@@ -136,22 +130,15 @@ class UserControllerTest {
     @Test
     @DisplayName("프로필 이미지 변경 성공")
     void updateProfileImage_success() throws Exception {
-        MockMultipartFile file = new MockMultipartFile(
-                "file",
-                "profile.png",
-                MediaType.IMAGE_PNG_VALUE,
-                "image-content".getBytes()
-        );
+        MockMultipartFile file =
+                new MockMultipartFile("file", "profile.png", MediaType.IMAGE_PNG_VALUE, "image-content".getBytes());
 
-        given(userService.updateProfileImage(eq(userId), any()))
-                .willReturn("imageUrl");
+        given(userService.updateProfileImage(eq(userId), any())).willReturn("imageUrl");
 
-        mockMvc.perform(multipart("/api/v1/users/profile/image")
-                        .file(file)
-                        .with(request -> {
-                            request.setMethod("PATCH");
-                            return request;
-                        }))
+        mockMvc.perform(multipart("/api/v1/users/profile/image").file(file).with(request -> {
+                    request.setMethod("PATCH");
+                    return request;
+                }))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").value("imageUrl"));
 

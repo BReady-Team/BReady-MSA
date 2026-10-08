@@ -1,21 +1,24 @@
 package com.bready.server.user.controller;
 
+import jakarta.validation.Valid;
+
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.bready.server.global.auth.CurrentUser;
 import com.bready.server.global.response.CommonResponse;
 import com.bready.server.user.dto.UpdateBioRequest;
 import com.bready.server.user.dto.UpdateNicknameRequest;
 import com.bready.server.user.dto.UserProfileDto;
 import com.bready.server.user.service.UserService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -27,33 +30,41 @@ public class UserController {
     @GetMapping("/me")
     @Operation(summary = "내 정보 조회", description = "JWT 인증된 사용자의 기본 프로필 정보 조회")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "조회 성공",
+        @ApiResponse(
+                responseCode = "200",
+                description = "조회 성공",
                 content = @Content(schema = @Schema(implementation = CommonResponse.class))),
-            @ApiResponse(responseCode = "401", description = "인증 필요",
+        @ApiResponse(
+                responseCode = "401",
+                description = "인증 필요",
                 content = @Content(schema = @Schema(implementation = CommonResponse.class))),
-            @ApiResponse(responseCode = "404", description = "사용자 없음",
+        @ApiResponse(
+                responseCode = "404",
+                description = "사용자 없음",
                 content = @Content(schema = @Schema(implementation = CommonResponse.class)))
     })
-    public CommonResponse<UserProfileDto> me(
-            @CurrentUser Long userId
-    ) {
+    public CommonResponse<UserProfileDto> me(@CurrentUser Long userId) {
         return CommonResponse.success(userService.getMyProfile(userId));
     }
 
     @PatchMapping("/profile/nickname")
     @Operation(summary = "닉네임 수정", description = "JWT 인증된 사용자의 닉네임을 수정합니다.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "수정 성공",
-                    content = @Content(schema = @Schema(implementation = CommonResponse.class))),
-            @ApiResponse(responseCode = "401", description = "인증 필요",
-                    content = @Content(schema = @Schema(implementation = CommonResponse.class))),
-            @ApiResponse(responseCode = "404", description = "사용자 없음",
-                    content = @Content(schema = @Schema(implementation = CommonResponse.class)))
+        @ApiResponse(
+                responseCode = "200",
+                description = "수정 성공",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "401",
+                description = "인증 필요",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "404",
+                description = "사용자 없음",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class)))
     })
     public CommonResponse<Void> updateNickname(
-            @CurrentUser Long userId,
-            @Valid @RequestBody UpdateNicknameRequest request
-    ) {
+            @CurrentUser Long userId, @Valid @RequestBody UpdateNicknameRequest request) {
         userService.updateNickname(userId, request.nickname());
         return CommonResponse.success(null);
     }
@@ -61,17 +72,20 @@ public class UserController {
     @PatchMapping("/profile/bio")
     @Operation(summary = "자기소개 수정", description = "JWT 인증된 사용자의 자기소개를 수정합니다.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "수정 성공",
-                    content = @Content(schema = @Schema(implementation = CommonResponse.class))),
-            @ApiResponse(responseCode = "401", description = "인증 필요",
-                    content = @Content(schema = @Schema(implementation = CommonResponse.class))),
-            @ApiResponse(responseCode = "404", description = "사용자 없음",
-                    content = @Content(schema = @Schema(implementation = CommonResponse.class)))
+        @ApiResponse(
+                responseCode = "200",
+                description = "수정 성공",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "401",
+                description = "인증 필요",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "404",
+                description = "사용자 없음",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class)))
     })
-    public CommonResponse<Void> updateBio(
-            @CurrentUser Long userId,
-            @Valid @RequestBody UpdateBioRequest request
-    ) {
+    public CommonResponse<Void> updateBio(@CurrentUser Long userId, @Valid @RequestBody UpdateBioRequest request) {
         userService.updateBio(userId, request.bio());
         return CommonResponse.success(null);
     }
@@ -79,17 +93,21 @@ public class UserController {
     @PatchMapping(value = "/profile/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "프로필 이미지 변경", description = "JWT 인증된 사용자의 프로필 이미지를 변경합니다.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "수정 성공",
-                    content = @Content(schema = @Schema(implementation = CommonResponse.class))),
-            @ApiResponse(responseCode = "401", description = "인증 필요",
-                    content = @Content(schema = @Schema(implementation = CommonResponse.class))),
-            @ApiResponse(responseCode = "404", description = "사용자 없음",
-                    content = @Content(schema = @Schema(implementation = CommonResponse.class)))
+        @ApiResponse(
+                responseCode = "200",
+                description = "수정 성공",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "401",
+                description = "인증 필요",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "404",
+                description = "사용자 없음",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class)))
     })
     public CommonResponse<String> updateProfileImage(
-            @CurrentUser Long userId,
-            @RequestPart("file") MultipartFile file
-    ) {
+            @CurrentUser Long userId, @RequestPart("file") MultipartFile file) {
         String imageUrl = userService.updateProfileImage(userId, file);
         return CommonResponse.success(imageUrl);
     }

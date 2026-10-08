@@ -1,12 +1,8 @@
 package com.bready.server.global.exception;
 
-import com.bready.server.global.response.CommonResponse;
-import com.bready.server.s3.exception.S3ErrorCase;
-import com.bready.server.stats.exception.StatsErrorCase;
-import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -21,6 +17,13 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import com.bready.server.global.response.CommonResponse;
+import com.bready.server.s3.exception.S3ErrorCase;
+import com.bready.server.stats.exception.StatsErrorCase;
+
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
+import lombok.extern.slf4j.Slf4j;
+
 import static org.springframework.http.ResponseEntity.status;
 
 @Slf4j
@@ -30,22 +33,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApplicationException.class)
     public ResponseEntity<CommonResponse<?>> handleApplicationException(ApplicationException e) {
         log.warn("[ApplicationException] {}", e.getMessage());
-        return status(e.getErrorCase().getHttpStatusCode())
-                .body(CommonResponse.error(e.getErrorCase()));
+        return status(e.getErrorCase().getHttpStatusCode()).body(CommonResponse.error(e.getErrorCase()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<CommonResponse<?>> handleValidationException(MethodArgumentNotValidException e) {
-        String message = e.getBindingResult()
-                .getAllErrors()
-                .stream()
+        String message = e.getBindingResult().getAllErrors().stream()
                 .findFirst()
                 .map(ObjectError::getDefaultMessage)
                 .orElse("요청 값이 유효하지 않습니다.");
 
         log.warn("[ValidationException] {}", message);
-        return status(HttpStatus.BAD_REQUEST)
-                .body(CommonResponse.error(4001, message));
+        return status(HttpStatus.BAD_REQUEST).body(CommonResponse.error(4001, message));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -60,60 +59,46 @@ public class GlobalExceptionHandler {
             log.warn("[HttpMessageNotReadable] {}", e.getMessage());
 
             if ("planDate".equals(fieldName)) {
-                return status(HttpStatus.BAD_REQUEST)
-                        .body(CommonResponse.error(4006, "planDate 형식이 올바르지 않습니다."));
+                return status(HttpStatus.BAD_REQUEST).body(CommonResponse.error(4006, "planDate 형식이 올바르지 않습니다."));
             }
 
-            return status(HttpStatus.BAD_REQUEST)
-                    .body(CommonResponse.error(4001, "요청 값이 유효하지 않습니다."));
+            return status(HttpStatus.BAD_REQUEST).body(CommonResponse.error(4001, "요청 값이 유효하지 않습니다."));
         }
 
         log.warn("[HttpMessageNotReadable] {}", e.getMessage());
-        return status(HttpStatus.BAD_REQUEST)
-                .body(CommonResponse.error(4001, "요청 값이 유효하지 않습니다."));
+        return status(HttpStatus.BAD_REQUEST).body(CommonResponse.error(4001, "요청 값이 유효하지 않습니다."));
     }
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<CommonResponse<?>> handleAuthenticationException(AuthenticationException e) {
         log.warn("[AuthenticationException] {}", e.getMessage());
-        return status(HttpStatus.UNAUTHORIZED)
-                .body(CommonResponse.error(401, "로그인이 필요합니다."));
+        return status(HttpStatus.UNAUTHORIZED).body(CommonResponse.error(401, "로그인이 필요합니다."));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<CommonResponse<?>> handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
         log.warn("[MethodNotAllowed] {}", e.getMessage());
-        return status(HttpStatus.METHOD_NOT_ALLOWED)
-                .body(CommonResponse.error(405, "허용되지 않은 HTTP 메소드입니다."));
+        return status(HttpStatus.METHOD_NOT_ALLOWED).body(CommonResponse.error(405, "허용되지 않은 HTTP 메소드입니다."));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<CommonResponse<?>> handleNoResourceFound(
-            NoResourceFoundException e,
-            HttpServletRequest request
-    ) {
-        log.warn("[NoResourceFound] uri={}, message={}",
-                request.getRequestURI(),
-                e.getMessage()
-        );
+            NoResourceFoundException e, HttpServletRequest request) {
+        log.warn("[NoResourceFound] uri={}, message={}", request.getRequestURI(), e.getMessage());
 
-        return status(HttpStatus.NOT_FOUND)
-                .body(CommonResponse.error(404, "요청하신 리소스를 찾을 수 없습니다."));
+        return status(HttpStatus.NOT_FOUND).body(CommonResponse.error(404, "요청하신 리소스를 찾을 수 없습니다."));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<CommonResponse<?>> handleUnexpectedException(
-            Exception e,
-            HttpServletRequest request
-    ) throws Exception {
+    public ResponseEntity<CommonResponse<?>> handleUnexpectedException(Exception e, HttpServletRequest request)
+            throws Exception {
 
         if (request.getRequestURI().startsWith("/actuator")) {
             throw e;
         }
 
         log.error("[UnexpectedException]", e);
-        return status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(CommonResponse.error(500, "서버 내부 오류가 발생했습니다."));
+        return status(HttpStatus.INTERNAL_SERVER_ERROR).body(CommonResponse.error(500, "서버 내부 오류가 발생했습니다."));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -131,31 +116,22 @@ public class GlobalExceptionHandler {
             MissingServletRequestParameterException e) {
         log.warn("[MissingServletRequestParameterException] parameter={}", e.getParameterName());
 
-        return ResponseEntity
-                .badRequest()
-                .body(CommonResponse.error(400, "필수 요청 파라미터가 누락되었습니다."));
+        return ResponseEntity.badRequest().body(CommonResponse.error(400, "필수 요청 파라미터가 누락되었습니다."));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<CommonResponse<?>> handleConstraintViolationException(
-            ConstraintViolationException e) {
+    public ResponseEntity<CommonResponse<?>> handleConstraintViolationException(ConstraintViolationException e) {
         log.warn("[ConstraintViolationException] {}", e.getMessage());
-        return ResponseEntity
-                .badRequest()
-                .body(CommonResponse.error(400, "요청 값이 유효하지 않습니다."));
+        return ResponseEntity.badRequest().body(CommonResponse.error(400, "요청 값이 유효하지 않습니다."));
     }
 
     @ExceptionHandler(MissingServletRequestPartException.class)
-    public ResponseEntity<CommonResponse<?>> handleMissingPart(
-            MissingServletRequestPartException e
-    ) {
+    public ResponseEntity<CommonResponse<?>> handleMissingPart(MissingServletRequestPartException e) {
         log.warn("[MissingServletRequestPartException] partName={}", e.getRequestPartName());
 
         // S3 파일 업로드 관련 part인 경우
         if ("file".equals(e.getRequestPartName())) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(CommonResponse.error(S3ErrorCase.FILE_REQUIRED));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.error(S3ErrorCase.FILE_REQUIRED));
         }
 
         // 그 외 일반적인 multipart 누락

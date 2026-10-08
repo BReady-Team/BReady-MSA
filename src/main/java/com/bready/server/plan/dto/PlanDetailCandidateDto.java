@@ -10,5 +10,4 @@ public class PlanDetailCandidateDto {
     private Long candidateId;
     private PlanDetailPlaceDto place;
     private boolean isRepresentative;
-
 }

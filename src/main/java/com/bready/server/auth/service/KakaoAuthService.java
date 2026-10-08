@@ -1,13 +1,15 @@
 package com.bready.server.auth.service;
 
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+
 import com.bready.server.auth.client.KakaoOAuthClient;
 import com.bready.server.auth.client.KakaoUserInfoClient;
 import com.bready.server.auth.dto.*;
 import com.bready.server.auth.exception.AuthErrorCase;
 import com.bready.server.global.exception.ApplicationException;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 @Service
 @RequiredArgsConstructor

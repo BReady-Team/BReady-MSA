@@ -21,8 +21,7 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
             MethodParameter parameter,
             ModelAndViewContainer mavContainer,
             NativeWebRequest webRequest,
-            WebDataBinderFactory binderFactory
-    ) {
+            WebDataBinderFactory binderFactory) {
         return AuthUtils.getCurrentUserId();
     }
 }

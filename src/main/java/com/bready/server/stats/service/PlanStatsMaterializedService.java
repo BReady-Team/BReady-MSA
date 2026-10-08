@@ -1,5 +1,15 @@
 package com.bready.server.stats.service;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.repository.PlanRepository;
@@ -9,16 +19,8 @@ import com.bready.server.stats.dto.PlanStatsItem;
 import com.bready.server.stats.dto.PlanStatsResponse;
 import com.bready.server.stats.exception.StatsErrorCase;
 import com.bready.server.stats.repository.PlanStatsRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -31,19 +33,14 @@ public class PlanStatsMaterializedService {
     private static final int DEFAULT_LIMIT = 20;
     private static final int MAX_LIMIT = 50;
 
-    public PlanStatsResponse getStats(
-            Long ownerId,
-            StatsPeriod period,
-            Integer limit
-    ) {
+    public PlanStatsResponse getStats(Long ownerId, StatsPeriod period, Integer limit) {
         int size = normalizeLimit(limit);
 
-        Pageable pageable =
-                PageRequest.of(0, size, Sort.by("planDate").descending());
+        Pageable pageable = PageRequest.of(0, size, Sort.by("planDate").descending());
 
-        List<Plan> plans =
-                planRepository.findAllByOwnerIdAndDeletedAtIsNull(ownerId, pageable)
-                        .getContent();
+        List<Plan> plans = planRepository
+                .findAllByOwnerIdAndDeletedAtIsNull(ownerId, pageable)
+                .getContent();
 
         if (plans.isEmpty()) {
             return PlanStatsResponse.empty(period);
@@ -51,41 +48,25 @@ public class PlanStatsMaterializedService {
 
         List<Long> planIds = plans.stream().map(Plan::getId).toList();
 
-        Map<Long, PlanStats> statsMap =
-                planStatsRepository
-                        .findByPeriodAndPlanIdIn(period, planIds)
-                        .stream()
-                        .collect(Collectors.toMap(
-                                PlanStats::getPlanId,
-                                s -> s
-                        ));
+        Map<Long, PlanStats> statsMap = planStatsRepository.findByPeriodAndPlanIdIn(period, planIds).stream()
+                .collect(Collectors.toMap(PlanStats::getPlanId, s -> s));
 
-        List<PlanStatsItem> items =
-                plans.stream()
-                        .map(plan -> {
+        List<PlanStatsItem> items = plans.stream()
+                .map(plan -> {
+                    PlanStats stats = statsMap.get(plan.getId());
 
-                            PlanStats stats = statsMap.get(plan.getId());
+                    return PlanStatsItem.builder()
+                            .planId(plan.getId())
+                            .planTitle(plan.getTitle())
+                            .planDate(plan.getPlanDate())
+                            .region(plan.getRegion())
+                            .totalSwitches(stats == null ? 0L : stats.getTotalSwitches())
+                            .build();
+                })
+                .toList();
 
-                            return PlanStatsItem.builder()
-                                    .planId(plan.getId())
-                                    .planTitle(plan.getTitle())
-                                    .planDate(plan.getPlanDate())
-                                    .region(plan.getRegion())
-                                    .totalSwitches(
-                                            stats == null
-                                                    ? 0L
-                                                    : stats.getTotalSwitches()
-                                    )
-                                    .build();
-                        })
-                        .toList();
-
-        return PlanStatsResponse.builder()
-                .period(period)
-                .items(items)
-                .build();
+        return PlanStatsResponse.builder().period(period).items(items).build();
     }
-
 
     private int normalizeLimit(Integer limitParam) {
         int limit = limitParam == null ? DEFAULT_LIMIT : limitParam;

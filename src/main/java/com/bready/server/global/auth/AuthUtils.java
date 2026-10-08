@@ -1,17 +1,18 @@
 package com.bready.server.global.auth;
 
-import com.bready.server.auth.exception.AuthErrorCase;
-import com.bready.server.global.exception.ApplicationException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+
+import com.bready.server.auth.exception.AuthErrorCase;
+import com.bready.server.global.exception.ApplicationException;
 
 public class AuthUtils {
 
     public static Long getCurrentUserId() {
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new ApplicationException(AuthErrorCase.INVALID_TOKEN);

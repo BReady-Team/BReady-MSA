@@ -1,25 +1,15 @@
 package com.bready.server.recommendation.service;
 
-import com.bready.server.recommendation.ai.AiRerankTarget;
-import com.bready.server.recommendation.dto.PlaceRecommendationResponse;
-
 import java.util.HashMap;
 import java.util.Map;
 
-public record PlaceRerankCandidate(
-        String id,
-        String name,
-        String address,
-        Boolean isIndoor
-) implements AiRerankTarget {
+import com.bready.server.recommendation.ai.AiRerankTarget;
+import com.bready.server.recommendation.dto.PlaceRecommendationResponse;
+
+public record PlaceRerankCandidate(String id, String name, String address, Boolean isIndoor) implements AiRerankTarget {
 
     public static PlaceRerankCandidate from(PlaceRecommendationResponse.RecommendationItem item) {
-        return new PlaceRerankCandidate(
-                item.externalId(),
-                item.name(),
-                item.address(),
-                item.isIndoor()
-        );
+        return new PlaceRerankCandidate(item.externalId(), item.name(), item.address(), item.isIndoor());
     }
 
     @Override

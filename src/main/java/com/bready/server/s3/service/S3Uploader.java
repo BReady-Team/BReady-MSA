@@ -1,18 +1,20 @@
 package com.bready.server.s3.service;
 
-import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.s3.exception.S3ErrorCase;
-import lombok.extern.slf4j.Slf4j;
+import java.io.InputStream;
+import java.util.UUID;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.s3.exception.S3ErrorCase;
+
+import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-
-import java.io.InputStream;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -27,8 +29,7 @@ public class S3Uploader {
             S3Client s3Client,
             @Value("${cloud.aws.s3.bucket}") String bucket,
             @Value("${cloud.aws.region}") String region,
-            @Value("${cloud.aws.s3.public-prefix}") String prefix
-    ) {
+            @Value("${cloud.aws.s3.public-prefix}") String prefix) {
         this.s3Client = s3Client;
         this.bucket = bucket;
         this.region = region;
@@ -40,12 +41,11 @@ public class S3Uploader {
         String key = buildKey(file, folder);
 
         try (InputStream is = file.getInputStream()) {
-            PutObjectRequest putObjectRequest =
-                    PutObjectRequest.builder()
-                            .bucket(bucket)
-                            .key(key)
-                            .contentType(file.getContentType())
-                            .build();
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(key)
+                    .contentType(file.getContentType())
+                    .build();
 
             s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(is, file.getSize()));
             return key;
@@ -59,10 +59,7 @@ public class S3Uploader {
     public void delete(String fileKey) {
         try {
             DeleteObjectRequest deleteObjectRequest =
-                    DeleteObjectRequest.builder()
-                            .bucket(bucket)
-                            .key(fileKey)
-                            .build();
+                    DeleteObjectRequest.builder().bucket(bucket).key(fileKey).build();
 
             s3Client.deleteObject(deleteObjectRequest);
 
@@ -73,12 +70,7 @@ public class S3Uploader {
     }
 
     public String buildUrl(String key) {
-        return "https://"
-                + bucket
-                + ".s3."
-                + region
-                + ".amazonaws.com/"
-                + key;
+        return "https://" + bucket + ".s3." + region + ".amazonaws.com/" + key;
     }
 
     private String buildKey(MultipartFile file, String folder) {
@@ -86,10 +78,7 @@ public class S3Uploader {
         String filename = file.getOriginalFilename();
         String ext = extractExtension(filename);
 
-        return prefix + "/"
-                + folder + "/"
-                + UUID.randomUUID()
-                + ext;
+        return prefix + "/" + folder + "/" + UUID.randomUUID() + ext;
     }
 
     private void validateFile(MultipartFile file) {

@@ -27,14 +27,14 @@
 ## 3. 조회 결과 형태
 
 - 화면·통계용 조회는 엔티티가 아니라 **프로젝션**으로 받는다. 필요한 컬럼만 가져오고 영속성 컨텍스트에 쌓이지 않는다.
-  - 인터페이스 프로젝션(BReady 관례, `PlanRepository.PlanSwitchStatsRow` — `plan/repository/PlanRepository.java:20`) 또는 record 생성자 프로젝션(`select new ...Row(...)`).
+  - 인터페이스 프로젝션(BReady 관례, `PlanRepository.PlanSwitchStatsRow` — `plan/repository/PlanRepository.java:21`) 또는 record 생성자 프로젝션(`select new ...Row(...)`).
 - 수정할 엔티티는 엔티티로 받는다.
 
 ## 4. N+1
 
 - 컬렉션·연관을 반복문에서 건드리기 전에 **몇 번 쿼리가 나가는지** 따진다. [리뷰]
 - 해결 순서:
-  1. `join fetch`(단건 또는 컬렉션 하나) — BReady 좋은 예: `PlanCategoryRepository.findAllDetailByPlanId` (`plan/repository/PlanCategoryRepository.java:58`)
+  1. `join fetch`(단건 또는 컬렉션 하나) — BReady 좋은 예: `PlanCategoryRepository.findAllDetailByPlanId` (`plan/repository/PlanCategoryRepository.java:63`)
   2. ID를 모아서 `IN` 조회 후 `Map`으로 조립 — BReady 좋은 예: 대표 후보 일괄 조회 (`plan/service/PlanService.java:108`)
   3. `@EntityGraph`
 - 페이징과 컬렉션 `join fetch`를 같이 쓰지 않는다(메모리 페이징 경고 + 결과 중복). 페이징이 필요하면 ID 페이지를 먼저 조회하고 2번 방법으로.

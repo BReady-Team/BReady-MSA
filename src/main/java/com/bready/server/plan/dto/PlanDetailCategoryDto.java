@@ -1,10 +1,11 @@
 package com.bready.server.plan.dto;
 
+import java.util.List;
+
 import com.bready.server.place.domain.PlaceCategoryType;
+
 import lombok.Builder;
 import lombok.Getter;
-
-import java.util.List;
 
 @Getter
 @Builder

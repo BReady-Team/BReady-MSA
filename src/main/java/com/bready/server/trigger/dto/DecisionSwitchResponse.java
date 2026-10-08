@@ -1,13 +1,9 @@
 package com.bready.server.trigger.dto;
 
-import lombok.Builder;
-
 import java.time.LocalDateTime;
+
+import lombok.Builder;
 
 @Builder
 public record DecisionSwitchResponse(
-        Long switchLogId,
-        Long fromCandidateId,
-        Long toCandidateId,
-        LocalDateTime switchedAt
-) {}
+        Long switchLogId, Long fromCandidateId, Long toCandidateId, LocalDateTime switchedAt) {}

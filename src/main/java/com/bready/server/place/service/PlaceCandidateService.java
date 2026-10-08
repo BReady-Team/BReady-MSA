@@ -1,5 +1,11 @@
 package com.bready.server.place.service;
 
+import java.time.LocalDateTime;
+
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.place.domain.Place;
 import com.bready.server.place.domain.PlaceCandidate;
@@ -12,12 +18,8 @@ import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.repository.CategorySelectionLogRepository;
 import com.bready.server.plan.repository.CategoryStateRepository;
 import com.bready.server.plan.repository.PlanCategoryRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -61,7 +63,9 @@ public class PlaceCandidateService {
                 changed = true;
             } catch (DataIntegrityViolationException e) {
                 // 다른 트랜잭션이 먼저 생성
-                state = categoryStateRepository.findByCategory_IdForUpdate(category.getId()).orElse(null);
+                state = categoryStateRepository
+                        .findByCategory_IdForUpdate(category.getId())
+                        .orElse(null);
             }
         } else if (state.getCurrentCandidateId() == null) {
             state.changeRepresentative(saved.getId());
@@ -90,16 +94,13 @@ public class PlaceCandidateService {
 
         PlaceCandidate candidate = placeCandidateRepository
                 .findByIdWithCategoryAndPlace(candidateId)
-                .orElseThrow(() ->
-                        ApplicationException.from(PlaceErrorCase.PLACE_CANDIDATE_NOT_FOUND)
-                );
+                .orElseThrow(() -> ApplicationException.from(PlaceErrorCase.PLACE_CANDIDATE_NOT_FOUND));
 
         PlanCategory category = candidate.getCategory();
         Long categoryId = category.getId();
 
-        CategoryState state = categoryStateRepository
-                .findByCategory_IdForUpdate(categoryId)
-                .orElse(null);
+        CategoryState state =
+                categoryStateRepository.findByCategory_IdForUpdate(categoryId).orElse(null);
 
         if (state == null) {
             // 첫 대표 지정
@@ -108,9 +109,7 @@ public class PlaceCandidateService {
         } else {
             // 이미 대표인 경우
             if (state.isRepresentative(candidateId)) {
-                throw ApplicationException.from(
-                        PlaceErrorCase.ALREADY_REPRESENTATIVE_CANDIDATE
-                );
+                throw ApplicationException.from(PlaceErrorCase.ALREADY_REPRESENTATIVE_CANDIDATE);
             }
             state.changeRepresentative(candidateId);
         }
@@ -126,15 +125,17 @@ public class PlaceCandidateService {
 
     @Transactional
     public PlaceCandidateDeleteResponse deleteCandidate(Long candidateId) {
-        PlaceCandidate candidate = placeCandidateRepository.findByIdWithCategory(candidateId)
+        PlaceCandidate candidate = placeCandidateRepository
+                .findByIdWithCategory(candidateId)
                 .orElseThrow(() -> ApplicationException.from(PlaceErrorCase.PLACE_CANDIDATE_NOT_FOUND));
 
         Long categoryId = candidate.getCategory().getId();
 
-        CategoryState state = categoryStateRepository.findByCategory_IdForUpdate(categoryId)
-                .orElse(null);
+        CategoryState state =
+                categoryStateRepository.findByCategory_IdForUpdate(categoryId).orElse(null);
 
-        if (state != null && state.getCurrentCandidateId() != null
+        if (state != null
+                && state.getCurrentCandidateId() != null
                 && state.getCurrentCandidateId().equals(candidateId)) {
             throw ApplicationException.from(PlaceErrorCase.REPRESENTATIVE_CANDIDATE_CANNOT_DELETE);
         }
@@ -148,12 +149,6 @@ public class PlaceCandidateService {
     }
 
     private void saveSelectionLog(Long categoryId, Long candidateId) {
-        categorySelectionLogRepository.save(
-                CategorySelectionLog.of(
-                        categoryId,
-                        candidateId,
-                        LocalDateTime.now()
-                )
-        );
+        categorySelectionLogRepository.save(CategorySelectionLog.of(categoryId, candidateId, LocalDateTime.now()));
     }
 }

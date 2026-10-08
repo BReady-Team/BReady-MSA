@@ -1,5 +1,11 @@
 package com.bready.server.trigger.service;
 
+import java.time.LocalDateTime;
+
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.place.repository.PlaceCandidateRepository;
 import com.bready.server.plan.domain.CategoryState;
@@ -12,12 +18,8 @@ import com.bready.server.trigger.dto.TriggerCreateRequest;
 import com.bready.server.trigger.dto.TriggerCreateResponse;
 import com.bready.server.trigger.exception.TriggerErrorCase;
 import com.bready.server.trigger.repository.TriggerRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -34,15 +36,11 @@ public class TriggerService {
 
         PlanCategory category = planCategoryRepository
                 .findByIdAndPlan_IdAndDeletedAtIsNull(request.categoryId(), request.planId())
-                .orElseThrow(() ->
-                        ApplicationException.from(TriggerErrorCase.PLAN_OR_CATEGORY_NOT_FOUND)
-                );
+                .orElseThrow(() -> ApplicationException.from(TriggerErrorCase.PLAN_OR_CATEGORY_NOT_FOUND));
 
         CategoryState state = categoryStateRepository
                 .findByCategory_Id(category.getId())
-                .orElseThrow(() ->
-                        ApplicationException.from(TriggerErrorCase.CATEGORY_STATE_NOT_FOUND)
-                );
+                .orElseThrow(() -> ApplicationException.from(TriggerErrorCase.CATEGORY_STATE_NOT_FOUND));
 
         Long currentCandidateId = state.getCurrentCandidateId();
 
@@ -58,19 +56,13 @@ public class TriggerService {
         }
 
         Trigger trigger = triggerRepository.save(
-                Trigger.create(
-                        category.getPlan(),
-                        category,
-                        currentCandidateId,
-                        request.triggerType()
-                )
-        );
+                Trigger.create(category.getPlan(), category, currentCandidateId, request.triggerType()));
 
         Long planId = category.getPlan().getId();
         LocalDateTime occurredAt = trigger.getOccurredAt();
 
         // 이벤트 발행
-        eventPublisher.publishEvent(new TriggerCreatedEvent(planId,occurredAt));
+        eventPublisher.publishEvent(new TriggerCreatedEvent(planId, occurredAt));
 
         return TriggerCreateResponse.builder()
                 .triggerId(trigger.getId())

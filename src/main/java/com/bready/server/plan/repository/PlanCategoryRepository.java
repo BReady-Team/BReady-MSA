@@ -1,23 +1,26 @@
 package com.bready.server.plan.repository;
 
-import com.bready.server.plan.domain.PlanCategory;
+import java.util.List;
+import java.util.Optional;
 import jakarta.persistence.LockModeType;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.List;
-import java.util.Optional;
+import com.bready.server.plan.domain.PlanCategory;
 
 public interface PlanCategoryRepository extends JpaRepository<PlanCategory, Long> {
     interface PlanCategoryTypeRow {
         Long getPlanId();
+
         String getCategoryType();
     }
 
-    @Query("""
+    @Query(
+            """
         select
             pc.plan.id as planId,
             pc.categoryType as categoryType
@@ -32,7 +35,8 @@ public interface PlanCategoryRepository extends JpaRepository<PlanCategory, Long
     // 플랜 상세 조회에서 categories 조회용 (soft delete 차단 + sequence 정렬)
     List<PlanCategory> findAllByPlan_IdAndDeletedAtIsNullOrderBySequenceAsc(Long planId);
 
-    @Query("""
+    @Query(
+            """
         select pc
         from PlanCategory pc
         where pc.plan.id = :planId
@@ -45,7 +49,8 @@ public interface PlanCategoryRepository extends JpaRepository<PlanCategory, Long
     Optional<PlanCategory> findByIdAndPlan_Id(Long id, Long planId);
 
     // 플랜 상세 조회 - 카테고리 + 후보 + place
-    @Query("""
+    @Query(
+            """
         select distinct pc
         from PlanCategory pc
         left join fetch pc.candidates cand
@@ -58,7 +63,8 @@ public interface PlanCategoryRepository extends JpaRepository<PlanCategory, Long
     List<PlanCategory> findAllDetailByPlanId(@Param("planId") Long planId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("""
+    @Query(
+            """
         select pc
         from PlanCategory pc
         where pc.id = :planCategoryId
@@ -66,11 +72,10 @@ public interface PlanCategoryRepository extends JpaRepository<PlanCategory, Long
           and pc.deletedAt is null
     """)
     Optional<PlanCategory> findAliveByIdAndPlanIdForUpdate(
-            @Param("planCategoryId") Long planCategoryId,
-            @Param("planId") Long planId
-    );
+            @Param("planCategoryId") Long planCategoryId, @Param("planId") Long planId);
 
-    @Query("""
+    @Query(
+            """
         select
             pc.plan.id as planId,
             pc.categoryType as categoryType
