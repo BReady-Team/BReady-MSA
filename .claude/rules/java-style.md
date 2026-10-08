@@ -35,7 +35,7 @@
   - 나쁜 예: `PlaceRecommendationPort.recommendPlaceCandidates(...)`는 파라미터가 8개다.
 - boolean 플래그 파라미터 금지. 동작이 갈리면 메서드를 나눈다.
 - 같은 private 메서드가 두 클래스 이상에 복붙되면 그 지식이 있어야 할 곳(enum·도메인 메서드·값 객체)으로 옮긴다.
-  - 나쁜 예: `resolveStartAt(StatsPeriod)`가 stats 서비스 4곳에 복사돼 있다(`stats/service/StatsService.java:44` 외 3곳). → `StatsPeriod.startAt(LocalDateTime now)`로.
+  - 나쁜 예: `resolveStartAt(StatsPeriod)`가 stats 서비스 4곳에 복사돼 있다(`stats/service/StatsService.java:46` 외 3곳). → `StatsPeriod.startAt(LocalDateTime now)`로.
 
 ## 3. null과 Optional
 
@@ -71,20 +71,21 @@ DTO는 record이므로 Lombok이 필요 없다(`dto.md` 1번).
 - `TODO`에는 언제 할지를 붙인다: `// TODO(2단계): plan 공개 API로 교체`.
 - 한국어 주석을 쓴다. 장식용 구분선(`// ─────`)은 쓰지 않는다.
 
-## 7. import와 타입 [빌드]
+## 7. import와 타입 [린트]
 
-- 와일드카드 import 금지(`import java.util.*`).
+- 와일드카드 import 금지(`import java.util.*`). 예외: 테스트의 static import(`import static org.assertj.core.api.Assertions.*`).
+  - import 순서와 안 쓰는 import 제거는 Spotless가 한다. 와일드카드를 펼쳐 주지는 않으므로 옛 코드(41개 파일)는 건드릴 때 정리한다.
 - 코드 중간에 정규화된 이름을 쓰지 않는다.
-  - 나쁜 예: `.block(java.time.Duration.ofSeconds(10))` (`place/external/KakaoPlaceClient.java:89`)
+  - 나쁜 예: `.block(java.time.Duration.ofSeconds(10))` (`place/external/KakaoPlaceClient.java:69`)
 - `var`는 오른쪽에서 타입이 바로 보일 때만(`var plan = Plan.create(...)`).
 
 ## 8. 상수와 리터럴
 
 - 의미 있는 숫자·문자열은 이름 붙은 상수나 enum으로. `DEFAULT_LIMIT`, `MAX_LIMIT` (BReady 좋은 예).
 - 상태를 문자열로 들고 다니지 않는다.
-  - 나쁜 예: `Plan.status`가 `String`이고 `"ACTIVE"`를 넣는다(`plan/domain/Plan.java:33`). → enum.
+  - 나쁜 예: `Plan.status`가 `String`이고 `"ACTIVE"`를 넣는다(`plan/domain/Plan.java:34`). → enum.
 - 표시용 기본값을 서비스에 박지 않는다.
-  - 나쁜 예: 닉네임 없으면 `"사용자"` (`plan/service/PlanService.java:133`)
+  - 나쁜 예: 닉네임 없으면 `"사용자"` (`plan/service/PlanService.java:129`)
 
 ## 9. 죽은 코드
 

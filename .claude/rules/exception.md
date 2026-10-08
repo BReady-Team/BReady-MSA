@@ -32,7 +32,7 @@ public enum PlanErrorCase implements ErrorCase {
 - 번호는 enum 안에서 001부터 순서대로. 지운 번호는 재사용하지 않는다.
 - 코드는 전역에서 유일해야 한다. [빌드]
 - 메시지는 사용자에게 보여도 되는 한국어 문장. 내부 정보(SQL, 클래스 이름, 다른 사용자 정보)를 넣지 않는다.
-- BReady 현황: 정수 코드이고 `4001`·`4002`·`4104`·`4105`가 모듈 사이에 중복된다(`plan/exception/PlanErrorCase.java:12`, `user/exception/UserErrorCase.java:13`, 핸들러의 검증 오류 `global/exception/GlobalExceptionHandler.java:48`). 전환은 응답 계약(`errorCode` 타입) 변경이므로 **ADR과 함께 별도 조각**에서 한다. 그 전까지 새 ErrorCase는 기존 enum 형식을 따르되 중복 번호를 만들지 않는다.
+- BReady 현황: 정수 코드이고 `4001`·`4002`·`4104`·`4105`가 모듈 사이에 중복된다(`plan/exception/PlanErrorCase.java:13`, `user/exception/UserErrorCase.java:15`, 핸들러의 검증 오류 `global/exception/GlobalExceptionHandler.java:47`). 전환은 응답 계약(`errorCode` 타입) 변경이므로 **ADR과 함께 별도 조각**에서 한다. 그 전까지 새 ErrorCase는 기존 enum 형식을 따르되 중복 번호를 만들지 않는다.
 
 ## 3. 던지는 법 [린트]
 
@@ -63,14 +63,14 @@ throw ApplicationException.from(PlanErrorCase.PLAN_NOT_FOUND);
 
 - 응답 본문은 항상 `CommonResponse.error(errorCase)`.
 - **도메인 모듈의 ErrorCase를 import하지 않는다.** 공통 상황은 `CommonErrorCase`로 표현한다. [빌드]
-  - BReady 현황: 핸들러가 `S3ErrorCase`·`StatsErrorCase`를 import하고(`global/exception/GlobalExceptionHandler.java:4`), 파라미터 이름(`"period"`, `"planDate"`, `"file"`)으로 분기한다. 모듈 지식이 global로 새고 있다.
+  - BReady 현황: 핸들러가 `S3ErrorCase`·`StatsErrorCase`를 import하고(`global/exception/GlobalExceptionHandler.java:21`), 파라미터 이름(`"period"`, `"planDate"`, `"file"`)으로 분기한다. 모듈 지식이 global로 새고 있다.
 - 핸들러를 추가하는 일은 드물다. 새 오류는 ErrorCase 한 줄로 해결되는지 먼저 본다.
 - 예상 못 한 예외(500)는 스택트레이스를 ERROR로 남기고, 응답에는 일반 메시지만 준다.
 
 ## 6. 잡는 법
 
 - `catch (Exception e)`는 **외부 연동 경계에서만** 쓴다(HTTP 클라이언트, AI 호출). 잡으면 로그를 남기고 ErrorCase로 번역하거나, 대체 동작을 하는 이유를 주석으로 남긴다.
-  - BReady 좋은 예: `OpenAiRerankService`는 AI 실패 시 빈 결과를 돌려주고 규칙 기반 결과를 쓴다(`recommendation/ai/OpenAiRerankService.java:106`). 실패해도 추천은 된다는 의도된 대체 동작이다.
+  - BReady 좋은 예: `OpenAiRerankService`는 AI 실패 시 빈 결과를 돌려주고 규칙 기반 결과를 쓴다(`recommendation/ai/OpenAiRerankService.java:91`). 실패해도 추천은 된다는 의도된 대체 동작이다.
 - 잡은 뒤 같은 예외를 다시 던지기만 하는 `catch (ApplicationException e) { throw e; }`는 지운다.
 - **에러 코드를 비교해서 흐름을 바꾸지 않는다.** 정상적으로 일어날 수 있는 결과(검색 결과 없음)는 예외가 아니라 반환값(빈 리스트, `Optional`)으로 표현한다.
-  - BReady 현황: `RuleBasedRecommendationAdapter`가 `PLACE_NOT_FOUND` 코드를 비교해 빈 리스트로 바꾼다(`recommendation/adapter/RuleBasedRecommendationAdapter.java:49`). 원인은 `PlaceSearchService`가 "결과 없음"을 예외로 던지는 것.
+  - BReady 현황: `RuleBasedRecommendationAdapter`가 `PLACE_NOT_FOUND` 코드를 비교해 빈 리스트로 바꾼다(`recommendation/adapter/RuleBasedRecommendationAdapter.java:44`). 원인은 `PlaceSearchService`가 "결과 없음"을 예외로 던지는 것.

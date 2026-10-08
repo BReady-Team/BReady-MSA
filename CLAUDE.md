@@ -85,10 +85,12 @@ H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → 
 ## 8. 빌드 · 실행 · 테스트
 
 ```bash
+.claude/scripts/verify.sh            # 포맷 → 컴파일 → 전체 테스트 (--fast: 테스트 생략)
+./gradlew spotlessApply              # 포맷 맞추기. 손으로 맞추지 않는다 (palantir-java-format)
 ./gradlew test                       # 전체 테스트 (현재 contextLoads 1건 실패 — TROUBLESHOOTING T-002)
-./gradlew compileJava compileTestJava
 .claude/hooks/test-hooks.sh          # 훅을 고쳤으면 반드시
 ```
+- Java를 고친 채 끝내려 하면 Stop 훅이 포맷·컴파일을 검사하고, 깨져 있으면 끝내지 못하게 막는다.
 - Java 21, Spring Boot 3.5.7, Gradle 9.2.1, MySQL 8.0, Redis 7.2. 베이스 패키지 `com.bready.server`.
 - 외부 의존(OpenAI, S3, 카카오/네이버 OAuth, 카카오 로컬)은 **실제 키 없이 로컬에서 돌 수 있어야 한다**(0단계 목표).
 
@@ -103,6 +105,7 @@ H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → 
 | 위치 | 역할 |
 |---|---|
 | `.claude/settings.json` | 권한(allow/ask/deny) + 훅 등록 |
-| `.claude/hooks/` | `guard-bash`·`guard-write`(차단), `session-context`(세션 시작 주입), `prompt-router`(게이트 리마인더 + 규칙 파일 라우팅), `test-hooks.sh`(회귀) |
-| `.claude/skills/` | 조각 진행: `/piece-start` `/piece-close` `/gate-review` `/adr` `/trouble` `/git-handoff` · 코드: `/new-api` `/domain-model` `/write-test` `/refactor-legacy` |
+| `.claude/hooks/` | `guard-bash`·`guard-write`(차단), `session-context`(세션 시작 주입), `prompt-router`(게이트 리마인더 + 규칙 파일 라우팅), `stop-verify-gate`(끝내기 전 포맷·컴파일), `test-hooks.sh`(회귀) |
+| `.claude/skills/` | 조각 진행: `/piece-start` `/piece-close` `/gate-review` `/adr` `/trouble` `/verify` `/git-handoff` · 코드: `/new-api` `/domain-model` `/write-test` `/refactor-legacy` |
+| `.claude/scripts/` | `verify.sh` |
 | `.claude/rules/` | 규범 10개 + 지도 `00-map.md` |

@@ -57,7 +57,7 @@ public record PlanCreateResponse(Long planId, LocalDateTime createdAt) {
 
 - 의존 방향은 `dto → domain` 한쪽뿐이다. 엔티티는 DTO를 모른다.
 - 서비스에서 응답을 빌더로 조립하지 않는다.
-  - BReady 현황: `PlanService`는 응답 조립에 약 80줄을 쓴다(`plan/service/PlanService.java:44` 외).
+  - BReady 현황: `PlanService`는 응답 조립에 약 80줄을 쓴다(`plan/service/PlanService.java:46` 외).
 - 엔티티를 응답에 그대로 넣지 않는다. 응답의 하위 객체도 record다.
 
 ## 5. 민감 필드

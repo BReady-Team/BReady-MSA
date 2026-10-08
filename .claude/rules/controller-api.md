@@ -5,7 +5,7 @@
 컨트롤러가 하는 일은 네 가지뿐이다: **HTTP 매핑 · 형식 검증 · 인증 사용자 주입 · 서비스 호출 결과를 `CommonResponse`로 감싸기**.
 
 - 비즈니스 판단, 조회 결과에 따른 분기, 예외 던지기를 하지 않는다.
-  - BReady 현황: `PlaceSearchController`가 위도/경도 짝 검증과 "결과 없음" 예외를 직접 던진다(`place/controller/PlaceSearchController.java:98,106`). 후자는 서비스가 이미 같은 예외를 던져서 중복이다.
+  - BReady 현황: `PlaceSearchController`가 위도/경도 짝 검증과 "결과 없음" 예외를 직접 던진다(`place/controller/PlaceSearchController.java:91,98`). 후자는 서비스가 이미 같은 예외를 던져서 중복이다.
 - 리포지토리를 주입하지 않는다. 서비스는 하나만 주입하는 것을 기본으로 한다.
 - 한 엔드포인트는 서비스 메서드 하나를 부른다.
 
