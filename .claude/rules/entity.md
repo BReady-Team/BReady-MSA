@@ -64,7 +64,8 @@ public class Plan extends BaseEntity {
 ## 4. 규칙 검증 메서드 — 소유권·상태
 
 - 서비스에 흩어진 같은 검증은 엔티티 메서드 하나로 모은다.
-  - BReady 현황: `if (!plan.getOwnerId().equals(userId))`가 `PlanService`·`PlanCategoryService`·추천 서비스에 10번 복사돼 있다(`plan/service/PlanService.java:58` 외).
+  - Planning 안에서는 `plan.validateOwner(userId)`(403 PLAN_ACCESS_DENIED)를 쓴다. 다른 에러 코드를 던져야 하면 `plan.isOwnedBy(userId)`로 판단만 한다(카테고리 API는 CATEGORY_ACCESS_DENIED).
+  - BReady 현황: 추천 서비스 2곳에 `if (!plan.getOwnerId().equals(userId))`가 남아 있다(`recommendation/service/RecommendValidationService.java:35`, `PlaceRecommendationService.java:62`). 추천은 다른 컨텍스트라 Planning 공개 API로 바꿀 때 함께 없앤다.
   ```java
   public void validateOwner(Long userId) {
       if (!ownerId.equals(userId)) {

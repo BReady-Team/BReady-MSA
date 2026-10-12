@@ -82,7 +82,7 @@ public class PlanController implements PlanApi {
 
 - 인증이 필요한 엔드포인트는 `@CurrentUser Long userId`로 받는다. `SecurityContextHolder`를 직접 쓰지 않는다.
 - **사용자 데이터를 바꾸는 모든 엔드포인트는 `userId`를 받아 소유권을 검증한다.** [리뷰]
-  - BReady 현황(IDOR): 장소 후보·트리거·결정·전환 엔드포인트에 `@CurrentUser`가 없다. 2단계에서 공개 API와 함께 고친다.
+  - 장소 후보·트리거·결정·전환 엔드포인트도 `@CurrentUser`를 받고 서비스가 `plan.validateOwner(userId)`로 확인한다. `integration/PlanningAuthorizationIntegrationTest`가 지킨다.
 - 인증 방식(JWT 필터·`SecurityConfig`)은 6단계 전까지 바꾸지 않는다.
 
 ## 6. 응답
