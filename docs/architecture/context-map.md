@@ -236,7 +236,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 
 | # | 발견 | 근거 | 영향 |
 |---|---|---|---|
-| R1 | **인가(소유자 확인) 누락 — IDOR.** 로그인만 하면 **남의 플랜**의 후보 등록/대표 변경/삭제, 트리거 발생, 결정, 전환이 가능 | `PlaceCandidateController`, `TriggerController`, `DecisionController`, `SwitchController`에 `@CurrentUser` 없음 + 서비스에 owner 체크 없음 (plan·recommendation·stats는 체크함) | 보안 결함. 고치려면 trigger/place가 "이 플랜이 이 사용자 것인가?"를 plan에 물어야 함 → **첫 번째 모듈 공개 API의 자연스러운 후보** |
+| R1 | ~~인가(소유자 확인) 누락 — IDOR~~ **해결(2026-10-12)**: 후보 등록·대표 지정·후보 삭제·트리거·결정·전환 여섯 API가 요청한 사용자를 받아 플랜 소유자인지 확인한다 | 수정 전에는 컨트롤러에 `@CurrentUser`가 없고 서비스에 소유자 확인이 없었다. 다른 사용자의 토큰으로 여섯 API를 호출해 전부 200이 나오는 것을 `PlanningAuthorizationIntegrationTest`로 재현한 뒤 고침 | 남의 플랜이면 403 PLAN_ACCESS_DENIED(4002). URL과 요청 본문은 그대로 |
 | R2 | ~~현재 로컬 컨텍스트 기동 불가~~ **해결(0-1, 2026-10-12)**: 키 없는 `application.yml` 커밋, 127개 통과 | `./gradlew test` → 100개 중 99 통과, `BReadyApplicationTests.contextLoads` 실패: `Could not resolve placeholder 'cloud.aws.credentials.access-key'` | `application.yml`이 gitignore되어 레포에 없고, test 프로필엔 S3 설정이 없다. **"진짜 키 없이 로컬에서 돈다"가 아직 성립 안 함** → 0단계 첫 작업 |
 | R3 | `gradlew` 실행 권한 없음 | `git ls-files -s gradlew` → `100644` | `./gradlew` 실패(`permission denied`), `sh ./gradlew`로 우회 중. 사용자가 `git update-index --chmod=+x gradlew` 필요 |
 | R4 | ~~죽은 코드~~ **해결(2026-10-12)**: `PlaceService`, `PlaceController`, `PlanStatsService`, `PlanStatsJoinService`와 그것만 쓰던 쿼리 3개 삭제 | 참조 검색, 컴파일, 전체 테스트 137개 통과로 확인 | 기준선 stats 109 → 94, 컨트롤러 규칙 17 → 16 |
@@ -377,7 +377,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 
 | 규칙 | 2026-10-08 |
 |---|---|
-| `new ApplicationException(...)` (from 사용) | 88 |
+| `new ApplicationException(...)` (from 사용) | 88 (2026-10-12: 80) |
 | DTO가 `*Request`/`*Response` record가 아님 | 41 |
 | 컨트롤러가 `{Domain}Api`를 구현하지 않음 | 17 (2026-10-12: 16) |
 | `@Transactional` 서비스의 클래스 readOnly 선언 없음 | 14 |
@@ -399,6 +399,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|---|
 | 2026-10-08 | v0 | 최초 작성 (코드 수정 없이 분석) |
 | 2026-10-08 | v0.1 | 경계 위반 기준선(ArchUnit) 추가 |
+| 2026-10-12 | v1.4 | R1(인가 누락) 해결 |
 | 2026-10-12 | v1.3 | R7 해결, R9(대표 지정의 같은 경쟁 상태) 발견·해결, 용어 절 추가 |
 | 2026-10-12 | v1.2 | 장소 후보를 plan 패키지로 이동, 기준선을 컨텍스트 단위로 다시 기록(11번): 420 → 274 |
 | 2026-10-12 | v1.1 | 죽은 코드 삭제 반영: 5.2 native SQL 제거, R4 해결, R8 추가, 기준선 stats 109 → 94 |

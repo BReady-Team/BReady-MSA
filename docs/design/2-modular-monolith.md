@@ -11,7 +11,7 @@
 | 2-1 | 죽은 코드 제거 | 완료 |
 | 2-2 | 컨텍스트 기준으로 모듈 재정의 | 완료 |
 | 2-3 | 전환 경쟁 상태 수정 | 완료 |
-| 2-4 | 소유권 검증 추가 | |
+| 2-4 | 소유권 검증 추가 | 완료 |
 | 2-5 | Planning → Place Catalog 공개 API | |
 | 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | |
 
@@ -298,4 +298,99 @@ after
 - 같은 락을 쓰는 나머지 경로(후보 등록, 카테고리 타입 변경, 트리거 생성)는 이번에 같은 방식으로 검증하지 않았다. 트리거 생성은 대표 후보를 락 없이 읽어 트리거에 기록하므로, 그 순간 대표가 바뀌면 직전 대표가 기록될 수 있다. 데이터가 깨지는 것은 아니라서 이번 범위에 넣지 않았다.
 - READ COMMITTED에서는 한 트랜잭션 안의 두 조회가 서로 다른 결과를 볼 수 있다. 두 메서드는 락을 얻은 뒤에만 판단에 쓰는 값을 읽으므로 문제가 되지 않지만, 락 이전에 읽은 값으로 판단하는 코드를 추가하면 같은 버그가 다시 생긴다.
 - 재현 테스트는 락 대기 현황을 보려고 root 계정으로 MySQL에 직접 접속한다. Testcontainers MySQL의 root 비밀번호가 앱 계정과 같다는 점에 기댄다.
+
+## 2-4 소유권 검증 추가
+
+### 왜 지금
+
+로그인만 하면 남의 플랜에 후보를 등록하고, 대표를 바꾸고, 후보를 지우고, 트리거·결정·전환을 실행할 수 있었다. 여섯 API의 컨트롤러가 요청한 사용자를 받지 않았고 서비스에 소유자 확인이 없었다. 앞의 통합 테스트들도 이 구멍 때문에 "본인의 흐름만 검증한다"는 한계를 달고 있었다.
+
+ADR-0001에서 trigger와 장소 후보를 Planning에 합쳤으므로, 이 검증은 다른 컨텍스트에 묻는 일이 아니라 같은 컨텍스트 안에서 플랜을 따라가 확인하는 일이 됐다.
+
+### 설계 (선택지 · 결정)
+
+검증 위치:
+
+| 안 | 방법 | 얻는 것 | 잃는 것 |
+|---|---|---|---|
+| **A (채택)** | `Plan` 엔티티에 `validateOwner(userId)`를 두고 서비스가 부른다 | 규칙이 한 곳에 있고 엔티티만으로 테스트할 수 있다 | 서비스마다 플랜을 따라가 한 줄씩 불러야 한다 |
+| B | 조회 쿼리에 소유자 조건을 넣는다 | 코드가 짧다 | 남의 것이면 404가 되어 기존 API(403)와 응답이 갈린다 |
+| C | 어노테이션이나 AOP로 공통 처리한다 | 서비스 코드가 깨끗하다 | 플랜을 찾는 경로가 API마다 달라 공통화하기 어렵고 동작이 숨는다 |
+
+남의 플랜일 때의 응답은 기존 플랜 조회와 같은 403 PLAN_ACCESS_DENIED(4002)로 맞췄다.
+
+이미 복사돼 있던 소유자 비교 10곳 가운데 Planning 안의 8곳을 정리했다. 구현하면서 달라진 점이 하나 있다. `PlanService`의 4곳은 같은 에러를 던져서 `validateOwner`로 바꿨지만, `PlanCategoryService`의 4곳은 CATEGORY_ACCESS_DENIED(4201)라는 다른 코드를 던지고 있었다. 이것까지 `validateOwner`로 바꾸면 응답의 에러 코드가 4201에서 4002로 달라진다. 그래서 판단만 하는 `isOwnedBy(userId)`를 따로 두고, 카테고리 쪽은 기존 에러를 그대로 던지게 했다. 추천 서비스의 2곳은 다른 컨텍스트라 2-6에서 다룬다.
+
+소유권 확인은 각 메서드에서 대상을 조회한 직후, 다른 검증보다 먼저 한다. 남의 결정이 KEEP인지 이미 전환됐는지 같은 정보를 에러 메시지로 알려 주지 않기 위해서다.
+
+### 흐름 (before → after)
+
+```
+before
+  POST /api/v1/triggers/{decisionId}/switch   (토큰: 다른 사용자)
+    → SwitchController.executeSwitch(decisionId, request)
+      → SwitchService.executeSwitch(decisionId, request)
+         결정 조회 → 락 → 후보 확인 → 대표 변경            200. 남의 플랜이 바뀐다
+
+after
+  POST /api/v1/triggers/{decisionId}/switch   (토큰: 다른 사용자)
+    → SwitchController.executeSwitch(@CurrentUser userId, decisionId, request)
+      → SwitchService.executeSwitch(userId, decisionId, request)
+         결정 조회 (트리거와 플랜을 함께 가져온다)
+         decision.getTrigger().getPlan().validateOwner(userId)   403 PLAN_ACCESS_DENIED
+         락을 잡기 전에 끝난다
+```
+
+플랜을 찾아가는 경로는 API마다 다르다.
+
+| API | 플랜까지의 경로 |
+|---|---|
+| 후보 등록 | 요청의 카테고리 → 플랜 |
+| 대표 지정, 후보 삭제 | 후보 → 카테고리 → 플랜 |
+| 트리거 생성 | 요청의 카테고리 → 플랜 |
+| 결정 | 트리거 → 플랜 |
+| 전환 | 결정 → 트리거 → 플랜 |
+
+### 구현 파일
+
+| 파일 | 변경 |
+|---|---|
+| `plan/domain/Plan.java` | `isOwnedBy`, `validateOwner` 추가 |
+| `PlaceCandidateService`, `TriggerService`, `DecisionService`, `SwitchService` | 여섯 메서드가 `userId`를 받아 소유권 확인 |
+| `PlaceCandidateController`, `TriggerController`, `DecisionController`, `SwitchController` | `@CurrentUser Long userId` 추가, Swagger에 403 응답 추가 |
+| `PlanService`, `PlanCategoryService` | 복사돼 있던 소유자 비교 8곳을 엔티티 메서드로 |
+| `plan/domain/PlanTest.java` | 새로 추가. 소유권 규칙의 도메인 단위 테스트 |
+| `integration/PlanningAuthorizationIntegrationTest.java` | 새로 추가. 다른 사용자의 토큰으로 여섯 API 호출 |
+| 서비스·컨트롤러 단위 테스트 8개 | 새 시그니처에 맞춤 |
+| `src/test/resources/archunit_store/` | 고친 위반 8줄 제거, 시그니처가 바뀐 메서드의 기록 7줄은 시그니처 문자열만 갱신 |
+
+### 검증 증거
+
+```
+수정 전: PlanningAuthorizationIntegrationTest   tests=6 failures=6
+  남의 플랜에 후보를 등록하면 …        expected: 403 but was: 200
+  남의 플랜의 대표 후보를 바꾸면 …      expected: 403 but was: 200
+  남의 플랜의 후보를 삭제하면 …        expected: 403 but was: 200
+  남의 플랜에 트리거를 만들면 …        expected: 403 but was: 200
+  남의 플랜의 트리거에 결정을 내리면 …  expected: 403 but was: 200
+  남의 플랜에서 전환을 실행하면 …      expected: 403 but was: 200
+
+수정 후
+  PlanningAuthorizationIntegrationTest   tests=6 failures=0
+  .claude/scripts/verify.sh              전체 145 · 실패 0
+```
+
+각 테스트는 403과 에러 코드 4002를 확인하고, 데이터가 바뀌지 않았는지도 DB에서 확인한다(후보 수, 대표 후보, 삭제 여부, 트리거·결정·전환 기록 수).
+
+본인의 흐름을 지키는 기존 통합 테스트(핵심 흐름, 삭제와 겹치는 경쟁)는 그대로 통과한다.
+
+기준선: `new ApplicationException(...)` 사용 88 → 80.
+
+### 알려진 한계
+
+- 플랜을 따라갈 때 지연 로딩으로 조회가 한두 번 더 나간다. 전환은 처음부터 플랜까지 함께 가져오므로 추가 조회가 없다.
+- 추천 서비스의 소유자 비교 2곳은 그대로다. 추천은 다른 컨텍스트라 Planning 공개 API를 만들 때 함께 정리한다.
+- 통계·추천 API는 원래 소유권을 확인하고 있어 이번 대상이 아니었다. 이번에 다시 검증하지는 않았다.
+- 서비스 단위 테스트는 엔티티를 mock으로 만드는 옛 방식이 그대로다. 소유권 확인이 지나가도록 플랜만 진짜 객체로 넣었다.
+- 메서드 시그니처가 바뀌면 ArchUnit은 그 메서드의 기존 위반을 새 위반으로 본다. 위반 문구에 시그니처가 들어가기 때문이다. 기록의 시그니처 문자열만 갱신했고 줄 수가 같은 것을 확인했다.
 
