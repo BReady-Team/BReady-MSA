@@ -16,5 +16,5 @@
 ## 문서 규칙
 - **같은 내용을 두 번 쓰지 않는다.** 상세는 `design/`, 결정의 근거는 `adr/`, 이야기는 `LEARNING_JOURNEY.md`에만 쓰고 서로 링크한다.
 - **증거로 말한다.** "됐다" 대신 테스트 출력, 로그, curl 응답, 쿼리 결과를 붙인다.
-- 설계서 이름: `design/{로드맵단계}-{순번}-{slug}.md` (예: `design/0-1-local-boot.md`)
+- 설계서는 로드맵 단계마다 하나: `design/{로드맵단계}-{slug}.md` (예: `design/2-modular-monolith.md`). 단계 안의 조각은 같은 파일의 절로 쓴다
 - ADR 이름: `adr/{4자리 번호}-{slug}.md`, 템플릿은 [adr/0000-template.md](adr/0000-template.md)

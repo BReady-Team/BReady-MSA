@@ -1,6 +1,6 @@
-# 경계 지도 (Context Map) — 초안 
+# 경계 지도 (Context Map)
 
-> **상태**: 초안 (Phase 2 시작 시점의 "있는 그대로" 스냅샷)
+> **상태**: 확정 (2026-10-12). 결정과 근거는 [ADR-0001](../adr/0001-bounded-contexts-and-extraction-order.md)
 > **분석 방법**: `com.bready.server.*` 전체 import 그래프 추출 → 엔티티 연관관계·JPQL/Native 쿼리·`@Transactional` 메서드 전수 확인
 > **이 문서의 용도**: 로드맵 1단계(경계 지도)의 출발점. 2단계(모듈러 모놀리스)에서 "무엇을 끊어야 하는지"의 체크리스트
 > 위반을 하나 끊을 때마다 이 문서의 해당 행을 갱신
@@ -246,20 +246,32 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 2. **`PlaceCandidate`는 plan 쪽 개념이다.** 카탈로그(`Place`)와 후보(`PlaceCandidate`)는 생명주기가 다르다. 카탈로그는 외부 ID 기준 공용 캐시이고, 후보는 특정 플랜 카테고리에 종속된다.
 3. **trigger는 플래닝의 "변경 이력 + 의사결정 기록"에 가깝다.** 전환(Switch)의 본질은 "대표 후보 변경"(plan의 상태 변경)이고, `SwitchLog`는 그 이력이다.
 
-**잠정 바운디드 컨텍스트 (1단계에서 확정할 초안)**
+**바운디드 컨텍스트 (확정 2026-10-12)**
 
-| 잠정 컨텍스트 | 포함 (현재 패키지) | 소유 테이블 | 성격 |
+| 컨텍스트 | 포함 (현재 패키지) | 소유 테이블 | 성격 |
 |---|---|---|---|
 | **Identity** | auth + user | `users`, `user_profiles`, Redis refresh token | 인증·프로필. JWT 쟁점은 6단계 |
-| **Planning (코어)** | plan + place의 *후보* 부분 (+ trigger를 여기 둘지가 핵심 결정) | `plans`, `plan_categories`, `place_candidates`, `category_states`, `category_selection_logs` (+ `triggers`, `decisions`, `switch_logs`?) | 강한 일관성이 필요한 핵심 도메인 |
+| **Planning (코어)** | plan + place의 *후보* 부분 + trigger | `plans`, `plan_categories`, `place_candidates`, `category_states`, `category_selection_logs`, `triggers`, `decisions`, `switch_logs` | 강한 일관성이 필요한 핵심 도메인. 한 트랜잭션과 한 락으로 함께 바뀐다 |
 | **Place Catalog** | place의 *검색·카탈로그* 부분 | `places` | 카카오 어댑터 + 장소 마스터 |
 | **Recommendation** | recommendation | 없음 (Redis 캐시) | 계산형, 외부(OpenAI) 의존 큼 |
 | **Stats** | stats | `plan_stats` (+ 앞으로 자기 읽기 모델) | 읽기 모델, 최종 일관성 허용 |
 | **File** | s3 | 없음 | 기술 역량 (서비스 분리 대상 아님, 라이브러리/어댑터) |
 
+**확정한 세 가지와 근거**
+
+| 결정 | 근거 |
+|---|---|
+| trigger를 Planning에 합친다 | 전환의 본질은 대표 후보 변경이다. `SwitchService.executeSwitch`가 잠그고 바꾸는 `category_states`는 plan 소유다. 나누면 한 번의 COMMIT이 두 서비스에 걸친 트랜잭션이 되고, DB 락은 서비스 경계를 넘지 못한다(T1) |
+| `PlaceCandidate`는 Planning, `Place`만 Place Catalog | 후보의 생명주기는 카테고리에 묶여 있다. 카테고리 타입을 바꾸면 후보가 전부 지워진다(T3). 카탈로그는 누구의 플랜과도 무관한 공용 데이터다 |
+| auth와 user는 하나의 Identity | 가입이 `users` 쓰기와 토큰 발급을 한 번에 한다(T7). 지금 인증만 따로 확장할 이유가 없다 |
+
+**경계를 이렇게 그으면 달라지는 것**: 기준선 435건 중 약 189건은 같은 컨텍스트 안의 참조가 된다(11번 "컨텍스트 기준으로 다시 보기").
+
 ---
 
-## 9. 의견 — 먼저 떼어내기 좋은 후보 vs 가장 어려운 곳
+## 9. 추출 순서 — 먼저 떼어내기 좋은 후보 vs 가장 어려운 곳
+
+**확정(2026-10-12): Place Catalog → Recommendation → Stats.** Planning과 Identity는 모놀리식에 남긴다. 아래는 그 근거다.
 
 ### 먼저 떼어내기 좋은 후보: **Place Catalog** (장소 검색 + `places`)
 
@@ -285,13 +297,13 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 
 ---
 
-## 10. 1단계(경계 지도 확정)에서 결정할 질문
+## 10. 결정한 질문
 
-- [ ] Q1. trigger(Trigger/Decision/SwitchLog)를 Planning 컨텍스트에 합칠 것인가, 별도 컨텍스트로 둘 것인가?
-- [ ] Q2. `PlaceCandidate`를 plan 쪽으로 옮길 것인가? (2단계에서 패키지 이동 = 코드 변경)
-- [ ] Q3. auth와 user를 하나의 Identity로 볼 것인가? (6단계 JWT와 연결)
-- [ ] Q4. R1(IDOR)을 언제 고칠 것인가? (안전망 직후 별도 조각 / 2단계 공개 API 도입과 함께)
-- [ ] Q5. R6(소프트 삭제 불일치)을 안전망 테스트에서 "현재 동작"으로 고정할 것인가, 버그로 기록할 것인가?
+- [x] Q1. trigger(Trigger/Decision/SwitchLog)를 Planning 컨텍스트에 합칠 것인가, 별도 컨텍스트로 둘 것인가? → **합친다** (8번)
+- [x] Q2. `PlaceCandidate`를 plan 쪽으로 옮길 것인가? → **Planning 소유로 본다.** 패키지 이동은 2단계에서 한다
+- [x] Q3. auth와 user를 하나의 Identity로 볼 것인가? → **하나로 본다**
+- [x] Q4. R1(IDOR)을 언제 고칠 것인가? → **모듈러 모놀리스 단계에서 Planning 진입점을 정리할 때 함께 고친다.** trigger와 후보가 Planning 안에 있으므로 같은 컨텍스트 안의 소유권 검증이 된다
+- [x] Q5. R6(소프트 삭제 불일치)을 어떻게 다룰 것인가? → **버그로 기록하고 Stats를 떼면서 읽기 모델을 새로 만들 때 고친다.** 그 쿼리들은 그때 전부 다시 쓴다
 
 ---
 
@@ -313,6 +325,26 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 | place | 32 |
 | user | 0 |
 | s3 | 0 |
+
+**컨텍스트 기준으로 다시 보기 (2026-10-12)**
+
+위 표는 패키지를 모듈로 보고 센 것이다. 8번에서 확정한 컨텍스트로 묶으면 같은 435건이 이렇게 나뉜다.
+
+| 누가 → 누구를 | 건수 | 컨텍스트로 보면 |
+|---|---|---|
+| auth → user | 67 | Identity 내부 |
+| plan → place | 52 | 대부분 Planning 내부(후보). `Place`를 쓰는 부분만 Catalog 경계 |
+| place → plan | 32 | Planning 내부 |
+| trigger → plan | 27 | Planning 내부 |
+| trigger → place | 11 | Planning 내부 |
+| recommendation → trigger | 68 | 경계 위반 |
+| recommendation → plan | 52 | 경계 위반 |
+| recommendation → place | 11 | 경계 위반 |
+| stats → trigger | 73 | 경계 위반 |
+| stats → plan | 36 | 경계 위반 |
+| plan → user | 6 | 경계 위반 |
+
+컨텍스트 내부 참조가 약 189건(43%), 실제로 끊어야 하는 경계 위반이 약 246건이다. ArchUnit 규칙의 모듈 정의를 컨텍스트 기준으로 바꾸는 일은 2단계에서 패키지를 옮길 때 함께 한다.
 
 **구조·코딩 규칙**
 
@@ -340,4 +372,6 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|---|
 | 2026-10-08 | v0 | 최초 작성 (코드 수정 없이 분석) |
 | 2026-10-08 | v0.1 | 경계 위반 기준선(ArchUnit) 추가 |
+| 2026-10-12 | v1.0 | 추출 순서 확정(9번), 남은 결정 질문 정리(10번), ADR-0001 연결 |
+| 2026-10-12 | v0.3 | 바운디드 컨텍스트 경계 확정(8번, Q1~Q3), 기준선을 컨텍스트 기준으로 다시 집계(11번) |
 | 2026-10-08 | v0.2 | 5.1 정정: `countSwitchByPlanIdAndPeriod`는 `plans`를 JOIN하지 않음, `TriggerRepository.countByPlanIdAndPeriod` 누락 추가 (boundary-auditor 감사로 발견) |

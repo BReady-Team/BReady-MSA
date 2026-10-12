@@ -53,7 +53,7 @@
 
 H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → **1** 경계 지도 확정 → **2** 모듈러 모놀리스(JPA 연관→ID, 공개 API, 경계 래칫) → **3** Strangler facade(Gateway) → **4** 첫 추출(Place Catalog, 공유 DB→스키마→DB 분리) → **5** 다음 추출 + 고통이 생긴 곳에만 Kafka/Outbox/Saga/서킷브레이커/추적 → **6** 인증 분리·관측성·(선택) k8s
 
-- 경계 현황: [docs/architecture/context-map.md](docs/architecture/context-map.md). 잠정 방침: **플래닝 코어(plan+후보+trigger)는 쪼개지 않고 가장자리부터 뗀다**(1단계에서 ADR로 확정).
+- 경계 현황: [docs/architecture/context-map.md](docs/architecture/context-map.md). 확정 방침([ADR-0001](docs/adr/0001-bounded-contexts-and-extraction-order.md)): **Planning(plan+후보+trigger)은 쪼개지 않고, Place Catalog → Recommendation → Stats 순으로 가장자리부터 뗀다.**
 - 인증(JWT)은 6단계 전에는 손대지 않는다.
 
 ## 6. 문서 — 공개 / 비공개
