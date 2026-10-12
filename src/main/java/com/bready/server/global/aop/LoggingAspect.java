@@ -1,18 +1,11 @@
 package com.bready.server.global.aop;
 
-import java.util.Arrays;
-import java.util.stream.Collectors;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.After;
 import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.springframework.stereotype.Component;
-import org.springframework.validation.BindingResult;
-import org.springframework.web.multipart.MultipartFile;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,16 +16,15 @@ public class LoggingAspect {
 
     @Before("execution(* com.bready.server..service..*(..))")
     public void logBefore(JoinPoint joinPoint) {
-        log.info(
-                "[START] {}.{}() args = {}",
+        log.debug(
+                "[START] {}.{}()",
                 joinPoint.getSignature().getDeclaringTypeName(),
-                joinPoint.getSignature().getName(),
-                safeArgs(joinPoint));
+                joinPoint.getSignature().getName());
     }
 
     @After("execution(* com.bready.server..service..*(..))")
     public void logAfter(JoinPoint joinPoint) {
-        log.info(
+        log.debug(
                 "[ END ] {}.{}()",
                 joinPoint.getSignature().getDeclaringTypeName(),
                 joinPoint.getSignature().getName());
@@ -46,19 +38,5 @@ public class LoggingAspect {
                 joinPoint.getSignature().getName(),
                 ex.getMessage(),
                 ex);
-    }
-
-    private String safeArgs(JoinPoint joinPoint) {
-        return Arrays.stream(joinPoint.getArgs()).map(this::safeValue).collect(Collectors.joining(", ", "[", "]"));
-    }
-
-    private String safeValue(Object arg) {
-        if (arg == null) return "null";
-        if (arg instanceof MultipartFile file) return "MultipartFile(size=" + file.getSize() + ")";
-        if (arg instanceof byte[] b) return "byte[](" + b.length + ")";
-        if (arg instanceof HttpServletRequest) return "HttpServletRequest";
-        if (arg instanceof HttpServletResponse) return "HttpServletResponse";
-        if (arg instanceof BindingResult br) return "BindingResult(errors=" + br.getErrorCount() + ")";
-        return arg.toString();
     }
 }
