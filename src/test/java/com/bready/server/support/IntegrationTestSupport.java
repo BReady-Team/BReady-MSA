@@ -1,14 +1,26 @@
 package com.bready.server.support;
 
+import java.sql.Statement;
+import java.util.List;
+
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.jdbc.core.ConnectionCallback;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 
 @SpringBootTest
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 public abstract class IntegrationTestSupport {
 
@@ -25,9 +37,45 @@ public abstract class IntegrationTestSupport {
         REDIS.start();
     }
 
+    @Autowired
+    protected MockMvc mockMvc;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
     @DynamicPropertySource
     static void registerRedisProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(REDIS_PORT));
+    }
+
+    @AfterEach
+    void cleanUp() {
+        truncateAllTables();
+        redisTemplate.execute((RedisCallback<Void>) connection -> {
+            connection.serverCommands().flushDb();
+            return null;
+        });
+    }
+
+    private void truncateAllTables() {
+        List<String> tables = jdbcTemplate.queryForList(
+                "select table_name from information_schema.tables"
+                        + " where table_schema = database() and table_type = 'BASE TABLE'",
+                String.class);
+
+        jdbcTemplate.execute((ConnectionCallback<Void>) connection -> {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("set foreign_key_checks = 0");
+                for (String table : tables) {
+                    statement.execute("truncate table `" + table + "`");
+                }
+                statement.execute("set foreign_key_checks = 1");
+            }
+            return null;
+        });
     }
 }
