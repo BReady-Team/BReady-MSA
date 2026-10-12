@@ -1,4 +1,4 @@
-package com.bready.server.place.controller;
+package com.bready.server.plan.controller;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
@@ -7,11 +7,11 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import com.bready.server.global.response.CommonResponse;
-import com.bready.server.place.dto.PlaceCandidateCreateRequest;
-import com.bready.server.place.dto.PlaceCandidateCreateResponse;
-import com.bready.server.place.dto.PlaceCandidateDeleteResponse;
-import com.bready.server.place.dto.PlaceCandidateRepresentativeResponse;
-import com.bready.server.place.service.PlaceCandidateService;
+import com.bready.server.plan.dto.PlaceCandidateCreateRequest;
+import com.bready.server.plan.dto.PlaceCandidateCreateResponse;
+import com.bready.server.plan.dto.PlaceCandidateDeleteResponse;
+import com.bready.server.plan.dto.PlaceCandidateRepresentativeResponse;
+import com.bready.server.plan.service.PlaceCandidateService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

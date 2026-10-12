@@ -11,14 +11,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.domain.PlaceCandidate;
-import com.bready.server.place.repository.PlaceCandidateRepository;
+import com.bready.server.plan.domain.PlaceCandidate;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.dto.*;
 import com.bready.server.plan.exception.CategoryErrorCase;
 import com.bready.server.plan.exception.PlanErrorCase;
 import com.bready.server.plan.repository.CategoryStateRepository;
+import com.bready.server.plan.repository.PlaceCandidateRepository;
 import com.bready.server.plan.repository.PlanCategoryRepository;
 import com.bready.server.plan.repository.PlanRepository;
 

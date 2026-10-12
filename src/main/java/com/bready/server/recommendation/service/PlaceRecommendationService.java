@@ -7,14 +7,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.domain.PlaceCandidate;
 import com.bready.server.place.exception.PlaceErrorCase;
-import com.bready.server.place.repository.PlaceCandidateRepository;
 import com.bready.server.plan.domain.CategoryState;
+import com.bready.server.plan.domain.PlaceCandidate;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
+import com.bready.server.plan.exception.PlaceCandidateErrorCase;
 import com.bready.server.plan.exception.PlanErrorCase;
 import com.bready.server.plan.repository.CategoryStateRepository;
+import com.bready.server.plan.repository.PlaceCandidateRepository;
 import com.bready.server.recommendation.cache.PlaceRecommendationCacheService;
 import com.bready.server.recommendation.dto.PlaceRecommendationQuery;
 import com.bready.server.recommendation.dto.PlaceRecommendationRequest;
@@ -145,7 +146,7 @@ public class PlaceRecommendationService {
         // 기존 대표장소 기반 trigger
         PlaceCandidate candidate = placeCandidateRepository
                 .findAliveByIdWithCategoryAndPlace(representativeCandidateId)
-                .orElseThrow(() -> new ApplicationException(PlaceErrorCase.PLACE_CANDIDATE_NOT_FOUND));
+                .orElseThrow(() -> new ApplicationException(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND));
 
         Double lat = toDouble(candidate.getPlace().getLatitude());
         Double lng = toDouble(candidate.getPlace().getLongitude());

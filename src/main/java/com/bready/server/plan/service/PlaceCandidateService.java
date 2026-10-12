@@ -1,4 +1,4 @@
-package com.bready.server.place.service;
+package com.bready.server.plan.service;
 
 import java.time.LocalDateTime;
 
@@ -8,15 +8,21 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.place.domain.Place;
-import com.bready.server.place.domain.PlaceCandidate;
-import com.bready.server.place.dto.*;
-import com.bready.server.place.exception.PlaceErrorCase;
-import com.bready.server.place.repository.PlaceCandidateRepository;
+import com.bready.server.place.dto.PlaceRegisterRequest;
+import com.bready.server.place.service.PlacePersistenceService;
 import com.bready.server.plan.domain.CategorySelectionLog;
 import com.bready.server.plan.domain.CategoryState;
+import com.bready.server.plan.domain.PlaceCandidate;
 import com.bready.server.plan.domain.PlanCategory;
+import com.bready.server.plan.dto.PlaceCandidateCreateRequest;
+import com.bready.server.plan.dto.PlaceCandidateCreateResponse;
+import com.bready.server.plan.dto.PlaceCandidateDeleteResponse;
+import com.bready.server.plan.dto.PlaceCandidateRepresentativeResponse;
+import com.bready.server.plan.dto.PlaceSummaryResponse;
+import com.bready.server.plan.exception.PlaceCandidateErrorCase;
 import com.bready.server.plan.repository.CategorySelectionLogRepository;
 import com.bready.server.plan.repository.CategoryStateRepository;
+import com.bready.server.plan.repository.PlaceCandidateRepository;
 import com.bready.server.plan.repository.PlanCategoryRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -37,17 +43,23 @@ public class PlaceCandidateService {
         // planId + categoryId 매칭 검증
         PlanCategory category = planCategoryRepository
                 .findByIdAndPlan_IdAndDeletedAtIsNull(request.categoryId(), request.planId())
-                .orElseThrow(() -> ApplicationException.from(PlaceErrorCase.INVALID_PLAN_OR_CATEGORY));
+                .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.INVALID_PLAN_OR_CATEGORY));
 
-        // Place는 중복이면 재사용 (REQUIRES_NEW로 분리된 빈 호출)
-        Place place = placePersistenceService.getOrCreate(request);
+        // Place는 중복이면 재사용
+        Place place = placePersistenceService.getOrCreate(new PlaceRegisterRequest(
+                request.externalId(),
+                request.name(),
+                request.address(),
+                request.latitude(),
+                request.longitude(),
+                request.isIndoor()));
 
         // PlaceCandidate 저장 -> 동시성 중복은 DB 유니크로 차단
         PlaceCandidate saved;
         try {
             saved = placeCandidateRepository.saveAndFlush(PlaceCandidate.create(category, place));
         } catch (DataIntegrityViolationException e) {
-            throw ApplicationException.from(PlaceErrorCase.DUPLICATE_PLACE_CANDIDATE);
+            throw ApplicationException.from(PlaceCandidateErrorCase.DUPLICATE_PLACE_CANDIDATE);
         }
 
         // 대표 장소 로직 - 카테고리에서 후보가 있다면 대표 장소 보장
@@ -62,7 +74,6 @@ public class PlaceCandidateService {
                 categoryStateRepository.saveAndFlush(CategoryState.create(category, saved.getId()));
                 changed = true;
             } catch (DataIntegrityViolationException e) {
-                // 다른 트랜잭션이 먼저 생성
                 state = categoryStateRepository
                         .findByCategory_IdForUpdate(category.getId())
                         .orElse(null);
@@ -94,7 +105,7 @@ public class PlaceCandidateService {
 
         PlaceCandidate candidate = placeCandidateRepository
                 .findByIdWithCategoryAndPlace(candidateId)
-                .orElseThrow(() -> ApplicationException.from(PlaceErrorCase.PLACE_CANDIDATE_NOT_FOUND));
+                .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND));
 
         PlanCategory category = candidate.getCategory();
         Long categoryId = category.getId();
@@ -109,7 +120,7 @@ public class PlaceCandidateService {
         } else {
             // 이미 대표인 경우
             if (state.isRepresentative(candidateId)) {
-                throw ApplicationException.from(PlaceErrorCase.ALREADY_REPRESENTATIVE_CANDIDATE);
+                throw ApplicationException.from(PlaceCandidateErrorCase.ALREADY_REPRESENTATIVE_CANDIDATE);
             }
             state.changeRepresentative(candidateId);
         }
@@ -127,7 +138,7 @@ public class PlaceCandidateService {
     public PlaceCandidateDeleteResponse deleteCandidate(Long candidateId) {
         PlaceCandidate candidate = placeCandidateRepository
                 .findByIdWithCategory(candidateId)
-                .orElseThrow(() -> ApplicationException.from(PlaceErrorCase.PLACE_CANDIDATE_NOT_FOUND));
+                .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND));
 
         Long categoryId = candidate.getCategory().getId();
 
@@ -137,7 +148,7 @@ public class PlaceCandidateService {
         if (state != null
                 && state.getCurrentCandidateId() != null
                 && state.getCurrentCandidateId().equals(candidateId)) {
-            throw ApplicationException.from(PlaceErrorCase.REPRESENTATIVE_CANDIDATE_CANNOT_DELETE);
+            throw ApplicationException.from(PlaceCandidateErrorCase.REPRESENTATIVE_CANDIDATE_CANNOT_DELETE);
         }
 
         candidate.softDelete();

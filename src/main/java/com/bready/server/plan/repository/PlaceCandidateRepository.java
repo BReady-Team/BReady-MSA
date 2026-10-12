@@ -1,4 +1,4 @@
-package com.bready.server.place.repository;
+package com.bready.server.plan.repository;
 
 import java.util.List;
 import java.util.Optional;
@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import com.bready.server.place.domain.PlaceCandidate;
+import com.bready.server.plan.domain.PlaceCandidate;
 
 public interface PlaceCandidateRepository extends JpaRepository<PlaceCandidate, Long> {
     @Query(

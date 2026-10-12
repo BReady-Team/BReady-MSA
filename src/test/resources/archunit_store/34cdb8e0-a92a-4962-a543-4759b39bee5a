@@ -1,4 +1,4 @@
-Method <com.bready.server.place.service.PlaceCandidateService.saveSelectionLog(java.lang.Long, java.lang.Long)> calls method <java.time.LocalDateTime.now()> in (PlaceCandidateService.java:152)
+Method <com.bready.server.plan.service.PlaceCandidateService.saveSelectionLog(java.lang.Long, java.lang.Long)> calls method <java.time.LocalDateTime.now()> in (PlaceCandidateService.java:152)
 Method <com.bready.server.plan.domain.CategoryState.changeRepresentative(java.lang.Long)> calls method <java.time.LocalDateTime.now()> in (CategoryState.java:42)
 Method <com.bready.server.plan.domain.CategoryState.create(com.bready.server.plan.domain.PlanCategory, java.lang.Long)> calls method <java.time.LocalDateTime.now()> in (CategoryState.java:36)
 Method <com.bready.server.plan.service.PlanCategoryService.updateCategoryOrder(java.lang.Long, java.lang.Long, com.bready.server.plan.dto.PlanCategoryOrderUpdateRequest)> calls method <java.time.LocalDateTime.now()> in (PlanCategoryService.java:162)

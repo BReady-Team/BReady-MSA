@@ -3,7 +3,7 @@ package com.bready.server.trigger.domain;
 import jakarta.persistence.*;
 
 import com.bready.server.global.entity.BaseEntity;
-import com.bready.server.place.domain.PlaceCandidate;
+import com.bready.server.plan.domain.PlaceCandidate;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

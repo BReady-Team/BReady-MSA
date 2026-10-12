@@ -1,4 +1,4 @@
-package com.bready.server.place.dto;
+package com.bready.server.plan.dto;
 
 import java.math.BigDecimal;
 import jakarta.validation.constraints.DecimalMax;

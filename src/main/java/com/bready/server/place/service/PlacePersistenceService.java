@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.place.domain.Place;
-import com.bready.server.place.dto.PlaceCandidateCreateRequest;
+import com.bready.server.place.dto.PlaceRegisterRequest;
 import com.bready.server.place.exception.PlaceErrorCase;
 import com.bready.server.place.repository.PlaceRepository;
 
@@ -20,7 +20,7 @@ public class PlacePersistenceService {
     private final PlaceRepository placeRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public Place getOrCreate(PlaceCandidateCreateRequest request) {
+    public Place getOrCreate(PlaceRegisterRequest request) {
         try {
             return placeRepository
                     .findByExternalId(request.externalId())

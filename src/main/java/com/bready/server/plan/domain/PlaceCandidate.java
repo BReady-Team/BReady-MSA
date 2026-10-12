@@ -1,11 +1,11 @@
-package com.bready.server.place.domain;
+package com.bready.server.plan.domain;
 
 import jakarta.persistence.*;
 
 import org.hibernate.annotations.SQLRestriction;
 
 import com.bready.server.global.entity.BaseEntity;
-import com.bready.server.plan.domain.PlanCategory;
+import com.bready.server.place.domain.Place;
 
 import lombok.AccessLevel;
 import lombok.Getter;
