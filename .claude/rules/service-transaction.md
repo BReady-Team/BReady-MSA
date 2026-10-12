@@ -72,7 +72,7 @@ try {
     throw ApplicationException.from(PlaceErrorCase.DUPLICATE_PLACE_CANDIDATE);
 }
 ```
-(`place/service/PlaceCandidateService.java:49`) — "먼저 조회해서 없으면 저장"은 동시 요청 두 개가 둘 다 "없음"을 본다. 유니크 제약이 최종 판정자다. `saveAndFlush`여야 예외가 이 try 안에서 터진다.
+(`plan/service/PlaceCandidateService.java:60`) — "먼저 조회해서 없으면 저장"은 동시 요청 두 개가 둘 다 "없음"을 본다. 유니크 제약이 최종 판정자다. `saveAndFlush`여야 예외가 이 try 안에서 터진다.
 
 **락 선택 기준**
 | 상황 | 방법 |

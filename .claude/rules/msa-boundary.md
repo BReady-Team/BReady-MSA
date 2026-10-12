@@ -7,7 +7,8 @@
 
 - 모듈 = `com.bready.server` 바로 아래 패키지: `auth` `user` `plan` `place` `trigger` `recommendation` `stats` `s3`.
 - `global`은 **기술 공통**(응답 봉투, 예외 뼈대, 보안 필터, 설정, BaseEntity)만 담는다. 도메인 지식(특정 모듈의 ErrorCase, 엔티티, 규칙)을 넣지 않는다. [빌드]
-- 바운디드 컨텍스트(ADR-0001로 확정): Identity(auth+user) · Planning(plan+후보+trigger) · Place Catalog · Recommendation · Stats · File(s3). 같은 컨텍스트 안의 패키지끼리 참조하는 것은 끊을 대상이 아니다. ArchUnit의 모듈 정의는 아직 패키지 기준이고, 2단계에서 컨텍스트 기준으로 바꾼다.
+- 바운디드 컨텍스트(ADR-0001로 확정): Identity(auth+user) · Planning(plan+후보+trigger) · Place Catalog · Recommendation · Stats · File(s3). 같은 컨텍스트 안의 패키지끼리 참조하는 것은 끊을 대상이 아니다. ArchUnit도 컨텍스트 단위로 경계를 본다(`architecture/ArchitectureRules.CONTEXTS`). 아래 규칙에서 "다른 모듈"은 **다른 컨텍스트의 모듈**을 뜻한다.
+- 장소 후보(`PlaceCandidate`와 그 리포지토리·서비스·컨트롤러·DTO)는 Planning 소유라서 `plan` 패키지에 있다. `place` 패키지는 Place Catalog다. URL(`/api/v1/places/candidates`)은 외부 계약이라 그대로다.
 
 ## 2. 새 코드의 규칙 [빌드]
 
@@ -24,10 +25,10 @@
 
 | 코드 | 유형 | 예 (BReady 현황) | 분리하면 무엇이 되나 |
 |---|---|---|---|
-| **V1** | 남의 Repository 주입 | `PlaceCandidateService`가 `CategoryStateRepository` 사용 | 남의 DB에 직접 붙음 → 불가능 |
-| **V2** | 모듈을 넘는 JPA 연관 | `Trigger.plan`, `SwitchLog.fromCandidate` | 다른 DB의 FK → 불가능 |
-| **V3** | 모듈을 넘는 JOIN | `SwitchLog ⋈ Decision ⋈ Trigger ⋈ Plan` | API 합성 또는 데이터 복제 필요 |
-| **V4** | 모듈을 넘는 트랜잭션 | `SwitchService.executeSwitch` | Saga·보상 또는 경계 재설계 |
+| **V1** | 남의 Repository 주입 | `PlanService`가 `UserRepository` 사용, stats가 `TriggerRepository` 사용 | 남의 DB에 직접 붙음 → 불가능 |
+| **V2** | 모듈을 넘는 JPA 연관 | `PlaceCandidate.place` (Planning → Place Catalog) | 다른 DB의 FK → 불가능 |
+| **V3** | 모듈을 넘는 JOIN | `PlanCategory ⋈ PlaceCandidate ⋈ Place` (플랜 상세) | API 합성 또는 데이터 복제 필요 |
+| **V4** | 모듈을 넘는 트랜잭션 | `PlaceCandidateService.createCandidate` (후보 저장 + 장소 저장) | Saga·보상 또는 경계 재설계 |
 | **V5** | 소비자 패키지의 이벤트 | `stats.event.*`를 trigger가 import | 이벤트 스키마를 누가 소유하나 |
 | **V6** | global → 도메인 의존 | `GlobalExceptionHandler`가 `S3ErrorCase` import | 공통 모듈이 모든 서비스에 의존 |
 
