@@ -7,6 +7,7 @@
 |---|---|---|---|
 | [T-001](#t-001) | 2026-10-08 | `./gradlew` 실행 시 permission denied | 출발점 |
 | [T-002](#t-002) | 2026-10-08 | `contextLoads` 실패: `cloud.aws.credentials.access-key` 플레이스홀더 해석 불가 | 출발점 |
+| [T-003](#t-003) | 2026-10-12 | Testcontainers 컨테이너 시작 실패: `client version 1.32 is too old` | 0-2 |
 
 ---
 
@@ -48,3 +49,21 @@ S3 값만 채우면 다음 겹이 나온다: `OpenAI API key must be set` (`open
 **재발 방지**: 새 설정 값을 추가할 때 기본값 없는 `${ENV}`를 쓰지 않는다. 빠뜨리면 `contextLoads`가 환경변수 없는 곳에서 바로 실패하므로 테스트가 잡아 준다.
 
 **연결**: commerce-msa에서는 처음부터 `${VAR:-default}`로 외부화해서 이 문제가 없었다. 팀 프로젝트는 운영 서버의 `application.yml`에 기대고 있었기 때문에, 그 파일이 없는 곳에서는 뜨지 않는다. → "12-factor: 설정은 환경에서"의 반대 사례.
+---
+
+## T-003
+
+**증상**
+```
+BReadyApplicationTests > initializationError FAILED
+    Caused by: org.testcontainers.containers.ContainerLaunchException: Container startup failed for image mysql:8.0
+    Caused by: com.github.dockerjava.api.exception.BadRequestException: Status 400:
+      {"message":"client version 1.32 is too old. Minimum supported API version is 1.44, please upgrade your client to a newer version"}
+```
+Testcontainers를 처음 붙이고 `./gradlew test`를 돌리자 컨테이너가 뜨지 않았다. 
+
+**원인**: Docker 엔진과 클라이언트는 HTTP API 버전을 맞춰 대화한다. Testcontainers가 쓰는 docker-java 클라이언트는 기본으로 API 1.32로 요청하는데, Docker 29부터 엔진이 1.44 미만 요청을 거부한다.
+
+**해결**: `build.gradle`의 test 태스크에 `systemProperty 'api.version', '1.44'`. docker-java가 이 시스템 프로퍼티를 읽어 요청 버전을 올린다. 
+
+**연결**: 하네스를 만들 때 CLAUDE.md 알려진 함정에 미리 적어 둔 항목 
