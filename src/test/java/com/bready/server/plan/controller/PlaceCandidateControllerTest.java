@@ -11,8 +11,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com.bready.server.global.config.security.TestSecurityConfig;
+import com.bready.server.global.config.security.jwt.JwtAuthentication;
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.plan.dto.PlaceCandidateCreateRequest;
 import com.bready.server.plan.dto.PlaceCandidateCreateResponse;
@@ -24,7 +26,9 @@ import com.bready.server.plan.service.PlaceCandidateService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -33,6 +37,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(PlaceCandidateController.class)
 @Import(TestSecurityConfig.class)
 class PlaceCandidateControllerTest {
+
+    private static final Long USER_ID = 1L;
+
+    private static RequestPostProcessor asUser() {
+        return authentication(new JwtAuthentication(USER_ID));
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -55,9 +65,10 @@ class PlaceCandidateControllerTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        given(placeCandidateService.createCandidate(any())).willReturn(response);
+        given(placeCandidateService.createCandidate(eq(USER_ID), any())).willReturn(response);
 
         mockMvc.perform(post("/api/v1/places/candidates")
+                        .with(asUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -69,11 +80,12 @@ class PlaceCandidateControllerTest {
     @DisplayName("장소 후보 중복 등록 → 409 실패")
     void createCandidate_duplicate() throws Exception {
 
-        given(placeCandidateService.createCandidate(any()))
+        given(placeCandidateService.createCandidate(eq(USER_ID), any()))
                 .willThrow(ApplicationException.from(PlaceCandidateErrorCase.DUPLICATE_PLACE_CANDIDATE));
 
         mockMvc.perform(
                         post("/api/v1/places/candidates")
+                                .with(asUser())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -100,9 +112,9 @@ class PlaceCandidateControllerTest {
                 .changedAt(LocalDateTime.now())
                 .build();
 
-        given(placeCandidateService.setRepresentative(10L)).willReturn(response);
+        given(placeCandidateService.setRepresentative(USER_ID, 10L)).willReturn(response);
 
-        mockMvc.perform(post("/api/v1/places/candidates/10/representative"))
+        mockMvc.perform(post("/api/v1/places/candidates/10/representative").with(asUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.representativeCandidateId").value(10L));
     }
@@ -116,9 +128,9 @@ class PlaceCandidateControllerTest {
                 .deletedAt(LocalDateTime.now())
                 .build();
 
-        given(placeCandidateService.deleteCandidate(10L)).willReturn(response);
+        given(placeCandidateService.deleteCandidate(USER_ID, 10L)).willReturn(response);
 
-        mockMvc.perform(delete("/api/v1/places/candidates/10"))
+        mockMvc.perform(delete("/api/v1/places/candidates/10").with(asUser()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.candidateId").value(10L));
     }

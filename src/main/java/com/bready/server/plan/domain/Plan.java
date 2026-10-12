@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import jakarta.persistence.*;
 
 import com.bready.server.global.entity.BaseEntity;
+import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.plan.exception.PlanErrorCase;
 
 import lombok.Getter;
 
@@ -45,6 +47,16 @@ public class Plan extends BaseEntity {
         plan.status = "ACTIVE";
         plan.shareToken = null;
         return plan;
+    }
+
+    public boolean isOwnedBy(Long userId) {
+        return ownerId.equals(userId);
+    }
+
+    public void validateOwner(Long userId) {
+        if (!isOwnedBy(userId)) {
+            throw ApplicationException.from(PlanErrorCase.PLAN_ACCESS_DENIED);
+        }
     }
 
     public void update(String title, LocalDate planDate, String region) {

@@ -39,12 +39,13 @@ public class PlaceCandidateService {
     private final CategorySelectionLogRepository categorySelectionLogRepository;
 
     @Transactional
-    public PlaceCandidateCreateResponse createCandidate(PlaceCandidateCreateRequest request) {
+    public PlaceCandidateCreateResponse createCandidate(Long userId, PlaceCandidateCreateRequest request) {
 
         // planId + categoryId 매칭 검증
         PlanCategory category = planCategoryRepository
                 .findByIdAndPlan_IdAndDeletedAtIsNull(request.categoryId(), request.planId())
                 .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.INVALID_PLAN_OR_CATEGORY));
+        category.getPlan().validateOwner(userId);
 
         // Place는 중복이면 재사용
         Place place = placePersistenceService.getOrCreate(new PlaceRegisterRequest(
@@ -103,13 +104,14 @@ public class PlaceCandidateService {
 
     // executeSwitch와 같은 이유로 READ_COMMITTED -> 락을 얻은 뒤의 조회가 최신 커밋을 봐야함
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public PlaceCandidateRepresentativeResponse setRepresentative(Long candidateId) {
+    public PlaceCandidateRepresentativeResponse setRepresentative(Long userId, Long candidateId) {
 
         PlaceCandidate candidate = placeCandidateRepository
                 .findByIdWithCategoryAndPlace(candidateId)
                 .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND));
 
         PlanCategory category = candidate.getCategory();
+        category.getPlan().validateOwner(userId);
         Long categoryId = category.getId();
 
         CategoryState state =
@@ -142,11 +144,12 @@ public class PlaceCandidateService {
     }
 
     @Transactional
-    public PlaceCandidateDeleteResponse deleteCandidate(Long candidateId) {
+    public PlaceCandidateDeleteResponse deleteCandidate(Long userId, Long candidateId) {
         PlaceCandidate candidate = placeCandidateRepository
                 .findByIdWithCategory(candidateId)
                 .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND));
 
+        candidate.getCategory().getPlan().validateOwner(userId);
         Long categoryId = candidate.getCategory().getId();
 
         CategoryState state =

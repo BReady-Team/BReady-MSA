@@ -1,6 +1,7 @@
 package com.bready.server.plan.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -17,6 +18,7 @@ import com.bready.server.place.domain.Place;
 import com.bready.server.place.service.PlacePersistenceService;
 import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlaceCandidate;
+import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.dto.PlaceCandidateCreateRequest;
 import com.bready.server.plan.exception.PlaceCandidateErrorCase;
@@ -28,10 +30,17 @@ import com.bready.server.plan.repository.PlanCategoryRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PlaceCandidateServiceTest {
+
+    private static final Long USER_ID = 1L;
+
+    private static Plan ownedPlan() {
+        return Plan.create(USER_ID, "제목", LocalDate.of(2026, 10, 20), "서울");
+    }
 
     @InjectMocks
     private PlaceCandidateService placeCandidateService;
@@ -58,6 +67,7 @@ class PlaceCandidateServiceTest {
                 1L, 10L, "kakao-123", "성수 카페", "서울 성동구", BigDecimal.valueOf(37.5), BigDecimal.valueOf(127.0), true);
 
         PlanCategory category = mock(PlanCategory.class);
+        given(category.getPlan()).willReturn(ownedPlan());
         Place place = mock(Place.class);
 
         PlaceCandidate savedCandidate = mock(PlaceCandidate.class);
@@ -71,7 +81,7 @@ class PlaceCandidateServiceTest {
 
         when(placeCandidateRepository.saveAndFlush(any())).thenReturn(savedCandidate);
 
-        var response = placeCandidateService.createCandidate(request);
+        var response = placeCandidateService.createCandidate(USER_ID, request);
 
         assertThat(response.candidateId()).isEqualTo(100L);
         verify(placeCandidateRepository).saveAndFlush(any());
@@ -84,6 +94,7 @@ class PlaceCandidateServiceTest {
                 1L, 10L, "kakao-123", "성수 카페", "서울 성동구", BigDecimal.valueOf(37.5), BigDecimal.valueOf(127.0), true);
 
         PlanCategory category = mock(PlanCategory.class);
+        given(category.getPlan()).willReturn(ownedPlan());
         Place place = mock(Place.class);
 
         when(planCategoryRepository.findByIdAndPlan_IdAndDeletedAtIsNull(10L, 1L))
@@ -93,7 +104,7 @@ class PlaceCandidateServiceTest {
 
         when(placeCandidateRepository.saveAndFlush(any())).thenThrow(DataIntegrityViolationException.class);
 
-        assertThatThrownBy(() -> placeCandidateService.createCandidate(request))
+        assertThatThrownBy(() -> placeCandidateService.createCandidate(USER_ID, request))
                 .isInstanceOf(ApplicationException.class)
                 .extracting("errorCase")
                 .isEqualTo(PlaceCandidateErrorCase.DUPLICATE_PLACE_CANDIDATE);
@@ -105,6 +116,7 @@ class PlaceCandidateServiceTest {
         Long candidateId = 100L;
 
         PlanCategory category = mock(PlanCategory.class);
+        given(category.getPlan()).willReturn(ownedPlan());
         when(category.getId()).thenReturn(10L);
 
         PlaceCandidate candidate = mock(PlaceCandidate.class);
@@ -116,7 +128,7 @@ class PlaceCandidateServiceTest {
         when(placeCandidateRepository.existsAliveByIdAndCategoryId(candidateId, 10L))
                 .thenReturn(true);
 
-        var response = placeCandidateService.setRepresentative(candidateId);
+        var response = placeCandidateService.setRepresentative(USER_ID, candidateId);
 
         assertThat(response.representativeCandidateId()).isEqualTo(candidateId);
         verify(categoryStateRepository).save(any());
@@ -129,6 +141,7 @@ class PlaceCandidateServiceTest {
         Long candidateId = 100L;
 
         PlanCategory category = mock(PlanCategory.class);
+        given(category.getPlan()).willReturn(ownedPlan());
         when(category.getId()).thenReturn(10L);
 
         PlaceCandidate candidate = mock(PlaceCandidate.class);
@@ -143,7 +156,7 @@ class PlaceCandidateServiceTest {
         when(placeCandidateRepository.existsAliveByIdAndCategoryId(candidateId, 10L))
                 .thenReturn(true);
 
-        assertThatThrownBy(() -> placeCandidateService.setRepresentative(candidateId))
+        assertThatThrownBy(() -> placeCandidateService.setRepresentative(USER_ID, candidateId))
                 .isInstanceOf(ApplicationException.class)
                 .extracting("errorCase")
                 .isEqualTo(PlaceCandidateErrorCase.ALREADY_REPRESENTATIVE_CANDIDATE);
@@ -155,6 +168,7 @@ class PlaceCandidateServiceTest {
         Long candidateId = 100L;
 
         PlanCategory category = mock(PlanCategory.class);
+        given(category.getPlan()).willReturn(ownedPlan());
         when(category.getId()).thenReturn(10L);
 
         PlaceCandidate candidate = mock(PlaceCandidate.class);
@@ -164,7 +178,7 @@ class PlaceCandidateServiceTest {
 
         when(categoryStateRepository.findByCategory_IdForUpdate(10L)).thenReturn(Optional.empty());
 
-        var response = placeCandidateService.deleteCandidate(candidateId);
+        var response = placeCandidateService.deleteCandidate(USER_ID, candidateId);
 
         assertThat(response.candidateId()).isEqualTo(candidateId);
         verify(candidate).softDelete();

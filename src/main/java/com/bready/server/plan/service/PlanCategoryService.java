@@ -40,8 +40,8 @@ public class PlanCategoryService {
                 .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
-        if (!plan.getOwnerId().equals(userId)) {
-            throw new ApplicationException(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
+        if (!plan.isOwnedBy(userId)) {
+            throw ApplicationException.from(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
         }
 
         PlanCategory last = planCategoryRepository.findLastByPlanId(planId, PageRequest.of(0, 1)).stream()
@@ -68,8 +68,8 @@ public class PlanCategoryService {
                 .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
-        if (!plan.getOwnerId().equals(userId)) {
-            throw new ApplicationException(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
+        if (!plan.isOwnedBy(userId)) {
+            throw ApplicationException.from(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
         }
 
         PlanCategory category = planCategoryRepository
@@ -93,8 +93,8 @@ public class PlanCategoryService {
                 .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
-        if (!plan.getOwnerId().equals(userId)) {
-            throw new ApplicationException(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
+        if (!plan.isOwnedBy(userId)) {
+            throw ApplicationException.from(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
         }
 
         List<PlanCategoryOrderUpdateRequest.OrderItem> orders = request.getOrders();
@@ -170,8 +170,8 @@ public class PlanCategoryService {
                 .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
-        if (!plan.getOwnerId().equals(userId)) {
-            throw new ApplicationException(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
+        if (!plan.isOwnedBy(userId)) {
+            throw ApplicationException.from(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
         }
 
         PlanCategory category = planCategoryRepository
