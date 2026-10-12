@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bready.server.global.auth.CurrentUser;
 import com.bready.server.global.response.CommonResponse;
 import com.bready.server.trigger.dto.TriggerCreateRequest;
 import com.bready.server.trigger.dto.TriggerCreateResponse;
@@ -42,7 +43,8 @@ public class TriggerController {
                 description = "트리거 발생 권한 없음 (플랜 소유자 아님)",
                 content = @Content(schema = @Schema(implementation = CommonResponse.class)))
     })
-    public CommonResponse<TriggerCreateResponse> createTrigger(@RequestBody @Valid TriggerCreateRequest request) {
-        return CommonResponse.success(triggerService.createTrigger(request));
+    public CommonResponse<TriggerCreateResponse> createTrigger(
+            @CurrentUser Long userId, @RequestBody @Valid TriggerCreateRequest request) {
+        return CommonResponse.success(triggerService.createTrigger(userId, request));
     }
 }

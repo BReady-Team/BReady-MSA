@@ -62,7 +62,12 @@ public class PlanningSteps {
     }
 
     public long createCandidate(String token, long planId, long categoryId, String externalId) throws Exception {
-        MvcResult result = perform(
+        return readLong(createCandidateResult(token, planId, categoryId, externalId), "$.data.candidateId");
+    }
+
+    public MvcResult createCandidateResult(String token, long planId, long categoryId, String externalId)
+            throws Exception {
+        return perform(
                 post("/api/v1/places/candidates"),
                 token,
                 """
@@ -70,28 +75,33 @@ public class PlanningSteps {
                          "address": "서울 성동구", "latitude": 37.5445, "longitude": 127.0557, "isIndoor": true}
                         """
                         .formatted(planId, categoryId, externalId, externalId));
-        return readLong(result, "$.data.candidateId");
     }
 
     public long createTrigger(String token, long planId, long categoryId) throws Exception {
-        MvcResult result = perform(
+        return readLong(createTriggerResult(token, planId, categoryId), "$.data.triggerId");
+    }
+
+    public MvcResult createTriggerResult(String token, long planId, long categoryId) throws Exception {
+        return perform(
                 post("/api/v1/triggers"),
                 token,
                 """
                         {"planId": %d, "categoryId": %d, "triggerType": "WAITING_TOO_LONG"}
                         """
                         .formatted(planId, categoryId));
-        return readLong(result, "$.data.triggerId");
     }
 
     public long decideSwitch(String token, long triggerId) throws Exception {
-        MvcResult result = perform(
+        return readLong(decideSwitchResult(token, triggerId), "$.data.decisionId");
+    }
+
+    public MvcResult decideSwitchResult(String token, long triggerId) throws Exception {
+        return perform(
                 post("/api/v1/triggers/{triggerId}/decision", triggerId),
                 token,
                 """
                         {"decisionType": "SWITCH"}
                         """);
-        return readLong(result, "$.data.decisionId");
     }
 
     public MvcResult switchTo(String token, long decisionId, long toCandidateId) throws Exception {

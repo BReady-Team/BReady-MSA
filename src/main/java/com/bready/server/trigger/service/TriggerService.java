@@ -32,11 +32,12 @@ public class TriggerService {
     private final PlaceCandidateRepository placeCandidateRepository;
 
     @Transactional
-    public TriggerCreateResponse createTrigger(TriggerCreateRequest request) {
+    public TriggerCreateResponse createTrigger(Long userId, TriggerCreateRequest request) {
 
         PlanCategory category = planCategoryRepository
                 .findByIdAndPlan_IdAndDeletedAtIsNull(request.categoryId(), request.planId())
                 .orElseThrow(() -> ApplicationException.from(TriggerErrorCase.PLAN_OR_CATEGORY_NOT_FOUND));
+        category.getPlan().validateOwner(userId);
 
         CategoryState state = categoryStateRepository
                 .findByCategory_Id(category.getId())

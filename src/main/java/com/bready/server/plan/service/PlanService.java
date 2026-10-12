@@ -55,9 +55,7 @@ public class PlanService {
                 .findByIdAndDeletedAtIsNull(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
-        if (!plan.getOwnerId().equals(userId)) {
-            throw new ApplicationException(PlanErrorCase.PLAN_ACCESS_DENIED);
-        }
+        plan.validateOwner(userId);
 
         plan.update(request.getTitle(), request.getPlanDate(), request.getRegion());
 
@@ -75,9 +73,7 @@ public class PlanService {
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
         // TODO : 플랜 공유 기능 도입 시 소유자 외에도 조회 권한 허용
-        if (!plan.getOwnerId().equals(userId)) {
-            throw new ApplicationException(PlanErrorCase.PLAN_ACCESS_DENIED);
-        }
+        plan.validateOwner(userId);
 
         return buildPlanDetailResponse(plan);
     }
@@ -211,9 +207,7 @@ public class PlanService {
                 .findByIdAndDeletedAtIsNull(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
-        if (!plan.getOwnerId().equals(userId)) {
-            throw new ApplicationException(PlanErrorCase.PLAN_ACCESS_DENIED);
-        }
+        plan.validateOwner(userId);
 
         plan.softDelete();
 
@@ -229,9 +223,7 @@ public class PlanService {
                 .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
-        if (!plan.getOwnerId().equals(userId)) {
-            throw new ApplicationException(PlanErrorCase.PLAN_ACCESS_DENIED);
-        }
+        plan.validateOwner(userId);
 
         if (plan.getShareToken() != null) {
             return plan.getShareToken();

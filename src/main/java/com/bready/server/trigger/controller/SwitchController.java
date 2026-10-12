@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Positive;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import com.bready.server.global.auth.CurrentUser;
 import com.bready.server.global.response.CommonResponse;
 import com.bready.server.trigger.dto.DecisionSwitchRequest;
 import com.bready.server.trigger.dto.DecisionSwitchResponse;
@@ -30,6 +31,10 @@ public class SwitchController {
     @Operation(summary = "장소 전환 확정", description = "SWITCH 결정에 대해서만 실제 대표 장소 후보를 변경하고 SwitchLog를 생성합니다.")
     @ApiResponses({
         @ApiResponse(
+                responseCode = "403",
+                description = "플랜 소유자가 아님 (4002)",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
                 responseCode = "200",
                 description = "전환 성공",
                 content = @Content(schema = @Schema(implementation = CommonResponse.class))),
@@ -47,7 +52,9 @@ public class SwitchController {
                 content = @Content(schema = @Schema(implementation = CommonResponse.class)))
     })
     public CommonResponse<DecisionSwitchResponse> executeSwitch(
-            @PathVariable @Positive Long decisionId, @RequestBody @Valid DecisionSwitchRequest request) {
-        return CommonResponse.success(switchService.executeSwitch(decisionId, request));
+            @CurrentUser Long userId,
+            @PathVariable @Positive Long decisionId,
+            @RequestBody @Valid DecisionSwitchRequest request) {
+        return CommonResponse.success(switchService.executeSwitch(userId, decisionId, request));
     }
 }

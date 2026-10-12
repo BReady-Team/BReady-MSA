@@ -23,11 +23,12 @@ public class DecisionService {
     private final DecisionRepository decisionRepository;
 
     @Transactional
-    public DecisionCreateResponse createDecision(Long triggerId, DecisionCreateRequest request) {
+    public DecisionCreateResponse createDecision(Long userId, Long triggerId, DecisionCreateRequest request) {
 
         Trigger trigger = triggerRepository
                 .findById(triggerId)
                 .orElseThrow(() -> ApplicationException.from(TriggerDecisionErrorCase.TRIGGER_NOT_FOUND));
+        trigger.getPlan().validateOwner(userId);
 
         Decision decision;
         try {
