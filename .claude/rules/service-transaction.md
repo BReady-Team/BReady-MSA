@@ -62,7 +62,9 @@ KakaoAuthService.login()              ← 트랜잭션 없음
 ## 4. 동시성
 
 **검증과 변경은 같은 락 안에서 한다.** 락을 잡기 전에 읽은 값으로 판단하면, 락을 기다리는 사이에 다른 트랜잭션이 그 값을 바꿀 수 있다.
-- BReady 현황(경쟁 상태 R7): `SwitchService.executeSwitch`는 전환 대상 후보가 살아 있는지 **락 없이** 확인한 뒤 `category_states` 락을 잡는다. 그 사이 후보 삭제가 커밋되면 삭제된 후보가 대표로 지정된다. → 락을 먼저 잡고 검증한다.
+- **락을 잡은 뒤의 검증은 최신 커밋을 봐야 한다.** MySQL 기본 격리 수준(REPEATABLE READ)에서 일반 조회는 트랜잭션이 처음 조회한 시점의 스냅샷을 본다. 락을 먼저 잡아도, 락을 기다리는 동안 다른 트랜잭션이 커밋한 변경은 일반 조회에 보이지 않는다. 잠금 읽기(`FOR UPDATE`)만 최신을 본다.
+  - 락 뒤에 일반 조회로 검증해야 하면 그 메서드를 `@Transactional(isolation = Isolation.READ_COMMITTED)`로 두고 이유를 주석으로 남긴다.
+  - 예: `SwitchService.executeSwitch`, `PlaceCandidateService.setRepresentative`. 락 → 검증 순서와 READ_COMMITTED 둘 다 있어야 한다. 하나만으로는 `CandidateDeletionRaceIntegrationTest`가 실패한다.
 
 **중복 생성은 DB 유니크 제약으로 막고 예외를 번역한다** 
 ```java
