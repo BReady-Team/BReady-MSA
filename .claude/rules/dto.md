@@ -18,7 +18,7 @@ public record PlanCreateResponse(Long planId, LocalDateTime createdAt) {
 
 - 불변이고, 생성자·접근자·`equals`·`toString`이 자동으로 생긴다. Lombok이 필요 없다.
 - 필드가 5개 이상이고 일부만 채우는 응답은 record에 `@Builder`를 붙여도 된다(`java-style.md` 5번).
-- **선행 조건**: auth 요청 DTO를 record로 바꾸기 전에 `LoggingAspect`의 인자 로깅을 없앤다(`logging.md` 3번). record의 `toString()`은 모든 필드를 출력한다.
+- record의 `toString()`은 모든 필드를 출력한다. 그래서 `LoggingAspect`는 인자를 로그에 남기지 않고(`logging.md` 3번), 민감 필드를 가진 record는 `toString()`을 재정의한다(5번).
 - BReady 현황: 요청 DTO 18개 중 10개가 `@Getter @NoArgsConstructor` 클래스(예: `plan/dto/PlanCreateRequest.java:10`), 응답은 `@Builder` 클래스와 record가 섞여 있다.
 
 ## 2. 이름 [빌드]

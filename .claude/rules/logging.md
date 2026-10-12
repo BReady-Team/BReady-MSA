@@ -20,10 +20,10 @@
 
 ## 3. LoggingAspect
 
-- 현재 `LoggingAspect`는 **모든 서비스 메서드의 인자를 `toString()`으로 INFO 로깅**한다(`global/aop/LoggingAspect.java:24,62`).
-  - DTO가 record가 되는 순간 `LoginRequest[email=…, password=평문]`이 로그에 남는다.
-  - 요청 하나에 서비스 호출 수만큼 START/END 로그가 쌓인다.
-- 결정: **서비스 인자 로깅을 없앤다.** 0단계에서 안전망을 갖춘 뒤 제거하고, auth DTO의 record 전환은 그 다음에 한다.
+- `LoggingAspect`는 서비스 메서드의 시작·종료를 **DEBUG**로, 예외를 ERROR로 남긴다. **인자는 남기지 않는다.**
+  - 인자를 `toString()`으로 찍으면 DTO가 record가 되는 순간 `LoginRequest[email=…, password=평문]`이 로그에 남는다.
+  - 인자 로깅을 다시 넣지 않는다. `LoggingAspectTest`가 인자를 읽지 않는 것을 지킨다.
+  - BReady 현황: `ExecutionTimeAspect`는 아직 요청마다 INFO를 찍는다(`global/aop/ExecutionTimeAspect.java`). 관측성 단계에서 메트릭으로 바꾼다.
 - 요청 단위 추적은 나중에 traceId(MDC)로 한다(5~6단계 관측성).
 
 ## 4. 형식
