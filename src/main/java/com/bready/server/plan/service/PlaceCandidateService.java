@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
@@ -100,7 +101,8 @@ public class PlaceCandidateService {
                 .build();
     }
 
-    @Transactional
+    // executeSwitch와 같은 이유로 READ_COMMITTED -> 락을 얻은 뒤의 조회가 최신 커밋을 봐야함
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public PlaceCandidateRepresentativeResponse setRepresentative(Long candidateId) {
 
         PlaceCandidate candidate = placeCandidateRepository
@@ -112,6 +114,11 @@ public class PlaceCandidateService {
 
         CategoryState state =
                 categoryStateRepository.findByCategory_IdForUpdate(categoryId).orElse(null);
+
+        // 락을 기다리는 동안 후보가 삭제됐을 수 있기에, 위에서 읽은 candidate는 락 이전의 모습이라 다시 확인
+        if (!placeCandidateRepository.existsAliveByIdAndCategoryId(candidateId, categoryId)) {
+            throw ApplicationException.from(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND);
+        }
 
         if (state == null) {
             // 첫 대표 지정

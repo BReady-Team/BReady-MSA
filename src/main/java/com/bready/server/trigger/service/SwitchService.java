@@ -3,6 +3,7 @@ package com.bready.server.trigger.service;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
@@ -32,7 +33,9 @@ public class SwitchService {
     private final PlaceCandidateRepository placeCandidateRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    @Transactional
+    // 격리 수준을 READ_COMMITTED로 낮춘다. 기본값(REPEATABLE READ)에서는 락을 얻은 뒤의 조회도
+    // 트랜잭션이 처음 찍은 스냅샷을 봐서, 락을 기다리는 동안 삭제된 후보가 살아 있는 것으로 보인다
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public DecisionSwitchResponse executeSwitch(Long decisionId, DecisionSwitchRequest request) {
 
         Decision decision = decisionRepository
@@ -55,6 +58,11 @@ public class SwitchService {
 
         Long toCandidateId = request.toCandidateId();
 
+        // 후보를 검증하기 전에 락부터 잡는다.
+        CategoryState state = categoryStateRepository
+                .findByCategory_IdForUpdate(categoryId)
+                .orElseThrow(() -> ApplicationException.from(TriggerSwitchErrorCase.CATEGORY_STATE_NOT_FOUND));
+
         // 전환 대상 후보 조회 + 검증 (중복 쿼리 제거)
         PlaceCandidate toCandidate = placeCandidateRepository
                 .findAliveByIdAndCategoryId(toCandidateId, categoryId)
@@ -66,11 +74,6 @@ public class SwitchService {
                             ? ApplicationException.from(TriggerSwitchErrorCase.TO_CANDIDATE_MISMATCH)
                             : ApplicationException.from(TriggerSwitchErrorCase.TO_CANDIDATE_NOT_FOUND);
                 });
-
-        // CategoryState 락 걸고 조회
-        CategoryState state = categoryStateRepository
-                .findByCategory_IdForUpdate(categoryId)
-                .orElseThrow(() -> ApplicationException.from(TriggerSwitchErrorCase.CATEGORY_STATE_NOT_FOUND));
 
         Long fromCandidateId = state.getCurrentCandidateId();
 

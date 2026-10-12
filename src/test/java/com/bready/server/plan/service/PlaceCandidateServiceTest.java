@@ -113,6 +113,8 @@ class PlaceCandidateServiceTest {
         when(placeCandidateRepository.findByIdWithCategoryAndPlace(candidateId)).thenReturn(Optional.of(candidate));
 
         when(categoryStateRepository.findByCategory_IdForUpdate(10L)).thenReturn(Optional.empty());
+        when(placeCandidateRepository.existsAliveByIdAndCategoryId(candidateId, 10L))
+                .thenReturn(true);
 
         var response = placeCandidateService.setRepresentative(candidateId);
 
@@ -138,6 +140,8 @@ class PlaceCandidateServiceTest {
         when(placeCandidateRepository.findByIdWithCategoryAndPlace(candidateId)).thenReturn(Optional.of(candidate));
 
         when(categoryStateRepository.findByCategory_IdForUpdate(10L)).thenReturn(Optional.of(state));
+        when(placeCandidateRepository.existsAliveByIdAndCategoryId(candidateId, 10L))
+                .thenReturn(true);
 
         assertThatThrownBy(() -> placeCandidateService.setRepresentative(candidateId))
                 .isInstanceOf(ApplicationException.class)
