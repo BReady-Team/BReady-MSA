@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 // 통합 테스트가 H2나 로컬에 떠 있는 DB가 아니라 컨테이너에 붙었는지 확인
+@DisplayName("통합 테스트 환경 - MySQL·Redis 컨테이너 연결")
 class IntegrationEnvironmentTest extends IntegrationTestSupport {
 
     @Autowired

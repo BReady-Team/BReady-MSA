@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 // 후보 삭제가 대표 후보를 바꾸는 요청(전환, 대표 지정)과 겹칠 때, 삭제된 후보가 대표로 남지 않는지 검증
+@DisplayName("동시성 통합 테스트 - 후보 삭제와 대표 변경이 겹칠 때")
 class CandidateDeletionRaceIntegrationTest extends IntegrationTestSupport {
 
     private static final int TO_CANDIDATE_NOT_FOUND = 7205;
@@ -134,9 +135,8 @@ class CandidateDeletionRaceIntegrationTest extends IntegrationTestSupport {
     private int countLockWaiters() throws Exception {
         try (Connection connection = DriverManager.getConnection(MYSQL.getJdbcUrl(), "root", MYSQL.getPassword());
                 Statement statement = connection.createStatement();
-                ResultSet resultSet = statement.executeQuery(
-                        "select count(distinct requesting_engine_transaction_id)"
-                                + " from performance_schema.data_lock_waits")) {
+                ResultSet resultSet = statement.executeQuery("select count(distinct requesting_engine_transaction_id)"
+                        + " from performance_schema.data_lock_waits")) {
             resultSet.next();
             return resultSet.getInt(1);
         }
