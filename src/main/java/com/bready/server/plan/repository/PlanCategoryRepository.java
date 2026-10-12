@@ -13,22 +13,6 @@ import org.springframework.data.repository.query.Param;
 import com.bready.server.plan.domain.PlanCategory;
 
 public interface PlanCategoryRepository extends JpaRepository<PlanCategory, Long> {
-    interface PlanCategoryTypeRow {
-        Long getPlanId();
-
-        String getCategoryType();
-    }
-
-    @Query(
-            """
-        select
-            pc.plan.id as planId,
-            pc.categoryType as categoryType
-        from PlanCategory pc
-        join pc.plan p
-        where p.ownerId = :ownerId
-    """)
-    List<PlanCategoryTypeRow> findCategoryTypesByOwner(@Param("ownerId") Long ownerId);
 
     Optional<PlanCategory> findByIdAndPlan_IdAndDeletedAtIsNull(Long id, Long planId);
 
@@ -73,16 +57,4 @@ public interface PlanCategoryRepository extends JpaRepository<PlanCategory, Long
     """)
     Optional<PlanCategory> findAliveByIdAndPlanIdForUpdate(
             @Param("planCategoryId") Long planCategoryId, @Param("planId") Long planId);
-
-    @Query(
-            """
-        select
-            pc.plan.id as planId,
-            pc.categoryType as categoryType
-        from PlanCategory pc
-        where pc.plan.id in :planIds
-          and pc.deletedAt is null
-        order by pc.plan.id asc, pc.sequence asc
-    """)
-    List<PlanCategoryTypeRow> findCategoryTypesByPlanIds(@Param("planIds") List<Long> planIds);
 }

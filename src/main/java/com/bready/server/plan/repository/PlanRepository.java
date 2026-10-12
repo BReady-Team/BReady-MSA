@@ -1,7 +1,5 @@
 package com.bready.server.plan.repository;
 
-import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
 
@@ -17,18 +15,6 @@ import com.bready.server.plan.domain.Plan;
 public interface PlanRepository extends JpaRepository<Plan, Long> {
 
     Page<Plan> findAllByOwnerIdAndDeletedAtIsNull(Long ownerId, Pageable pageable);
-
-    interface PlanSwitchStatsRow {
-        Long getPlanId();
-
-        String getPlanTitle();
-
-        LocalDate getPlanDate();
-
-        String getRegion();
-
-        Long getTotalSwitches();
-    }
 
     @Query(
             """
@@ -52,32 +38,6 @@ public interface PlanRepository extends JpaRepository<Plan, Long> {
     Optional<Plan> findByIdAndDeletedAtIsNull(Long id);
 
     Optional<Plan> findByShareTokenAndDeletedAtIsNull(String shareToken);
-
-    @Query(
-            value =
-                    """
-    SELECT
-        p.id as planId,
-        p.title as planTitle,
-        p.plan_date as planDate,
-        p.region as region,
-        COALESCE(COUNT(sl.id),0) as totalSwitches
-    FROM (
-        SELECT id, title, plan_date, region
-        FROM plans
-        WHERE owner_id = :ownerId
-            AND deleted_at IS NULL
-        ORDER BY plan_date DESC
-        LIMIT :limit
-    ) p
-    LEFT JOIN triggers t ON t.plan_id = p.id AND t.deleted_at IS NULL
-    LEFT JOIN decisions d ON d.trigger_id = t.id AND d.deleted_at IS NULL
-    LEFT JOIN switch_logs sl ON sl.decision_id = d.id AND sl.deleted_at IS NULL
-    GROUP BY p.id, p.title, p.plan_date, p.region
-    ORDER BY p.plan_date DESC
-    """,
-            nativeQuery = true)
-    List<PlanSwitchStatsRow> findPlanSwitchStatsOptimized(@Param("ownerId") Long ownerId, @Param("limit") int limit);
 
     // 락 전용 - 카테고리 추가(addCategory)에서만 사용
     @Lock(LockModeType.PESSIMISTIC_WRITE)

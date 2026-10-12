@@ -19,7 +19,6 @@ import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.repository.CategoryStateRepository;
 import com.bready.server.stats.event.SwitchLogCreatedEvent;
-import com.bready.server.stats.service.PlanStatsService;
 import com.bready.server.trigger.domain.Decision;
 import com.bready.server.trigger.domain.SwitchLog;
 import com.bready.server.trigger.domain.Trigger;
@@ -52,9 +51,6 @@ class SwitchServiceTest {
 
     @Mock
     private PlaceCandidateRepository placeCandidateRepository;
-
-    @Mock
-    private PlanStatsService planStatsService;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
