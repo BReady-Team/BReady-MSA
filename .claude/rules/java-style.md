@@ -90,7 +90,6 @@ DTO는 record이므로 Lombok이 필요 없다(`dto.md` 1번).
 ## 9. 죽은 코드
 
 - 빈 클래스, 호출되지 않는 서비스, 쓰이지 않는 메서드는 지운다.
-  - 현재 예: `PlaceService`, `PlaceController`, `PlanStatsService`, `PlanStatsJoinService`.
 - 실험 코드는 브랜치에 남긴다.
 
 ## 10. 불변성

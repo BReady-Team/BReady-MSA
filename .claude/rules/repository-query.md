@@ -27,7 +27,7 @@
 ## 3. 조회 결과 형태
 
 - 화면·통계용 조회는 엔티티가 아니라 **프로젝션**으로 받는다. 필요한 컬럼만 가져오고 영속성 컨텍스트에 쌓이지 않는다.
-  - 인터페이스 프로젝션(BReady 관례, `PlanRepository.PlanSwitchStatsRow` — `plan/repository/PlanRepository.java:21`) 또는 record 생성자 프로젝션(`select new ...Row(...)`).
+  - 인터페이스 프로젝션(BReady 관례, `TriggerRepository.TriggerTypeCount` — `trigger/repository/TriggerRepository.java:15`) 또는 record 생성자 프로젝션(`select new ...Row(...)`).
 - 수정할 엔티티는 엔티티로 받는다.
 
 ## 4. N+1
