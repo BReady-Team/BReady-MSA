@@ -1,0 +1,76 @@
+# 기본 설정, 실제 키를 넣지 않음
+# 실제 키가 필요하면 application-local.yml(gitignore)에 두고 local 프로파일로 띄운다.
+
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3307/bready?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:bready-local}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 30
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:local-dummy-openai-key}
+
+recommendation:
+  ai:
+    enabled: ${RECOMMENDATION_AI_ENABLED:false}
+
+jwt:
+  secret: ${JWT_SECRET:local-dummy-jwt-secret-at-least-32-bytes-long}
+  access-exp: 1800000
+  refresh-exp: 1209600000
+
+kakao:
+  rest-api-key: ${KAKAO_REST_API_KEY:local-dummy-kakao-rest-api-key}
+
+oauth:
+  kakao:
+    client-id: ${KAKAO_CLIENT_ID:local-dummy-kakao-client-id}
+    client-secret: ${KAKAO_CLIENT_SECRET:local-dummy-kakao-client-secret}
+    redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8080/api/v1/auth/kakao/callback}
+  naver:
+    client-id: ${NAVER_CLIENT_ID:local-dummy-naver-client-id}
+    client-secret: ${NAVER_CLIENT_SECRET:local-dummy-naver-client-secret}
+    redirect-uri: ${NAVER_REDIRECT_URI:http://localhost:8080/api/v1/auth/naver/callback}
+
+logging:
+  level:
+    org.hibernate.SQL: warn
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: bready
+
+cloud:
+  aws:
+    region: ${CLOUD_AWS_REGION:ap-northeast-2}
+    s3:
+      bucket: ${CLOUD_AWS_S3_BUCKET:local-dummy-bucket}
+      public-prefix: ${CLOUD_AWS_S3_PUBLIC_PREFIX:public}
+    credentials:
+      access-key: ${CLOUD_AWS_CREDENTIALS_ACCESS_KEY:local-dummy-access-key}
+      secret-key: ${CLOUD_AWS_CREDENTIALS_SECRET_KEY:local-dummy-secret-key}

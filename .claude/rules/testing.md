@@ -104,7 +104,8 @@ class PlanControllerTest {
 - 리포지토리 슬라이스와 통합 테스트는 **MySQL 8.0 컨테이너**로 돌린다. H2는 native query·락·MySQL 문법을 검증하지 못한다.
 - 컨테이너는 테스트 전체에서 한 번만 띄운다(공통 베이스 클래스 + `static` 컨테이너 + `@ServiceConnection`).
 - 함정: Docker 29에서는 `build.gradle` test 태스크에 `systemProperty 'api.version', '1.44'` (CLAUDE.md 9번).
-- 도입은 0단계(안전망)에서 한다. 그 전에는 기존 H2 테스트를 건드리지 않는다.
+- 통합 테스트는 `support/IntegrationTestSupport`를 상속
+- Redis는 `RedisConfig`가 host·port를 직접 읽어서 `@ServiceConnection` 대신 `@DynamicPropertySource`로 연결
 
 ## 8. 시간 고정
 

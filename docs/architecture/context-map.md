@@ -229,7 +229,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 | # | 발견 | 근거 | 영향 |
 |---|---|---|---|
 | R1 | **인가(소유자 확인) 누락 — IDOR.** 로그인만 하면 **남의 플랜**의 후보 등록/대표 변경/삭제, 트리거 발생, 결정, 전환이 가능 | `PlaceCandidateController`, `TriggerController`, `DecisionController`, `SwitchController`에 `@CurrentUser` 없음 + 서비스에 owner 체크 없음 (plan·recommendation·stats는 체크함) | 보안 결함. 고치려면 trigger/place가 "이 플랜이 이 사용자 것인가?"를 plan에 물어야 함 → **첫 번째 모듈 공개 API의 자연스러운 후보** |
-| R2 | **현재 로컬 컨텍스트 기동 불가** | `./gradlew test` → 100개 중 99 통과, `BReadyApplicationTests.contextLoads` 실패: `Could not resolve placeholder 'cloud.aws.credentials.access-key'` | `application.yml`이 gitignore되어 레포에 없고, test 프로필엔 S3 설정이 없다. **"진짜 키 없이 로컬에서 돈다"가 아직 성립 안 함** → 0단계 첫 작업 |
+| R2 | ~~현재 로컬 컨텍스트 기동 불가~~ **해결(0-1, 2026-10-12)**: 키 없는 `application.yml` 커밋, 127개 통과 | `./gradlew test` → 100개 중 99 통과, `BReadyApplicationTests.contextLoads` 실패: `Could not resolve placeholder 'cloud.aws.credentials.access-key'` | `application.yml`이 gitignore되어 레포에 없고, test 프로필엔 S3 설정이 없다. **"진짜 키 없이 로컬에서 돈다"가 아직 성립 안 함** → 0단계 첫 작업 |
 | R3 | `gradlew` 실행 권한 없음 | `git ls-files -s gradlew` → `100644` | `./gradlew` 실패(`permission denied`), `sh ./gradlew`로 우회 중. 사용자가 `git update-index --chmod=+x gradlew` 필요 |
 | R4 | 죽은 코드 | `PlaceService`(빈 클래스), `PlaceController`(빈 컨트롤러), `PlanStatsService`(TODO 스텁, 테스트에서 mock만 됨), `PlanStatsJoinService`(미사용) | 경계 지도 노이즈. 특히 `PlanStatsJoinService`는 경계 위반 native query를 끌고 있음 |
 | R5 | 이벤트 유실 가능 | T9 참고 | stats 정합성 |

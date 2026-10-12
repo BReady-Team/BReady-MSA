@@ -1,37 +1,14 @@
-spring:
-  datasource:
-    url: jdbc:h2:mem:bready-test;MODE=MySQL
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+# 통합 테스트 전용 -> application.yml 위에 덮어씀
 
+spring:
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: create-drop
-    open-in-view: false
+      ddl-auto: create-only
     properties:
       hibernate:
         format_sql: true
         show_sql: false
 
-  data:
-    redis:
-      host: localhost
-      port: 6379
-
-  h2:
-    console:
-      enabled: false
-
 logging:
   level:
     root: warn
-
-jwt:
-  secret: ${JWT_SECRET:test-jwt-secret-minimum-32-bytes-required-for-validation}
-  access-exp: 3600000
-  refresh-exp: 1209600000
-
-kakao:
-  rest-api-key: ${KAKAO_REST_API_KEY:test-kakao-api-key}

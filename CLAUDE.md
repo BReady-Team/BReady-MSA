@@ -46,7 +46,7 @@
 | 8 기록 | 설계서 · 학습일지 · 트러블슈팅 · ADR | `/gate-review`, `/trouble` |
 
 - **게이트가 `OPEN`이면 다음 조각으로 가지 않는다.** 사용자가 대충 넘어가려 해도 한 번은 붙잡는다. 사용자가 그래도 넘어가겠다고 하면 `SKIPPED`로 기록한다.
-- **하네스(H) 조각은 경량 모드**: 묶어서 진행, 이해 게이트 질문 없음(`SKIPPED`로 기록). **본 작업(0단계~)은 엄격 모드**.
+- **하네스(H)와 0단계(안전망) 조각은 경량 모드**: 묶어서 진행, 이해 게이트 질문 없음(`SKIPPED`로 기록). **1단계부터는 엄격 모드**.
 - 설명할 땐 **commerce-msa(Phase 1)에서 겪은 것과 연결**한다(예: "commerce-msa 4단계 Outbox와 같은 문제인데, 여기선 ~가 다르다").
 
 ## 5. 로드맵 (요약 — 체크와 현재 위치는 `docs/private/roadmap.md`)
@@ -76,7 +76,7 @@ H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → 
   - 엔티티: setter 금지, 의도 드러나는 메서드, 규칙 위반은 ErrorCase, 다른 모듈은 ID 참조, 시간은 파라미터 (`entity.md`)
   - 서비스: 클래스 `readOnly` + 쓰기만 `@Transactional`, 조회 → 엔티티 검증·변경 → `Response.from()`, 외부 I/O는 트랜잭션 밖, `Clock` 주입 (`service-transaction.md`)
   - 컨트롤러: 위임만, Swagger는 `{Domain}Api` 인터페이스 (`controller-api.md`)
-  - DTO: 요청·응답 모두 record, `{Resource}{Action}Request/Response` (`dto.md`) — **auth DTO record 전환은 LoggingAspect 인자 로깅 제거 후**
+  - DTO: 요청·응답 모두 record, `{Resource}{Action}Request/Response` (`dto.md`)
   - 예외: `ApplicationException.from(...)`만, 코드 `{DOMAIN}_{NNN}`(전환은 ADR과 별도 조각) (`exception.md`)
   - 테스트: 엔티티 mock 금지·fixture, BDD, AssertJ, `@WebMvcTest(controllers=…)`, 리포지토리·통합은 Testcontainers MySQL (`testing.md`)
   - 경계: 남의 Repository·Entity·테이블 금지, 이벤트는 발행자 소유, 위반은 래칫으로 늘지 않게 (`msa-boundary.md`)
@@ -87,7 +87,8 @@ H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → 
 ```bash
 .claude/scripts/verify.sh            # 포맷 → 컴파일 → 전체 테스트 (--fast: 테스트 생략)
 ./gradlew spotlessApply              # 포맷 맞추기. 손으로 맞추지 않는다 (palantir-java-format)
-./gradlew test                       # 전체 테스트 (현재 contextLoads 1건 실패 — TROUBLESHOOTING T-002)
+./gradlew test                       # 전체 테스트
+./gradlew bootRun                    # 키 없이 기동(더미 기본값). 먼저 docker compose -f docker-compose-local.yml up -d mysql redis
 .claude/hooks/test-hooks.sh          # 훅을 고쳤으면 반드시
 ```
 - Java를 고친 채 끝내려 하면 Stop 훅이 포맷·컴파일을 검사하고, 깨져 있으면 끝내지 못하게 막는다.
@@ -98,7 +99,7 @@ H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → 
 
 - Docker 29 + Testcontainers: `Could not find a valid Docker environment` / HTTP 400 → `build.gradle` test 태스크에 `systemProperty 'api.version', '1.44'`.
 - Kafka Testcontainer는 `ConfluentKafkaContainer("confluentinc/cp-kafka:7.8.0")` (apache/kafka 이미지는 advertised.listeners 에러).
-- `LoggingAspect`가 모든 서비스 인자를 `toString()`으로 INFO 로깅한다 → DTO를 record로 바꾸면 비밀번호·토큰이 평문으로 찍힌다. **record 전환 전에 로깅 정책부터.**
+- record의 `toString()`은 모든 필드를 출력한다. 비밀번호·토큰을 담는 record는 `toString()`을 재정의하고, 로그에 DTO를 통째로 넣지 않는다.
 
 ## 10. 하네스 지도
 
