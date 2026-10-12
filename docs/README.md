@@ -7,7 +7,7 @@
 
 | 순서 | 문서 | 무엇을 얻나 |
 |---|---|---|
-| 1 | [LEARNING_JOURNEY.md](LEARNING_JOURNEY.md) | 전체 이야기. 조각마다 무엇을 왜 했고 무엇을 배웠는지 3~5줄 |
+| 1 | [LEARNING_JOURNEY.md](LEARNING_JOURNEY.md) | 전체 이야기. 조각마다 어떤 문제였고, 무엇을 놓고 고민해 어떻게 결정했고, 무엇을 배웠는지 |
 | 2 | [architecture/context-map.md](architecture/context-map.md) | 출발점의 경계 지도. 어디가 엉켜 있고 어디부터 떼는지 |
 | 3 | [design/](design/) | 조각별 설계서. 왜 지금 · 선택지와 결정 · 흐름(before → after) · 검증 증거 |
 | 4 | [adr/](adr/) | 되돌리기 어려운 결정의 근거 (맥락 · 대안 · 결정 · 결과) |
