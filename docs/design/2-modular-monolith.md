@@ -10,7 +10,7 @@
 |---|---|---|
 | 2-1 | 죽은 코드 제거 | 완료 |
 | 2-2 | 컨텍스트 기준으로 모듈 재정의 | 완료 |
-| 2-3 | 전환 경쟁 상태 수정 | |
+| 2-3 | 전환 경쟁 상태 수정 | 완료 |
 | 2-4 | 소유권 검증 추가 | |
 | 2-5 | Planning → Place Catalog 공개 API | |
 | 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | |
@@ -210,4 +210,92 @@ URL, 상태 코드, 에러 코드가 이동 전과 같다.
 - 패키지를 옮긴 클래스의 기존 위반 기록은 ArchUnit이 "사라진 위반 + 새 위반"으로 본다. 위반 문구에 패키지 이름이 들어가기 때문이다. 같은 위반이 주소만 바뀐 것이라 기준선에서 패키지 이름만 바꿨고, 줄 수가 같다는 것과 diff에 패키지 외의 변경이 없다는 것을 확인했다.
 - `ModuleBoundaryTest`라는 클래스 이름은 그대로 뒀다. 안의 규칙은 컨텍스트 단위다.
 - 옮긴 테스트(`PlaceCandidateServiceTest`)는 옛 방식(엔티티 mock, `when().thenReturn()`)이 그대로다. 이번에는 이동에 필요한 줄만 고쳤다.
+
+## 2-3 전환 경쟁 상태 수정
+
+### 왜 지금
+
+전환과 후보 삭제가 겹치면 삭제된 후보가 대표로 지정되는 버그가 있었다(경계 지도 R7). ADR-0001에서 trigger를 Planning에 합치기로 한 근거가 "한 DB 안에서 락으로 정합성을 지킬 수 있다"였으므로, 실제로 그렇게 고칠 수 있는지 보여야 했다. 0단계의 통합 테스트 기반이 있어 동시성을 재현할 수 있게 됐다.
+
+### 설계 (선택지 · 결정)
+
+결론을 먼저 정하지 않고, 재현 테스트를 만든 뒤 수정안을 돌려 본 결과로 골랐다.
+
+| 안 | 방법 | 재현 테스트의 전환 응답 | 판정 |
+|---|---|---|---|
+| 수정 전 | | 200 | 버그 재현 |
+| A | 락 조회를 후보 확인보다 위로 옮긴다 | 200 | 고쳐지지 않음 |
+| B | A + 후보 확인을 잠금 읽기로 | 400 | 막았지만 에러가 틀림. 후보 행 락이 늘고 락 순서가 엇갈린다 |
+| **C (채택)** | A + 격리 수준을 READ COMMITTED로 | 404 | 통과. 락이 늘지 않는다 |
+
+A가 실패한 이유: MySQL 기본 격리 수준(REPEATABLE READ)에서 일반 조회는 트랜잭션이 처음 조회한 시점의 스냅샷을 본다. 락을 얻은 뒤에 확인해도, 락을 기다리는 동안 커밋된 삭제가 보이지 않는다.
+
+C의 약점은 이 메서드만 격리 수준이 다르다는 것이다. 이유를 주석으로 남겼고, 그 설정을 지우면 재현 테스트가 실패한다.
+
+같은 모양의 버그가 대표 지정(`setRepresentative`)에도 있어 함께 고쳤다. 대표 지정은 락을 잡으려면 후보에서 카테고리를 먼저 알아내야 하므로 순서를 바꿀 수 없다. 대신 락을 얻은 뒤 후보가 살아 있는지 다시 확인한다.
+
+### 흐름 (before → after)
+
+```
+before: 전환과 삭제가 겹칠 때
+  전환                                         삭제
+   BEGIN (REPEATABLE READ)
+   결정 조회          ← 스냅샷 생성
+   to 후보 확인: 살아 있음 (락 없음)
+                                               BEGIN
+                                               category_states FOR UPDATE
+                                               후보 삭제
+                                               COMMIT
+   category_states FOR UPDATE
+   대표 = to          ← 삭제된 후보
+   COMMIT
+
+after
+  전환                                         삭제
+   BEGIN (READ COMMITTED)
+   결정 조회
+                                               BEGIN
+                                               category_states FOR UPDATE
+                                               후보 삭제
+                                               COMMIT
+   category_states FOR UPDATE   ← 삭제가 끝난 뒤 얻는다
+   to 후보 확인: 없음             ← 조회 시점의 최신 커밋을 본다
+   ROLLBACK → 404 TO_CANDIDATE_NOT_FOUND
+```
+
+삭제가 락을 나중에 얻는 반대 순서에서는, 전환이 먼저 끝나 그 후보가 대표가 되고 삭제는 "대표는 삭제할 수 없다"로 거절된다. 어느 순서로도 삭제된 후보가 대표로 남지 않는다.
+
+### 구현 파일
+
+| 파일 | 변경 |
+|---|---|
+| `trigger/service/SwitchService.java` | 락 조회를 후보 확인 앞으로, `READ_COMMITTED` |
+| `plan/service/PlaceCandidateService.java` | `setRepresentative`에 `READ_COMMITTED`, 락을 얻은 뒤 후보 생존 재확인 |
+| `integration/CandidateDeletionRaceIntegrationTest.java` | 새로 추가. 전환·대표 지정 각각 삭제와 겹치는 경우 |
+| `support/PlanningSteps.java` | 새로 추가. 통합 테스트가 HTTP로 밟는 단계 모음 |
+| `plan/service/PlaceCandidateServiceTest.java` | 대표 지정 단위 테스트 2개에 생존 확인 응답 준비 추가 |
+
+### 검증 증거
+
+```
+수정 전
+  전환 대상 후보가 전환 도중 삭제되면 …        FAILED  expected: 404 but was: 200
+  대표로 지정하려는 후보가 지정 도중 삭제되면 …  FAILED  expected: 404 but was: 200
+
+수정 후
+  CandidateDeletionRaceIntegrationTest   tests=2 failures=0
+  .claude/scripts/verify.sh              전체 137 · 실패 0
+
+확인 실험: 대표 지정에서 재확인 코드는 두고 격리 수준만 되돌림
+  대표로 지정하려는 후보가 지정 도중 삭제되면 …  FAILED  expected: 404 but was: 200
+```
+
+재현 방법: 테스트가 `category_states` 락을 먼저 쥐고, 삭제 요청과 경쟁 요청을 차례로 보내 둘 다 락을 기다리게 한 뒤(`performance_schema.data_lock_waits`로 확인) 락을 푼다. 순서가 운에 달려 있지 않다.
+
+### 알려진 한계
+
+- B안의 데드락 가능성은 재현하지 않았다. 락 순서(카테고리 타입 변경은 후보 → 상태, B안의 전환은 상태 → 후보)를 보고 판단했다.
+- 같은 락을 쓰는 나머지 경로(후보 등록, 카테고리 타입 변경, 트리거 생성)는 이번에 같은 방식으로 검증하지 않았다. 트리거 생성은 대표 후보를 락 없이 읽어 트리거에 기록하므로, 그 순간 대표가 바뀌면 직전 대표가 기록될 수 있다. 데이터가 깨지는 것은 아니라서 이번 범위에 넣지 않았다.
+- READ COMMITTED에서는 한 트랜잭션 안의 두 조회가 서로 다른 결과를 볼 수 있다. 두 메서드는 락을 얻은 뒤에만 판단에 쓰는 값을 읽으므로 문제가 되지 않지만, 락 이전에 읽은 값으로 판단하는 코드를 추가하면 같은 버그가 다시 생긴다.
+- 재현 테스트는 락 대기 현황을 보려고 root 계정으로 MySQL에 직접 접속한다. Testcontainers MySQL의 root 비밀번호가 앱 계정과 같다는 점에 기댄다.
 

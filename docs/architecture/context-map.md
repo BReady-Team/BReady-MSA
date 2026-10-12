@@ -241,7 +241,8 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 | R3 | `gradlew` 실행 권한 없음 | `git ls-files -s gradlew` → `100644` | `./gradlew` 실패(`permission denied`), `sh ./gradlew`로 우회 중. 사용자가 `git update-index --chmod=+x gradlew` 필요 |
 | R4 | ~~죽은 코드~~ **해결(2026-10-12)**: `PlaceService`, `PlaceController`, `PlanStatsService`, `PlanStatsJoinService`와 그것만 쓰던 쿼리 3개 삭제 | 참조 검색, 컴파일, 전체 테스트 137개 통과로 확인 | 기준선 stats 109 → 94, 컨트롤러 규칙 17 → 16 |
 | R5 | 이벤트 유실 가능 | T9 참고 | stats 정합성 |
-| R7 | **전환 검증이 락보다 먼저 실행됨 (경쟁 상태)** | `SwitchService.executeSwitch`는 `toCandidate` 생존 검증(락 없음)을 한 **뒤에** `category_states FOR UPDATE`를 잡는다. 그 사이 `deleteCandidate`가 같은 락을 잡고 그 후보를 지우고 커밋하면, 전환은 락을 얻은 뒤 다시 확인하지 않고 **삭제된 후보를 대표로 지정**한다 | 모놀리식 안에서도 이미 생기는 버그. 안전망에 동시성 테스트로 재현할 후보. "검증과 변경은 같은 락 안에서" 원칙의 근거 |
+| R7 | ~~전환 검증이 락보다 먼저 실행됨 (경쟁 상태)~~ **해결(2026-10-12)**: 락을 먼저 잡고, 그 뒤의 검증이 최신 커밋을 보도록 READ_COMMITTED로 변경 | 수정 전 `SwitchService.executeSwitch`는 `toCandidate` 생존을 락 없이 확인한 뒤 `category_states FOR UPDATE`를 잡았다. 그 사이 삭제가 커밋되면 삭제된 후보가 대표가 됐다. `CandidateDeletionRaceIntegrationTest`로 재현하고 고침 | 락 순서만 바꿔서는 고쳐지지 않았다(REPEATABLE READ의 스냅샷). TROUBLESHOOTING T-005 |
+| R9 | ~~대표 지정에도 같은 경쟁 상태~~ **발견·해결(2026-10-12)** | `PlaceCandidateService.setRepresentative`도 후보를 먼저 읽고 락을 잡은 뒤 다시 확인하지 않았다. R7을 고치다가 찾았다 | 같은 테스트 클래스에서 재현하고 같은 방법으로 고침 |
 | R6 | 소프트 삭제 일관성 | `Plan.softDelete()`는 하위 카테고리/후보/트리거를 지우지 않음. stats 쿼리 중 일부만 `p.deletedAt is null` 필터 (예: `TriggerRepository.countByOwnerIdAndPeriod`는 필터 없음) | 삭제한 플랜의 트리거가 통계에 섞임. 안전망 테스트에서 "현재 동작"으로 기록할지 결정 필요 |
 | R8 | **통계 응답의 `categoryTypes`가 항상 null** | `PlanStatsItem.categoryTypes`를 채우는 코드는 삭제한 `PlanStatsJoinService`에만 있었다. 지금 API가 쓰는 `PlanStatsMaterializedService`는 이 필드를 채우지 않는다 | `GET /api/v1/stats/plans` 응답에 카테고리 정보가 빠진다. API를 통합할 때 누락된 것으로 보인다. Stats를 떼면서 읽기 모델을 다시 만들 때 고친다 |
 
@@ -398,6 +399,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|---|
 | 2026-10-08 | v0 | 최초 작성 (코드 수정 없이 분석) |
 | 2026-10-08 | v0.1 | 경계 위반 기준선(ArchUnit) 추가 |
+| 2026-10-12 | v1.3 | R7 해결, R9(대표 지정의 같은 경쟁 상태) 발견·해결, 용어 절 추가 |
 | 2026-10-12 | v1.2 | 장소 후보를 plan 패키지로 이동, 기준선을 컨텍스트 단위로 다시 기록(11번): 420 → 274 |
 | 2026-10-12 | v1.1 | 죽은 코드 삭제 반영: 5.2 native SQL 제거, R4 해결, R8 추가, 기준선 stats 109 → 94 |
 | 2026-10-12 | v1.0 | 추출 순서 확정(9번), 남은 결정 질문 정리(10번), ADR-0001 연결 |
