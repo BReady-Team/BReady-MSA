@@ -114,7 +114,7 @@
 | recommendation | `TriggerRepository`, `PlanCategoryRepository`, `CategoryStateRepository`, `PlaceCandidateRepository` | `PlaceRecommendationService`, `RecommendValidationService` |
 | recommendation | `PlaceSearchService` (Service) | `RuleBasedRecommendationAdapter` |
 | recommendation | `PlanCategory`(엔티티)가 **port 인터페이스 시그니처**에 노출 | `CategoryRecommendationPort`, `PlaceRecommendationPort` |
-| stats | `PlanRepository`, `PlanCategoryRepository`, `TriggerRepository`, `DecisionRepository`, `SwitchLogRepository` | `StatsService`, `TriggerStatsService`, `RecentActivityStatsService`, `PlanActivityStatsService`, `PlanStatsMaterializedService`, `PlanStatsUpdater`, `PlanStatsJoinService` |
+| stats | `PlanRepository`, `PlanCategoryRepository`, `TriggerRepository`, `DecisionRepository`, `SwitchLogRepository` | `StatsService`, `TriggerStatsService`, `RecentActivityStatsService`, `PlanActivityStatsService`, `PlanStatsMaterializedService`, `PlanStatsUpdater` |
 
 > 주목: **"남의 Service를 호출"하는 곳은 2곳뿐**(`user→s3`, `recommendation→place`). 나머지 모든 모듈 간 결합은 **Repository 직접 주입**이다.
 > 즉 2단계의 핵심 작업은 "남의 Repository 직접 사용 → 그 모듈이 공개한 API(인터페이스) 호출"로 바꾸는 것이다.
@@ -165,18 +165,9 @@
 **패턴**: trigger/stats 쿼리의 대부분은 **`ownerId`로 필터하려고 `Plan`까지 JOIN** 한다.
 → 분리 시 대표적 해법은 (a) `triggers`에 `owner_id`를 비정규화, (b) stats가 이벤트로 자기 읽기 모델을 구축. (5단계 주제)
 
-### 5.2 Native SQL — 테이블 4개를 한 번에
+### 5.2 Native SQL
 
-`PlanRepository.findPlanSwitchStatsOptimized` 
-```sql
-plans (서브쿼리, LIMIT push-down)
-  LEFT JOIN triggers    ON t.plan_id = p.id
-  LEFT JOIN decisions   ON d.trigger_id = t.id
-  LEFT JOIN switch_logs ON sl.decision_id = d.id
-```
-- plan 패키지의 Repository가 **trigger 컨텍스트 테이블 3개를 직접 JOIN**
-- 사용처는 `PlanStatsJoinService` 하나인데, **이 서비스는 어떤 컨트롤러에서도 쓰이지 않는다**(README의 성능 개선 1차 실험 흔적. 현재 API는 `PlanStatsMaterializedService` 사용)
-- → **죽은 코드를 지우는 것만으로 경계 위반 1건이 공짜로 사라진다.**
+없음. `PlanRepository.findPlanSwitchStatsOptimized`(`plans`에 `triggers`·`decisions`·`switch_logs`를 JOIN하던 통계 쿼리)는 유일한 사용처 `PlanStatsJoinService`가 어떤 컨트롤러에서도 쓰이지 않아 함께 삭제했다(2026-10-12). 성능 비교 실험의 "개선 전" 구현이었고, 커밋 `3c61053` 이전 이력에 남아 있다.
 
 ---
 
@@ -231,10 +222,11 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 | R1 | **인가(소유자 확인) 누락 — IDOR.** 로그인만 하면 **남의 플랜**의 후보 등록/대표 변경/삭제, 트리거 발생, 결정, 전환이 가능 | `PlaceCandidateController`, `TriggerController`, `DecisionController`, `SwitchController`에 `@CurrentUser` 없음 + 서비스에 owner 체크 없음 (plan·recommendation·stats는 체크함) | 보안 결함. 고치려면 trigger/place가 "이 플랜이 이 사용자 것인가?"를 plan에 물어야 함 → **첫 번째 모듈 공개 API의 자연스러운 후보** |
 | R2 | ~~현재 로컬 컨텍스트 기동 불가~~ **해결(0-1, 2026-10-12)**: 키 없는 `application.yml` 커밋, 127개 통과 | `./gradlew test` → 100개 중 99 통과, `BReadyApplicationTests.contextLoads` 실패: `Could not resolve placeholder 'cloud.aws.credentials.access-key'` | `application.yml`이 gitignore되어 레포에 없고, test 프로필엔 S3 설정이 없다. **"진짜 키 없이 로컬에서 돈다"가 아직 성립 안 함** → 0단계 첫 작업 |
 | R3 | `gradlew` 실행 권한 없음 | `git ls-files -s gradlew` → `100644` | `./gradlew` 실패(`permission denied`), `sh ./gradlew`로 우회 중. 사용자가 `git update-index --chmod=+x gradlew` 필요 |
-| R4 | 죽은 코드 | `PlaceService`(빈 클래스), `PlaceController`(빈 컨트롤러), `PlanStatsService`(TODO 스텁, 테스트에서 mock만 됨), `PlanStatsJoinService`(미사용) | 경계 지도 노이즈. 특히 `PlanStatsJoinService`는 경계 위반 native query를 끌고 있음 |
+| R4 | ~~죽은 코드~~ **해결(2026-10-12)**: `PlaceService`, `PlaceController`, `PlanStatsService`, `PlanStatsJoinService`와 그것만 쓰던 쿼리 3개 삭제 | 참조 검색, 컴파일, 전체 테스트 137개 통과로 확인 | 기준선 stats 109 → 94, 컨트롤러 규칙 17 → 16 |
 | R5 | 이벤트 유실 가능 | T9 참고 | stats 정합성 |
 | R7 | **전환 검증이 락보다 먼저 실행됨 (경쟁 상태)** | `SwitchService.executeSwitch`는 `toCandidate` 생존 검증(락 없음)을 한 **뒤에** `category_states FOR UPDATE`를 잡는다. 그 사이 `deleteCandidate`가 같은 락을 잡고 그 후보를 지우고 커밋하면, 전환은 락을 얻은 뒤 다시 확인하지 않고 **삭제된 후보를 대표로 지정**한다 | 모놀리식 안에서도 이미 생기는 버그. 안전망에 동시성 테스트로 재현할 후보. "검증과 변경은 같은 락 안에서" 원칙의 근거 |
 | R6 | 소프트 삭제 일관성 | `Plan.softDelete()`는 하위 카테고리/후보/트리거를 지우지 않음. stats 쿼리 중 일부만 `p.deletedAt is null` 필터 (예: `TriggerRepository.countByOwnerIdAndPeriod`는 필터 없음) | 삭제한 플랜의 트리거가 통계에 섞임. 안전망 테스트에서 "현재 동작"으로 기록할지 결정 필요 |
+| R8 | **통계 응답의 `categoryTypes`가 항상 null** | `PlanStatsItem.categoryTypes`를 채우는 코드는 삭제한 `PlanStatsJoinService`에만 있었다. 지금 API가 쓰는 `PlanStatsMaterializedService`는 이 필드를 채우지 않는다 | `GET /api/v1/stats/plans` 응답에 카테고리 정보가 빠진다. API를 통합할 때 누락된 것으로 보인다. Stats를 떼면서 읽기 모델을 다시 만들 때 고친다 |
 
 ---
 
@@ -315,16 +307,17 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 
 **모듈 경계 — 다른 모듈의 Repository·Entity 직접 사용**
 
-| 모듈 | 2026-10-08 |
-|---|---|
-| recommendation | 131 |
-| stats | 109 |
-| auth | 67 |
-| plan | 58 |
-| trigger | 38 |
-| place | 32 |
-| user | 0 |
-| s3 | 0 |
+| 모듈 | 2026-10-08 | 2026-10-12 |
+|---|---|---|
+| recommendation | 131 | 131 |
+| stats | 109 | 94 |
+| auth | 67 | 67 |
+| plan | 58 | 58 |
+| trigger | 38 | 38 |
+| place | 32 | 32 |
+| user | 0 | 0 |
+| s3 | 0 | 0 |
+| 합계 | 435 | 420 |
 
 **컨텍스트 기준으로 다시 보기 (2026-10-12)**
 
@@ -344,7 +337,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 | stats → plan | 36 | 경계 위반 |
 | plan → user | 6 | 경계 위반 |
 
-컨텍스트 내부 참조가 약 189건(43%), 실제로 끊어야 하는 경계 위반이 약 246건이다. ArchUnit 규칙의 모듈 정의를 컨텍스트 기준으로 바꾸는 일은 2단계에서 패키지를 옮길 때 함께 한다.
+컨텍스트 내부 참조가 약 189건(43%), 실제로 끊어야 하는 경계 위반이 약 246건이다. (이 표는 경계를 확정한 시점의 집계다. 그 뒤 죽은 코드 삭제로 stats → plan이 15건 줄어 실제 경계 위반은 약 231건이 됐다.) ArchUnit 규칙의 모듈 정의를 컨텍스트 기준으로 바꾸는 일은 2단계에서 패키지를 옮길 때 함께 한다.
 
 **구조·코딩 규칙**
 
@@ -352,7 +345,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|
 | `new ApplicationException(...)` (from 사용) | 88 |
 | DTO가 `*Request`/`*Response` record가 아님 | 41 |
-| 컨트롤러가 `{Domain}Api`를 구현하지 않음 | 17 |
+| 컨트롤러가 `{Domain}Api`를 구현하지 않음 | 17 (2026-10-12: 16) |
 | `@Transactional` 서비스의 클래스 readOnly 선언 없음 | 14 |
 | domain·service의 `LocalDateTime.now()` (Clock 미사용) | 11 |
 | domain의 `IllegalArgumentException`·`IllegalStateException` | 10 |
@@ -372,6 +365,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|---|
 | 2026-10-08 | v0 | 최초 작성 (코드 수정 없이 분석) |
 | 2026-10-08 | v0.1 | 경계 위반 기준선(ArchUnit) 추가 |
+| 2026-10-12 | v1.1 | 죽은 코드 삭제 반영: 5.2 native SQL 제거, R4 해결, R8 추가, 기준선 stats 109 → 94 |
 | 2026-10-12 | v1.0 | 추출 순서 확정(9번), 남은 결정 질문 정리(10번), ADR-0001 연결 |
 | 2026-10-12 | v0.3 | 바운디드 컨텍스트 경계 확정(8번, Q1~Q3), 기준선을 컨텍스트 기준으로 다시 집계(11번) |
 | 2026-10-08 | v0.2 | 5.1 정정: `countSwitchByPlanIdAndPeriod`는 `plans`를 JOIN하지 않음, `TriggerRepository.countByPlanIdAndPeriod` 누락 추가 (boundary-auditor 감사로 발견) |
