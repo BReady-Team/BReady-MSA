@@ -7,7 +7,7 @@
 
 - 모듈 = `com.bready.server` 바로 아래 패키지: `auth` `user` `plan` `place` `trigger` `recommendation` `stats` `s3`.
 - `global`은 **기술 공통**(응답 봉투, 예외 뼈대, 보안 필터, 설정, BaseEntity)만 담는다. 도메인 지식(특정 모듈의 ErrorCase, 엔티티, 규칙)을 넣지 않는다. [빌드]
-- 잠정 바운디드 컨텍스트(1단계에서 ADR로 확정): Identity(auth+user) · Planning 코어(plan+후보+trigger) · Place Catalog · Recommendation · Stats · File(s3).
+- 바운디드 컨텍스트(ADR-0001로 확정): Identity(auth+user) · Planning(plan+후보+trigger) · Place Catalog · Recommendation · Stats · File(s3). 같은 컨텍스트 안의 패키지끼리 참조하는 것은 끊을 대상이 아니다. ArchUnit의 모듈 정의는 아직 패키지 기준이고, 2단계에서 컨텍스트 기준으로 바꾼다.
 
 ## 2. 새 코드의 규칙 [빌드]
 

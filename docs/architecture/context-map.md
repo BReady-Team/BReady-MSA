@@ -1,6 +1,6 @@
-# 경계 지도 (Context Map) — 초안 
+# 경계 지도 (Context Map)
 
-> **상태**: 컨텍스트 경계 확정, 추출 순서와 나머지 결정은 진행 중
+> **상태**: 확정 (2026-10-12). 결정과 근거는 [ADR-0001](../adr/0001-bounded-contexts-and-extraction-order.md)
 > **분석 방법**: `com.bready.server.*` 전체 import 그래프 추출 → 엔티티 연관관계·JPQL/Native 쿼리·`@Transactional` 메서드 전수 확인
 > **이 문서의 용도**: 로드맵 1단계(경계 지도)의 출발점. 2단계(모듈러 모놀리스)에서 "무엇을 끊어야 하는지"의 체크리스트
 > 위반을 하나 끊을 때마다 이 문서의 해당 행을 갱신
@@ -269,7 +269,9 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 
 ---
 
-## 9. 의견 — 먼저 떼어내기 좋은 후보 vs 가장 어려운 곳
+## 9. 추출 순서 — 먼저 떼어내기 좋은 후보 vs 가장 어려운 곳
+
+**확정(2026-10-12): Place Catalog → Recommendation → Stats.** Planning과 Identity는 모놀리식에 남긴다. 아래는 그 근거다.
 
 ### 먼저 떼어내기 좋은 후보: **Place Catalog** (장소 검색 + `places`)
 
@@ -295,13 +297,13 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 
 ---
 
-## 10. 1단계(경계 지도 확정)에서 결정할 질문
+## 10. 결정한 질문
 
 - [x] Q1. trigger(Trigger/Decision/SwitchLog)를 Planning 컨텍스트에 합칠 것인가, 별도 컨텍스트로 둘 것인가? → **합친다** (8번)
 - [x] Q2. `PlaceCandidate`를 plan 쪽으로 옮길 것인가? → **Planning 소유로 본다.** 패키지 이동은 2단계에서 한다
 - [x] Q3. auth와 user를 하나의 Identity로 볼 것인가? → **하나로 본다**
-- [ ] Q4. R1(IDOR)을 언제 고칠 것인가? (안전망 직후 별도 조각 / 2단계 공개 API 도입과 함께)
-- [ ] Q5. R6(소프트 삭제 불일치)을 안전망 테스트에서 "현재 동작"으로 고정할 것인가, 버그로 기록할 것인가?
+- [x] Q4. R1(IDOR)을 언제 고칠 것인가? → **모듈러 모놀리스 단계에서 Planning 진입점을 정리할 때 함께 고친다.** trigger와 후보가 Planning 안에 있으므로 같은 컨텍스트 안의 소유권 검증이 된다
+- [x] Q5. R6(소프트 삭제 불일치)을 어떻게 다룰 것인가? → **버그로 기록하고 Stats를 떼면서 읽기 모델을 새로 만들 때 고친다.** 그 쿼리들은 그때 전부 다시 쓴다
 
 ---
 
@@ -370,5 +372,6 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|---|
 | 2026-10-08 | v0 | 최초 작성 (코드 수정 없이 분석) |
 | 2026-10-08 | v0.1 | 경계 위반 기준선(ArchUnit) 추가 |
+| 2026-10-12 | v1.0 | 추출 순서 확정(9번), 남은 결정 질문 정리(10번), ADR-0001 연결 |
 | 2026-10-12 | v0.3 | 바운디드 컨텍스트 경계 확정(8번, Q1~Q3), 기준선을 컨텍스트 기준으로 다시 집계(11번) |
 | 2026-10-08 | v0.2 | 5.1 정정: `countSwitchByPlanIdAndPeriod`는 `plans`를 JOIN하지 않음, `TriggerRepository.countByPlanIdAndPeriod` 누락 추가 (boundary-auditor 감사로 발견) |
