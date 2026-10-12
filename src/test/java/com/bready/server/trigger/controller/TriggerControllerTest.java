@@ -10,8 +10,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com.bready.server.global.config.security.TestSecurityConfig;
+import com.bready.server.global.config.security.jwt.JwtAuthentication;
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.trigger.domain.TriggerType;
 import com.bready.server.trigger.dto.TriggerCreateRequest;
@@ -22,7 +24,9 @@ import com.bready.server.trigger.service.TriggerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -30,6 +34,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(TriggerController.class)
 @Import(TestSecurityConfig.class)
 class TriggerControllerTest {
+
+    private static final Long USER_ID = 1L;
+
+    private static RequestPostProcessor asUser() {
+        return authentication(new JwtAuthentication(USER_ID));
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -51,9 +61,10 @@ class TriggerControllerTest {
                 .occurredAt(LocalDateTime.now())
                 .build();
 
-        given(triggerService.createTrigger(any())).willReturn(response);
+        given(triggerService.createTrigger(eq(USER_ID), any())).willReturn(response);
 
         mockMvc.perform(post("/api/v1/triggers")
+                        .with(asUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -67,10 +78,11 @@ class TriggerControllerTest {
 
         TriggerCreateRequest request = new TriggerCreateRequest(1L, 999L, TriggerType.WEATHER_BAD);
 
-        given(triggerService.createTrigger(any()))
+        given(triggerService.createTrigger(eq(USER_ID), any()))
                 .willThrow(ApplicationException.from(TriggerErrorCase.PLAN_OR_CATEGORY_NOT_FOUND));
 
         mockMvc.perform(post("/api/v1/triggers")
+                        .with(asUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())

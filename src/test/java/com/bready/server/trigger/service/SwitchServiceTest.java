@@ -1,5 +1,6 @@
 package com.bready.server.trigger.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -36,6 +37,12 @@ import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class SwitchServiceTest {
+
+    private static final Long USER_ID = 1L;
+
+    private static Plan ownedPlan() {
+        return Plan.create(USER_ID, "제목", LocalDate.of(2026, 10, 20), "서울");
+    }
 
     @InjectMocks
     private SwitchService switchService;
@@ -102,7 +109,7 @@ class SwitchServiceTest {
         given(switchLog.getCreatedAt()).willReturn(LocalDateTime.now());
 
         DecisionSwitchResponse response =
-                switchService.executeSwitch(decisionId, new DecisionSwitchRequest(toCandidateId));
+                switchService.executeSwitch(USER_ID, decisionId, new DecisionSwitchRequest(toCandidateId));
 
         assertThat(response.fromCandidateId()).isEqualTo(fromCandidateId);
         assertThat(response.toCandidateId()).isEqualTo(toCandidateId);
@@ -113,11 +120,14 @@ class SwitchServiceTest {
     @DisplayName("전환 실패 - KEEP 결정")
     void executeSwitch_keepDecision() {
         Decision decision = mock(Decision.class);
+        Trigger trigger = mock(Trigger.class);
+        given(decision.getTrigger()).willReturn(trigger);
+        given(trigger.getPlan()).willReturn(ownedPlan());
         given(decision.isSwitch()).willReturn(false);
 
         given(decisionRepository.findByIdWithTriggerPlanCategory(1L)).willReturn(Optional.of(decision));
 
-        assertThatThrownBy(() -> switchService.executeSwitch(1L, new DecisionSwitchRequest(20L)))
+        assertThatThrownBy(() -> switchService.executeSwitch(USER_ID, 1L, new DecisionSwitchRequest(20L)))
                 .isInstanceOf(ApplicationException.class)
                 .hasMessageContaining("KEEP 결정");
     }
@@ -126,13 +136,16 @@ class SwitchServiceTest {
     @DisplayName("전환 실패 - 이미 전환됨")
     void executeSwitch_alreadySwitched() {
         Decision decision = mock(Decision.class);
+        Trigger trigger = mock(Trigger.class);
+        given(decision.getTrigger()).willReturn(trigger);
+        given(trigger.getPlan()).willReturn(ownedPlan());
         given(decision.isSwitch()).willReturn(true);
 
         given(decisionRepository.findByIdWithTriggerPlanCategory(1L)).willReturn(Optional.of(decision));
 
         given(switchLogRepository.existsByDecision_Id(1L)).willReturn(true);
 
-        assertThatThrownBy(() -> switchService.executeSwitch(1L, new DecisionSwitchRequest(20L)))
+        assertThatThrownBy(() -> switchService.executeSwitch(USER_ID, 1L, new DecisionSwitchRequest(20L)))
                 .isInstanceOf(ApplicationException.class)
                 .hasMessageContaining("이미 전환");
     }
