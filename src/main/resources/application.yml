@@ -23,10 +23,6 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
-  h2:
-    console:
-      enabled: false
-
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:local-dummy-openai-key}
