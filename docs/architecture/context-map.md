@@ -1,6 +1,7 @@
 # 경계 지도 (Context Map)
 
 > **상태**: 확정 (2026-10-12). 결정과 근거는 [ADR-0001](../adr/0001-bounded-contexts-and-extraction-order.md)
+> **2026-10-12 이후**: 장소 후보(`PlaceCandidate`와 그 리포지토리·서비스·컨트롤러·DTO)를 `plan` 패키지로 옮겼다. 아래 1~6번은 분석 시점의 패키지 기준 기록이라 후보가 `place`에 있는 것으로 나온다. 
 > **분석 방법**: `com.bready.server.*` 전체 import 그래프 추출 → 엔티티 연관관계·JPQL/Native 쿼리·`@Transactional` 메서드 전수 확인
 > **이 문서의 용도**: 로드맵 1단계(경계 지도)의 출발점. 2단계(모듈러 모놀리스)에서 "무엇을 끊어야 하는지"의 체크리스트
 > 위반을 하나 끊을 때마다 이 문서의 해당 행을 갱신
@@ -339,6 +340,22 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 
 컨텍스트 내부 참조가 약 189건(43%), 실제로 끊어야 하는 경계 위반이 약 246건이다. (이 표는 경계를 확정한 시점의 집계다. 그 뒤 죽은 코드 삭제로 stats → plan이 15건 줄어 실제 경계 위반은 약 231건이 됐다.) ArchUnit 규칙의 모듈 정의를 컨텍스트 기준으로 바꾸는 일은 2단계에서 패키지를 옮길 때 함께 한다.
 
+**컨텍스트 기준 기준선**
+
+장소 후보를 `plan` 패키지로 옮기고 ArchUnit의 경계를 컨텍스트 단위로 바꾼 뒤 다시 기록한 기준선이다. 
+
+| 컨텍스트 | 포함 패키지 | 위반 | 무엇을 넘나 |
+|---|---|---|---|
+| Identity | auth, user | 0 | |
+| Planning | plan, trigger | 49 | Place Catalog의 `PlaceCategoryType`·`Place`, Identity의 `UserRepository`·`User`·`UserProfile` |
+| Place Catalog | place | 0 | |
+| Recommendation | recommendation | 131 | Planning, Place Catalog |
+| Stats | stats | 94 | Planning |
+| File | s3 | 0 | |
+| 합계 | | 274 | 패키지 기준 420건에서 146건이 컨텍스트 내부 참조로 빠졌다 |
+
+추정보다 많은 이유: `plan → place` 52건 대부분이 후보가 아니라 `PlaceCategoryType` enum을 쓰는 것이었다. 카테고리 타입은 플랜의 카테고리가 가지는 값인데 enum이 `place.domain`에 있다. 이 enum의 소유를 어디에 둘지는 Planning → Place Catalog 공개 API를 만들 때 정한다.
+
 **구조·코딩 규칙**
 
 | 규칙 | 2026-10-08 |
@@ -365,6 +382,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|---|
 | 2026-10-08 | v0 | 최초 작성 (코드 수정 없이 분석) |
 | 2026-10-08 | v0.1 | 경계 위반 기준선(ArchUnit) 추가 |
+| 2026-10-12 | v1.2 | 장소 후보를 plan 패키지로 이동, 기준선을 컨텍스트 단위로 다시 기록(11번): 420 → 274 |
 | 2026-10-12 | v1.1 | 죽은 코드 삭제 반영: 5.2 native SQL 제거, R4 해결, R8 추가, 기준선 stats 109 → 94 |
 | 2026-10-12 | v1.0 | 추출 순서 확정(9번), 남은 결정 질문 정리(10번), ADR-0001 연결 |
 | 2026-10-12 | v0.3 | 바운디드 컨텍스트 경계 확정(8번, Q1~Q3), 기준선을 컨텍스트 기준으로 다시 집계(11번) |
