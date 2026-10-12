@@ -87,7 +87,8 @@ H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → 
 ```bash
 .claude/scripts/verify.sh            # 포맷 → 컴파일 → 전체 테스트 (--fast: 테스트 생략)
 ./gradlew spotlessApply              # 포맷 맞추기. 손으로 맞추지 않는다 (palantir-java-format)
-./gradlew test                       # 전체 테스트 (현재 contextLoads 1건 실패 — TROUBLESHOOTING T-002)
+./gradlew test                       # 전체 테스트
+./gradlew bootRun                    # 키 없이 기동(더미 기본값). 먼저 docker compose -f docker-compose-local.yml up -d mysql redis
 .claude/hooks/test-hooks.sh          # 훅을 고쳤으면 반드시
 ```
 - Java를 고친 채 끝내려 하면 Stop 훅이 포맷·컴파일을 검사하고, 깨져 있으면 끝내지 못하게 막는다.

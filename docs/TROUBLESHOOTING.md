@@ -41,8 +41,10 @@ Could not resolve placeholder 'cloud.aws.credentials.access-key' in value "${clo
 - `application-test.yml`에는 S3 설정이 없다.
 나머지 99개는 Mockito 단위 테스트나 컨트롤러 슬라이스라 S3 빈을 만들지 않아서 통과했다.
 
-**해결**: (0단계 안전망 첫 작업에서 처리 예정) 외부 의존(S3·OpenAI·카카오·네이버)이 **실제 키 없이도** 로컬·테스트에서 뜨도록 설정을 정리한다.
+S3 값만 채우면 다음 겹이 나온다: `OpenAI API key must be set` (`openAiAudioSpeechModel`). 우리 코드가 아니라 Spring AI 자동 설정이 키를 요구한다. `recommendation.ai.enabled=false`는 우리 어댑터만 끄고 자동 설정은 끄지 못한다.
 
-**재발 방지**: (0단계에서 작성)
+**해결**: 키 없는 기본 `application.yml`을 커밋했다. 모든 외부 값이 `${ENV:로컬더미값}`이라 환경변수 없이도 빈이 만들어진다. 실제 키는 `application-local.yml`(gitignore, `local` 프로파일)에만 둔다. 결과: 127개 전부 통과. 상세는 [설계서 0-1](design/0-1-keyless-local-boot.md).
+
+**재발 방지**: 새 설정 값을 추가할 때 기본값 없는 `${ENV}`를 쓰지 않는다. 빠뜨리면 `contextLoads`가 환경변수 없는 곳에서 바로 실패하므로 테스트가 잡아 준다.
 
 **연결**: commerce-msa에서는 처음부터 `${VAR:-default}`로 외부화해서 이 문제가 없었다. 팀 프로젝트는 운영 서버의 `application.yml`에 기대고 있었기 때문에, 그 파일이 없는 곳에서는 뜨지 않는다. → "12-factor: 설정은 환경에서"의 반대 사례.
