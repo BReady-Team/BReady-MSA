@@ -7,11 +7,10 @@ import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.bready.server.plan.repository.PlanRepository;
+import com.bready.server.plan.api.PlanQueryApi;
 import com.bready.server.stats.domain.StatsPeriod;
 import com.bready.server.stats.dto.StatsSummaryResponse;
-import com.bready.server.trigger.repository.DecisionRepository;
-import com.bready.server.trigger.repository.SwitchLogRepository;
+import com.bready.server.trigger.api.ActivityQueryApi;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,17 +19,16 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class StatsService {
 
-    private final PlanRepository planRepository;
-    private final SwitchLogRepository switchLogRepository;
-    private final DecisionRepository decisionRepository;
+    private final PlanQueryApi planQueryApi;
+    private final ActivityQueryApi activityQueryApi;
 
     public StatsSummaryResponse getSummary(Long ownerId, StatsPeriod period) {
 
         LocalDateTime startAt = resolveStartAt(period);
 
-        long totalPlans = planRepository.countActiveByOwnerId(ownerId);
-        long totalSwitches = switchLogRepository.countByOwnerIdAndPeriod(ownerId, startAt);
-        long recentCount = decisionRepository.countByOwnerIdAndPeriod(ownerId, startAt);
+        long totalPlans = planQueryApi.countActivePlans(ownerId);
+        long totalSwitches = activityQueryApi.countSwitches(ownerId, startAt);
+        long recentCount = activityQueryApi.countDecisions(ownerId, startAt);
 
         double avgSwitchesPerPlan = calculateAvg(totalSwitches, totalPlans);
 
