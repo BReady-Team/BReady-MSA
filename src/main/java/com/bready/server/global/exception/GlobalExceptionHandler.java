@@ -1,11 +1,14 @@
 package com.bready.server.global.exception;
 
+import java.util.List;
+import java.util.Optional;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.lang.Nullable;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -18,8 +21,6 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.bready.server.global.response.CommonResponse;
-import com.bready.server.s3.exception.S3ErrorCase;
-import com.bready.server.stats.exception.StatsErrorCase;
 
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,13 @@ import static org.springframework.http.ResponseEntity.status;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private final List<MissingPartErrorCaseProvider> missingPartErrorCaseProviders;
+
+    public GlobalExceptionHandler(@Nullable List<MissingPartErrorCaseProvider> missingPartErrorCaseProviders) {
+        this.missingPartErrorCaseProviders =
+                missingPartErrorCaseProviders == null ? List.of() : List.copyOf(missingPartErrorCaseProviders);
+    }
 
     @ExceptionHandler(ApplicationException.class)
     public ResponseEntity<CommonResponse<?>> handleApplicationException(ApplicationException e) {
@@ -103,11 +111,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<CommonResponse<?>> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
-
-        if ("period".equals(e.getName())) {
-            throw ApplicationException.from(StatsErrorCase.INVALID_PERIOD);
-        }
-
         throw e;
     }
 
@@ -129,9 +132,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<CommonResponse<?>> handleMissingPart(MissingServletRequestPartException e) {
         log.warn("[MissingServletRequestPartException] partName={}", e.getRequestPartName());
 
-        // S3 파일 업로드 관련 part인 경우
-        if ("file".equals(e.getRequestPartName())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(CommonResponse.error(S3ErrorCase.FILE_REQUIRED));
+        // 그 파트를 책임지는 모듈이 있으면 그 모듈의 에러로 답한다
+        Optional<ErrorCase> moduleErrorCase = missingPartErrorCaseProviders.stream()
+                .map(provider -> provider.findErrorCase(e.getRequestPartName()))
+                .flatMap(Optional::stream)
+                .findFirst();
+
+        if (moduleErrorCase.isPresent()) {
+            ErrorCase errorCase = moduleErrorCase.get();
+            return status(errorCase.getHttpStatusCode()).body(CommonResponse.error(errorCase));
         }
 
         // 그 외 일반적인 multipart 누락

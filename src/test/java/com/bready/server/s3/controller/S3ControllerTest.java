@@ -12,6 +12,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.bready.server.global.exception.GlobalExceptionHandler;
+import com.bready.server.s3.exception.S3MissingPartErrorCaseProvider;
 import com.bready.server.s3.service.S3Uploader;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -22,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(S3Controller.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, S3MissingPartErrorCaseProvider.class})
 @AutoConfigureMockMvc(addFilters = false)
 class S3ControllerTest {
 
