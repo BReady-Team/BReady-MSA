@@ -13,7 +13,7 @@ import com.bready.server.recommendation.ai.AiRerankService;
 import com.bready.server.recommendation.ai.AiRerankTarget;
 import com.bready.server.recommendation.dto.CategoryRecommendationResponse;
 import com.bready.server.recommendation.port.CategoryRecommendationPort;
-import com.bready.server.trigger.domain.TriggerType;
+import com.bready.server.trigger.api.TriggerType;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

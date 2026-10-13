@@ -12,7 +12,7 @@ import com.bready.server.place.service.PlaceSearchService;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.recommendation.dto.PlaceRecommendationResponse;
 import com.bready.server.recommendation.port.PlaceRecommendationPort;
-import com.bready.server.trigger.domain.TriggerType;
+import com.bready.server.trigger.api.TriggerType;
 
 import lombok.RequiredArgsConstructor;
 

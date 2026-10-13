@@ -14,7 +14,7 @@ import com.bready.server.plan.repository.PlanRepository;
 import com.bready.server.stats.dto.PlanActivitiesResponse;
 import com.bready.server.stats.dto.PlanActivityItem;
 import com.bready.server.stats.exception.StatsErrorCase;
-import com.bready.server.trigger.domain.DecisionType;
+import com.bready.server.trigger.api.DecisionType;
 import com.bready.server.trigger.repository.DecisionRepository;
 import com.bready.server.trigger.repository.SwitchLogRepository;
 

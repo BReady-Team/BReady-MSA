@@ -23,8 +23,8 @@ import com.bready.server.recommendation.dto.PlaceRecommendationQuery;
 import com.bready.server.recommendation.dto.PlaceRecommendationRequest;
 import com.bready.server.recommendation.dto.PlaceRecommendationResponse;
 import com.bready.server.recommendation.port.PlaceRecommendationPort;
+import com.bready.server.trigger.api.TriggerType;
 import com.bready.server.trigger.domain.Trigger;
-import com.bready.server.trigger.domain.TriggerType;
 import com.bready.server.trigger.exception.TriggerErrorCase;
 import com.bready.server.trigger.repository.TriggerRepository;
 

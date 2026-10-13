@@ -14,7 +14,7 @@ import com.bready.server.stats.domain.StatsPeriod;
 import com.bready.server.stats.dto.RecentActivitiesResponse;
 import com.bready.server.stats.dto.RecentActivityItem;
 import com.bready.server.stats.exception.StatsErrorCase;
-import com.bready.server.trigger.domain.DecisionType;
+import com.bready.server.trigger.api.DecisionType;
 import com.bready.server.trigger.repository.DecisionRepository;
 import com.bready.server.trigger.repository.SwitchLogRepository;
 

@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.recommendation.dto.CategoryRecommendationResponse;
-import com.bready.server.trigger.domain.TriggerType;
+import com.bready.server.trigger.api.TriggerType;
 
 public interface CategoryRecommendationPort {
 

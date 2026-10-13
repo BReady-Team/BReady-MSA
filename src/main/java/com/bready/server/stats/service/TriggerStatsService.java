@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bready.server.stats.domain.StatsPeriod;
 import com.bready.server.stats.dto.TriggerStatsItem;
 import com.bready.server.stats.dto.TriggerStatsResponse;
-import com.bready.server.trigger.domain.TriggerType;
+import com.bready.server.trigger.api.TriggerType;
 import com.bready.server.trigger.repository.TriggerRepository;
 
 import lombok.RequiredArgsConstructor;

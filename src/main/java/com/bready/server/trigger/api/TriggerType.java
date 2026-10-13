@@ -1,4 +1,4 @@
-package com.bready.server.trigger.domain;
+package com.bready.server.trigger.api;
 
 public enum TriggerType {
     WEATHER_BAD, // 날씨 악화

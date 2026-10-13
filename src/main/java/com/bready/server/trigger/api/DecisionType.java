@@ -1,4 +1,4 @@
-package com.bready.server.trigger.domain;
+package com.bready.server.trigger.api;
 
 public enum DecisionType {
     KEEP,
