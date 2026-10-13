@@ -34,6 +34,14 @@ final class ArchitectureRules {
                 .toArray(String[]::new);
     }
 
+    static String[] otherContextsPackages(String self) {
+        return CONTEXTS.entrySet().stream()
+                .filter(context -> !context.getKey().equals(self))
+                .flatMap(context -> context.getValue().stream())
+                .map(name -> BASE_PACKAGE + "." + name + "..")
+                .toArray(String[]::new);
+    }
+
     static String contextOf(String packageName) {
         if (!packageName.startsWith(BASE_PACKAGE + ".")) {
             return packageName;

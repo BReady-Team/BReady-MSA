@@ -12,7 +12,7 @@
 | 2-2 | 컨텍스트 기준으로 모듈 재정의 | 완료 |
 | 2-3 | 전환 경쟁 상태 수정 | 완료 |
 | 2-4 | 소유권 검증 추가 | 완료 |
-| 2-5 | Planning → Place Catalog 공개 API | |
+| 2-5 | Planning → Place Catalog 공개 API | 구현 완료 |
 | 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | |
 
 ## 2-1 죽은 코드 제거
@@ -394,3 +394,186 @@ after
 - 서비스 단위 테스트는 엔티티를 mock으로 만드는 옛 방식이 그대로다. 소유권 확인이 지나가도록 플랜만 진짜 객체로 넣었다.
 - 메서드 시그니처가 바뀌면 ArchUnit은 그 메서드의 기존 위반을 새 위반으로 본다. 위반 문구에 시그니처가 들어가기 때문이다. 기록의 시그니처 문자열만 갱신했고 줄 수가 같은 것을 확인했다.
 
+## 2-5 Planning → Place Catalog 공개 API
+
+### 왜 지금
+
+Planning의 경계 위반 기준선은 49건이었다. 전부 다른 컨텍스트의 타입을 직접 쓰는 것이다.
+
+| 대상 | 건수 | 어디서 |
+|---|---|---|
+| `place.domain.PlaceCategoryType` (enum) | 38 | `PlanCategory`, 카테고리·플랜 상세 DTO 6개, `PlanService` |
+| `place.domain.Place` (엔티티) | 16 | `PlaceCandidate.place`(`@ManyToOne`), `PlaceCandidateService`, `PlanService` |
+| `user.repository.UserRepository`, `User`, `UserProfile` | 7 | `PlanService.buildPlanDto` (작성자 닉네임·프로필 이미지) |
+
+(한 줄에 두 타입이 함께 나오는 위반이 있어 합이 49보다 크다.)
+
+Place Catalog는 4단계에서 처음 떼어낼 서비스다. 이 모양으로는 뗄 수 없었다. `place_candidates.place_id`가 `places`를 가리키는 JPA 연관이었고, 플랜 상세 조회는 `left join fetch cand.place`로 두 컨텍스트의 테이블을 한 쿼리에서 읽었다. DB가 나뉘면 이 쿼리는 실행할 수 없다.
+
+### 설계 (선택지 · 결정)
+
+**1. 플랜 상세가 장소 이름·주소·좌표를 얻는 방법**
+
+| 안 | 방법 | 얻는 것 | 잃는 것 |
+|---|---|---|---|
+| A | 후보를 등록할 때 장소 정보를 `place_candidates`에 복사해 둔다 | 상세 조회가 Planning 테이블만 읽는다. Catalog가 죽어도 상세는 보인다 | 컬럼 추가와 기존 행 채우기, 데이터 중복 |
+| **B (채택)** | 후보는 `placeId`만 갖고, 조회할 때 ID를 모아 Catalog 공개 API를 한 번 부른다 | 스키마 변경이 없다. 쿼리는 하나만 늘어난다 | 서비스로 떼면 이 호출이 네트워크를 타고, Catalog 장애가 상세 조회로 번진다 |
+
+A가 막아 주는 고통은 Catalog를 실제로 떼어낸 뒤에 생긴다. 그때 Catalog를 죽여 보고 정한다. B에서 A로 가는 길은 막히지 않는다(컬럼 추가와 채우기).
+
+**2. `PlaceCategoryType`의 소유**
+
+이 enum은 플랜 카테고리의 값이면서 카카오 검색 키워드와 카테고리 코드를 들고 있다. Planning은 값만 쓰고 키워드·코드는 장소 검색만 쓴다.
+
+| 안 | 방법 | 버린 이유 또는 고른 이유 |
+|---|---|---|
+| A | Planning으로 옮긴다 | Catalog의 검색이 Planning을 import하게 된다. 첫 추출의 근거인 "나가는 의존 0"이 깨진다 |
+| **B (채택)** | Catalog 소유로 두고 공개 API 패키지로 옮긴다 | 이동 한 번으로 38건이 사라지고 나가는 의존 0이 유지된다 |
+| C | Planning의 값 enum과 Catalog의 검색 매핑으로 쪼갠다 | 값 목록이 두 곳이 되고 변환 코드가 생긴다. 지금 없는 고통을 위한 중복이다 |
+
+**3. 공개 API의 모양**
+
+| 안 | 방법 | 버린 이유 또는 고른 이유 |
+|---|---|---|
+| A | 기존 서비스를 그대로 부르고 반환만 record로 바꾼다 | 무엇이 공개이고 무엇이 내부인지 구분이 없다 |
+| **B (채택)** | `{module}.api` 패키지에 인터페이스, 값 record, enum을 둔다. 구현은 `service`에 | 쓰는 쪽은 `api` 패키지만 import한다. 서비스로 떼면 구현만 원격 호출로 바뀌고 쓰는 쪽 코드는 그대로다 |
+| C | 쓰는 쪽에 포트를 두고 어댑터가 부른다 | 쓰는 컨텍스트마다 포트와 어댑터가 생긴다. Recommendation도 Catalog를 쓴다 |
+
+구현이 하나뿐인 인터페이스는 보통 만들지 않는다. 이 인터페이스는 4단계에서 구현이 실제로 바뀌는 자리라서 둔다. `api` 패키지는 자기 모듈의 엔티티를 import하지 않게 했다. 그래서 `Place` → `PlaceInfo` 변환은 `PlaceInfo.from(Place)`가 아니라 구현 서비스가 한다.
+
+이 결정은 2-6에서도 그대로 쓰므로 2단계 ADR에 담는다.
+
+**4. `plan → user` 7건**
+
+같은 조각에서 함께 끊었다. 같은 모양(`user.api.UserApi`)을 한 번 더 적용하는 일이고, Planning 기준선이 0이 된다.
+
+구현하면서 달라진 점:
+
+- `PlacePersistenceService`를 `PlaceCatalogService`로 바꾸고 `PlaceCatalogApi`를 구현하게 했다. `getOrCreate`는 `register`가 됐고 엔티티 대신 `PlaceInfo`를 돌려준다. `REQUIRES_NEW`는 그대로다.
+- `PlaceRegisterRequest`도 공개 API의 입력이라 `place.api`로 옮겼다.
+- 대표 지정(`setRepresentative`)은 장소를 쓰지 않는데도 장소까지 fetch join하고 있었다. 장소 없는 조회로 바꾸고 쓰이지 않게 된 쿼리 두 개를 지웠다.
+- 추천의 `PlaceRecommendationService.resolveBase`가 `candidate.getPlace()`로 좌표를 읽고 있었다. 필드가 사라지므로 이 부분만 Catalog 공개 API 조회로 바꿨다. 추천의 나머지는 2-6이다.
+- 후보가 가리키는 장소가 Catalog에 없으면 플랜 상세는 500으로 실패한다. 한 DB 안에서는 일어나지 않는 일이고, 서비스로 떼면 다시 정할 자리라 표식을 남겼다.
+
+### 흐름 (before → after)
+
+플랜 상세 조회:
+
+```
+before
+  PlanService.getPlanDetail            BEGIN (readOnly)
+    plans 조회 → validateOwner
+    users ⋈ user_profiles               UserRepository를 직접 주입
+    plan_categories ⋈ place_candidates ⋈ places    두 컨텍스트의 테이블을 한 쿼리에서 JOIN
+    category_states IN (...)
+                                        COMMIT
+
+after
+  PlanService.getPlanDetail            BEGIN (readOnly)
+    plans 조회 → validateOwner
+    UserApi.findUserSummary(ownerId)    → users ⋈ user_profiles (Identity 안에서)
+    plan_categories ⋈ place_candidates  Planning 테이블만
+    category_states IN (...)
+    후보들의 placeId를 모은다
+    PlaceCatalogApi.getPlaces(placeIds) → places where id in (...) (Catalog 안에서)
+    Map<placeId, PlaceInfo>로 조립
+                                        COMMIT
+```
+
+후보 등록:
+
+```
+before  Place place = placePersistenceService.getOrCreate(...)   REQUIRES_NEW, 엔티티가 경계를 넘는다
+        PlaceCandidate.create(category, place)
+after   PlaceInfo place = placeCatalogApi.register(...)          REQUIRES_NEW 그대로, 값 record가 넘어온다
+        PlaceCandidate.create(category, place.id())
+```
+
+바뀌지 않은 것: URL, 응답 JSON, `place_id` 컬럼, 유니크 제약 `uk_category_place`.
+
+### 구현 파일
+
+| 파일 | 변경 |
+|---|---|
+| `place/api/PlaceCatalogApi.java`, `PlaceInfo.java` | 새로 추가. Catalog의 공개 API와 경계 밖으로 나가는 장소 정보 |
+| `place/api/PlaceCategoryType.java`, `PlaceRegisterRequest.java` | `place.domain`, `place.dto`에서 이동 |
+| `place/service/PlaceCatalogService.java` | `PlacePersistenceService`에서 이름 변경. `PlaceCatalogApi` 구현, `getPlaces` 추가, 클래스 `readOnly` |
+| `user/api/UserApi.java`, `UserSummary.java` | 새로 추가. Identity의 공개 API |
+| `user/service/UserService.java` | `UserApi` 구현(`findUserSummary`) |
+| `plan/domain/PlaceCandidate.java` | `@ManyToOne Place place` → `Long placeId` |
+| `plan/repository/PlanCategoryRepository.java` | 플랜 상세 쿼리에서 `left join fetch cand.place` 제거 |
+| `plan/repository/PlaceCandidateRepository.java` | 장소를 fetch join하던 쿼리 2개 삭제 |
+| `plan/service/PlaceCandidateService.java` | `PlaceCatalogApi` 주입, 후보를 `place.id()`로 생성 |
+| `plan/service/PlanService.java` | `UserApi`·`PlaceCatalogApi` 주입, 장소를 ID로 한 번에 조회해 조립 |
+| `plan/dto/PlaceSummaryResponse.java` | `from(PlaceInfo)` 추가, 빌더 제거 |
+| `recommendation/service/PlaceRecommendationService.java` | 대표 후보의 좌표·주소를 Catalog 공개 API로 조회 |
+| `architecture/ModuleBoundaryTest.java`, `ArchitectureRules.java` | "공개 API를 연 컨텍스트는 api 패키지로만 쓴다" 규칙 추가(catalog, identity) |
+| `integration/PlaceCatalogContractIntegrationTest.java` | 새로 추가. 후보 등록과 플랜 상세의 응답 JSON 고정 |
+| `place/service/PlaceCatalogServiceTest.java`, `place/fixture/PlaceFixture.java` | 새로 추가 |
+| `PlanServiceTest`, `PlaceCandidateServiceTest`, `UserServiceTest` | 새 협력 객체에 맞춤, 테스트 5개 추가 |
+| `src/test/resources/archunit_store/` | 아래 검증 증거 참고 |
+
+### 검증 증거
+
+구현 전에 응답 계약 테스트를 먼저 쓰고 옛 코드에서 통과하는 것을 확인했다. 구현 뒤에도 그대로 통과한다.
+
+```
+구현 전 (옛 코드)   PlaceCatalogContractIntegrationTest   tests=4 failures=0
+구현 후            PlaceCatalogContractIntegrationTest   tests=4 failures=0
+.claude/scripts/verify.sh   format 통과 · compile 통과 · 전체 162 · 실패 0
+```
+
+플랜 상세 조회 한 번에 나가는 쿼리(구현 후, Testcontainers MySQL):
+
+```
+select ... from plans p1_0 where p1_0.id=? and p1_0.deleted_at is null
+select ... from users u1_0 left join user_profiles up1_0 on u1_0.id=up1_0.user_id where u1_0.id=?
+select ... from plan_categories pc1_0 left join place_candidates c1_0 on pc1_0.id=c1_0.category_id ... order by pc1_0.sequence
+select ... from category_states cs1_0 left join plan_categories c1_0 on c1_0.id=cs1_0.category_id where c1_0.id in (?)
+select ... from places p1_0 where p1_0.id in (?,?)
+```
+
+세 번째 쿼리에서 `places`가 빠졌고, 장소는 마지막 쿼리 하나로 후보 두 개 분을 함께 읽는다.
+
+기준선:
+
+| 규칙 | 전 | 후 |
+|---|---|---|
+| Planning이 다른 컨텍스트의 Repository·Entity 사용 | 49 | 0 |
+| Recommendation이 다른 컨텍스트의 Repository·Entity 사용 | 131 | 105 |
+| 공개 API를 연 Catalog를 api 패키지 밖으로 사용 (새 규칙) | | 17 |
+| 공개 API를 연 Identity를 api 패키지 밖으로 사용 (새 규칙) | | 0 |
+| `new ApplicationException(...)` 사용 | 80 | 79 |
+| `@Transactional` 서비스의 클래스 readOnly 선언 없음 | 14 | 13 |
+| domain의 표준 예외 | 10 | 10 |
+
+Recommendation 131 → 105: enum이 `place.api`로 옮겨 가면서 19건, 대표 후보의 장소를 엔티티로 읽던 호출이 사라지면서 나머지가 줄었다. 새 규칙의 17건은 전부 Recommendation이 `PlaceSearchService`·`PlaceSearchResponse`·`PlaceErrorCase`를 쓰는 것으로, 2-6에서 줄인다.
+
+기준선 파일에서 문구를 직접 고친 줄은 8줄이다. 새 위반을 인정한 것이 아니라 같은 위반의 문구가 바뀐 것이다.
+
+- `PlaceSearchService.search`의 `new ApplicationException` 1줄: 파라미터 타입 `PlaceCategoryType`의 패키지가 바뀌어 시그니처 문자열이 달라졌다.
+- `PlaceCandidate.create`의 표준 예외 2줄: 파라미터가 `Place`에서 `Long`으로 바뀌어 시그니처 문자열이 달라졌다.
+- `PlaceRecommendationService` 생성자의 리포지토리 주입 3줄: 생성자에 `PlaceCatalogApi`가 추가돼 시그니처 문자열이 달라졌다.
+- `PlaceRecommendationService.resolveBase` 2줄: `candidate.getPlace()` 호출 4건과 `findAliveByIdWithCategoryAndPlace` 호출이 `candidate.getPlaceId()`와 `findAliveById` 호출로 바뀌었다.
+
+### 워크스루 요약
+
+플랜 상세 조회(`GET /api/v1/plans/{planId}`)를 따라가면 바뀐 곳이 순서대로 나온다.
+
+1. `PlanService`는 `UserApi`와 `PlaceCatalogApi` 인터페이스를 주입받는다. 구현 클래스나 리포지토리를 모른다.
+2. 작성자 닉네임은 `userApi.findUserSummary(ownerId)`로 받는다. 엔티티 대신 값 record(`UserSummary`)가 넘어온다.
+3. `findAllDetailByPlanId`는 카테고리와 후보까지만 가져온다. 후보는 장소의 ID만 안다.
+4. `findPlacesOf`가 후보들의 `placeId`를 모아 중복을 빼고 `placeCatalogApi.getPlaces(ids)`를 한 번 부른다. 후보마다 부르면 후보 수만큼 호출이 나간다.
+5. `PlaceCatalogService.getPlaces`가 `places`를 `IN`으로 읽어 `PlaceInfo`로 바꿔 돌려준다. 변환은 `api` 패키지가 엔티티를 모르도록 서비스가 한다.
+6. `buildCandidateDto`가 `Map`에서 장소를 꺼내 응답을 조립한다. 응답 JSON은 전과 같다.
+
+### 알려진 한계
+
+- 로컬 DB에는 `place_candidates.place_id → places.id` FK 제약이 남아 있다. `ddl-auto: update`는 제약을 지우지 않는다. 4단계에서 스키마를 나눌 때 없앤다. 테스트 DB는 매번 새로 만들어서 FK가 없다.
+- 후보 등록은 장소 저장(Catalog, 별도 트랜잭션)과 후보 저장(Planning)이 원자적이지 않다. 후보 저장이 실패해도 장소는 남는다. 공용 데이터라 남아도 되지만, 서비스로 떼면 "장소 저장은 됐는데 응답을 못 받은" 경우가 추가된다.
+- 플랜 상세에서 Catalog가 장소를 돌려주지 않으면 500이다. Catalog가 죽었을 때 장소 없이 보여 줄지, 후보에 복사해 둘지는 4단계에서 정한다.
+- `PlaceCategoryType`을 Planning과 Catalog가 함께 쓴다. 서비스로 떼면 값이 추가될 때 양쪽을 함께 배포해야 한다.
+- 추천은 여전히 Planning의 리포지토리와 엔티티를 직접 쓴다(105건). 이번에는 장소를 읽는 네 줄만 바꿨다.
+- 작성자를 찾지 못하면 PLAN_NOT_FOUND를 돌려주는 기존 동작과, 닉네임 기본값 `"사용자"`를 서비스가 정하는 것은 그대로 뒀다.
+- `PlaceCandidateServiceTest`는 엔티티를 mock으로 만드는 옛 방식이 그대로다. 바뀐 협력 객체만 맞췄다.
+- 새 ArchUnit 규칙의 기준선은 `allowStoreCreation=false`인 채로 만들어졌다. 이 설정은 기준선 폴더가 없을 때만 막고, 이미 있는 폴더에 새 규칙이 추가되는 것은 막지 않는다.
