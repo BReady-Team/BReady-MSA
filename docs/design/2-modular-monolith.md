@@ -12,7 +12,7 @@
 | 2-2 | 컨텍스트 기준으로 모듈 재정의 | 완료 |
 | 2-3 | 전환 경쟁 상태 수정 | 완료 |
 | 2-4 | 소유권 검증 추가 | 완료 |
-| 2-5 | Planning → Place Catalog 공개 API | 구현 완료 |
+| 2-5 | Planning → Place Catalog 공개 API | 완료 |
 | 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | |
 
 ## 2-1 죽은 코드 제거
