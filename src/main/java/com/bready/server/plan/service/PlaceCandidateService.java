@@ -8,9 +8,9 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.domain.Place;
-import com.bready.server.place.dto.PlaceRegisterRequest;
-import com.bready.server.place.service.PlacePersistenceService;
+import com.bready.server.place.api.PlaceCatalogApi;
+import com.bready.server.place.api.PlaceInfo;
+import com.bready.server.place.api.PlaceRegisterRequest;
 import com.bready.server.plan.domain.CategorySelectionLog;
 import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlaceCandidate;
@@ -34,7 +34,7 @@ public class PlaceCandidateService {
 
     private final PlanCategoryRepository planCategoryRepository;
     private final PlaceCandidateRepository placeCandidateRepository;
-    private final PlacePersistenceService placePersistenceService;
+    private final PlaceCatalogApi placeCatalogApi;
     private final CategoryStateRepository categoryStateRepository;
     private final CategorySelectionLogRepository categorySelectionLogRepository;
 
@@ -47,8 +47,8 @@ public class PlaceCandidateService {
                 .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.INVALID_PLAN_OR_CATEGORY));
         category.getPlan().validateOwner(userId);
 
-        // Place는 중복이면 재사용
-        Place place = placePersistenceService.getOrCreate(new PlaceRegisterRequest(
+        // 장소는 Place Catalog가 별도 트랜잭션으로 먼저 커밋(중복이면 재사용)
+        PlaceInfo place = placeCatalogApi.register(new PlaceRegisterRequest(
                 request.externalId(),
                 request.name(),
                 request.address(),
@@ -59,7 +59,7 @@ public class PlaceCandidateService {
         // PlaceCandidate 저장 -> 동시성 중복은 DB 유니크로 차단
         PlaceCandidate saved;
         try {
-            saved = placeCandidateRepository.saveAndFlush(PlaceCandidate.create(category, place));
+            saved = placeCandidateRepository.saveAndFlush(PlaceCandidate.create(category, place.id()));
         } catch (DataIntegrityViolationException e) {
             throw ApplicationException.from(PlaceCandidateErrorCase.DUPLICATE_PLACE_CANDIDATE);
         }
@@ -91,13 +91,7 @@ public class PlaceCandidateService {
 
         return PlaceCandidateCreateResponse.builder()
                 .candidateId(saved.getId())
-                .place(PlaceSummaryResponse.builder()
-                        .id(place.getId())
-                        .externalId(place.getExternalId())
-                        .name(place.getName())
-                        .address(place.getAddress())
-                        .isIndoor(place.getIsIndoor())
-                        .build())
+                .place(PlaceSummaryResponse.from(place))
                 .createdAt(saved.getCreatedAt())
                 .build();
     }
@@ -107,7 +101,7 @@ public class PlaceCandidateService {
     public PlaceCandidateRepresentativeResponse setRepresentative(Long userId, Long candidateId) {
 
         PlaceCandidate candidate = placeCandidateRepository
-                .findByIdWithCategoryAndPlace(candidateId)
+                .findByIdWithCategory(candidateId)
                 .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND));
 
         PlanCategory category = candidate.getCategory();

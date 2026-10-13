@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.place.api.PlaceCatalogApi;
+import com.bready.server.place.api.PlaceInfo;
 import com.bready.server.place.exception.PlaceErrorCase;
 import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlaceCandidate;
@@ -41,6 +43,7 @@ public class PlaceRecommendationService {
     private final TriggerRepository triggerRepository;
     private final PlaceCandidateRepository placeCandidateRepository;
     private final CategoryStateRepository categoryStateRepository;
+    private final PlaceCatalogApi placeCatalogApi;
     private final PlaceRecommendationPort placeRecommendationPort;
     private final PlaceRecommendationCacheService placeRecommendationCacheService;
 
@@ -145,18 +148,22 @@ public class PlaceRecommendationService {
 
         // 기존 대표장소 기반 trigger
         PlaceCandidate candidate = placeCandidateRepository
-                .findAliveByIdWithCategoryAndPlace(representativeCandidateId)
+                .findAliveById(representativeCandidateId)
                 .orElseThrow(() -> new ApplicationException(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND));
 
-        Double lat = toDouble(candidate.getPlace().getLatitude());
-        Double lng = toDouble(candidate.getPlace().getLongitude());
+        PlaceInfo place = placeCatalogApi.getPlaces(List.of(candidate.getPlaceId())).stream()
+                .findFirst()
+                .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND));
+
+        Double lat = toDouble(place.latitude());
+        Double lng = toDouble(place.longitude());
 
         if (lat == null || lng == null) {
             throw new ApplicationException(PlaceErrorCase.LOCATION_REQUIRED);
         }
 
-        String regionFromAddress = extractRegionFromAddress(candidate.getPlace().getAddress());
-        String excludeExternalId = candidate.getPlace().getExternalId();
+        String regionFromAddress = extractRegionFromAddress(place.address());
+        String excludeExternalId = place.externalId();
 
         return new ResolvedBase(new Coordinate(lat, lng), regionFromAddress, excludeExternalId);
     }

@@ -3,6 +3,7 @@ package com.bready.server.plan.service;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -13,7 +14,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.place.api.PlaceCatalogApi;
+import com.bready.server.place.api.PlaceInfo;
 import com.bready.server.plan.domain.CategoryState;
+import com.bready.server.plan.domain.PlaceCandidate;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.dto.*;
@@ -21,9 +25,8 @@ import com.bready.server.plan.exception.PlanErrorCase;
 import com.bready.server.plan.repository.CategoryStateRepository;
 import com.bready.server.plan.repository.PlanCategoryRepository;
 import com.bready.server.plan.repository.PlanRepository;
-import com.bready.server.user.domain.User;
-import com.bready.server.user.domain.UserProfile;
-import com.bready.server.user.repository.UserRepository;
+import com.bready.server.user.api.UserApi;
+import com.bready.server.user.api.UserSummary;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,10 +34,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PlanService {
 
+    private static final String DEFAULT_OWNER_NICKNAME = "사용자";
+
     private final PlanRepository planRepository;
     private final PlanCategoryRepository planCategoryRepository;
     private final CategoryStateRepository categoryStateRepository;
-    private final UserRepository userRepository;
+    private final UserApi userApi;
+    private final PlaceCatalogApi placeCatalogApi;
 
     @Transactional
     public PlanCreateResponse createPlan(Long userId, PlanCreateRequest request) {
@@ -105,8 +111,10 @@ public class PlanService {
                 .filter(cs -> cs.getCurrentCandidateId() != null)
                 .collect(Collectors.toMap(cs -> cs.getCategory().getId(), CategoryState::getCurrentCandidateId));
 
+        Map<Long, PlaceInfo> placesById = findPlacesOf(categories);
+
         List<PlanDetailCategoryDto> categoryDtos = categories.stream()
-                .map(category -> buildCategoryDto(category, representativeMap.get(category.getId())))
+                .map(category -> buildCategoryDto(category, representativeMap.get(category.getId()), placesById))
                 .toList();
 
         return PlanDetailResponse.builder()
@@ -115,15 +123,23 @@ public class PlanService {
                 .build();
     }
 
+    private Map<Long, PlaceInfo> findPlacesOf(List<PlanCategory> categories) {
+        List<Long> placeIds = categories.stream()
+                .flatMap(category -> category.getCandidates().stream())
+                .map(PlaceCandidate::getPlaceId)
+                .distinct()
+                .toList();
+
+        return placeCatalogApi.getPlaces(placeIds).stream()
+                .collect(Collectors.toMap(PlaceInfo::id, Function.identity()));
+    }
+
     private PlanDto buildPlanDto(Plan plan) {
-        User user = userRepository
-                .findByIdWithProfile(plan.getOwnerId())
-                .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
+        UserSummary owner = userApi.findUserSummary(plan.getOwnerId())
+                .orElseThrow(() -> ApplicationException.from(PlanErrorCase.PLAN_NOT_FOUND));
 
-        UserProfile profile = user.getUserProfile();
-
-        String ownerNickname = profile != null ? profile.getNickname() : "사용자";
-        String ownerProfileImageUrl = profile != null ? profile.getProfileImageUrl() : null;
+        String ownerNickname = owner.nickname() != null ? owner.nickname() : DEFAULT_OWNER_NICKNAME;
+        String ownerProfileImageUrl = owner.profileImageUrl();
 
         return PlanDto.builder()
                 .planId(plan.getId())
@@ -138,26 +154,11 @@ public class PlanService {
                 .build();
     }
 
-    private PlanDetailCategoryDto buildCategoryDto(PlanCategory category, Long representativeId) {
+    private PlanDetailCategoryDto buildCategoryDto(
+            PlanCategory category, Long representativeId, Map<Long, PlaceInfo> placesById) {
         List<PlanDetailCandidateDto> candidateDtos = category.getCandidates().stream()
                 .sorted((a, b) -> Long.compare(b.getId(), a.getId()))
-                .map(candidate -> {
-                    boolean isRep = representativeId != null && representativeId.equals(candidate.getId());
-
-                    return PlanDetailCandidateDto.builder()
-                            .candidateId(candidate.getId())
-                            .isRepresentative(isRep)
-                            .place(PlanDetailPlaceDto.builder()
-                                    .id(candidate.getPlace().getId())
-                                    .externalId(candidate.getPlace().getExternalId())
-                                    .name(candidate.getPlace().getName())
-                                    .address(candidate.getPlace().getAddress())
-                                    .latitude(candidate.getPlace().getLatitude())
-                                    .longitude(candidate.getPlace().getLongitude())
-                                    .isIndoor(candidate.getPlace().getIsIndoor())
-                                    .build())
-                            .build();
-                })
+                .map(candidate -> buildCandidateDto(candidate, representativeId, placesById))
                 .toList();
 
         return PlanDetailCategoryDto.builder()
@@ -166,6 +167,31 @@ public class PlanService {
                 .sequence(category.getSequence())
                 .representativeCandidateId(representativeId)
                 .candidates(candidateDtos)
+                .build();
+    }
+
+    private PlanDetailCandidateDto buildCandidateDto(
+            PlaceCandidate candidate, Long representativeId, Map<Long, PlaceInfo> placesById) {
+        PlaceInfo place = placesById.get(candidate.getPlaceId());
+        if (place == null) {
+            // TODO: Catalog가 서비스로 나가면 "응답 없음"도 여기로 온다. 그때 장소 없이 보여 줄지 정한다
+            throw new IllegalStateException("후보의 장소를 찾을 수 없습니다. candidateId=" + candidate.getId());
+        }
+
+        boolean isRepresentative = representativeId != null && representativeId.equals(candidate.getId());
+
+        return PlanDetailCandidateDto.builder()
+                .candidateId(candidate.getId())
+                .isRepresentative(isRepresentative)
+                .place(PlanDetailPlaceDto.builder()
+                        .id(place.id())
+                        .externalId(place.externalId())
+                        .name(place.name())
+                        .address(place.address())
+                        .latitude(place.latitude())
+                        .longitude(place.longitude())
+                        .isIndoor(place.isIndoor())
+                        .build())
                 .build();
     }
 

@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import org.hibernate.annotations.SQLRestriction;
 
 import com.bready.server.global.entity.BaseEntity;
-import com.bready.server.place.domain.Place;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -33,21 +32,20 @@ public class PlaceCandidate extends BaseEntity {
     @JoinColumn(name = "category_id", nullable = false)
     private PlanCategory category; // PlanCategory와의 연관관계 설정 (1:N)
 
-    // 실제 장소
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "place_id", nullable = false)
-    private Place place; // Place와의 연관관계 설정 (1:N)
+    // 장소는 Place Catalog 소유라 연관관계 대신 ID로 참조
+    @Column(name = "place_id", nullable = false)
+    private Long placeId;
 
-    public static PlaceCandidate create(PlanCategory category, Place place) {
+    public static PlaceCandidate create(PlanCategory category, Long placeId) {
         if (category == null) {
             throw new IllegalArgumentException("category는 필수입니다.");
         }
-        if (place == null) {
-            throw new IllegalArgumentException("place는 필수입니다.");
+        if (placeId == null) {
+            throw new IllegalArgumentException("placeId는 필수입니다.");
         }
         PlaceCandidate candidate = new PlaceCandidate();
         candidate.category = category;
-        candidate.place = place;
+        candidate.placeId = placeId;
         return candidate;
     }
 }

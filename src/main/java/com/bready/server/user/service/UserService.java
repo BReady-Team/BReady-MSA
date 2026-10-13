@@ -2,6 +2,7 @@ package com.bready.server.user.service;
 
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,6 +10,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.s3.service.S3Uploader;
+import com.bready.server.user.api.UserApi;
+import com.bready.server.user.api.UserSummary;
 import com.bready.server.user.domain.User;
 import com.bready.server.user.domain.UserProfile;
 import com.bready.server.user.dto.UserProfileDto;
@@ -22,10 +25,15 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class UserService {
+public class UserService implements UserApi {
 
     private final UserRepository userRepository;
     private final S3Uploader s3Uploader;
+
+    @Override
+    public Optional<UserSummary> findUserSummary(Long userId) {
+        return userRepository.findByIdWithProfile(userId).map(this::toSummary);
+    }
 
     public UserProfileDto getMyProfile(Long userId) {
         if (userId == null) {
@@ -104,6 +112,14 @@ public class UserService {
         }
 
         return url.substring(index + ".amazonaws.com/".length());
+    }
+
+    private UserSummary toSummary(User user) {
+        UserProfile profile = user.getUserProfile();
+        if (profile == null) {
+            return new UserSummary(user.getId(), null, null);
+        }
+        return new UserSummary(user.getId(), profile.getNickname(), profile.getProfileImageUrl());
     }
 
     private UserProfile getUserProfile(Long userId) {
