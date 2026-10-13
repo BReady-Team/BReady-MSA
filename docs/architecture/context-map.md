@@ -368,10 +368,10 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 | Identity | auth, user | 0 | |
 | Planning | plan, trigger | 49 → **0** (2026-10-13) | Place Catalog의 `PlaceCategoryType`·`Place`, Identity의 `UserRepository`·`User`·`UserProfile`. 공개 API로 바꿔 전부 끊었다 |
 | Place Catalog | place | 0 | |
-| Recommendation | recommendation | 131 → 105 → **65** (2026-10-13) | Planning. Place Catalog의 enum과 `Place`는 더 쓰지 않는다 |
+| Recommendation | recommendation | 131 → 105 → 65 → **0** (2026-10-13) | Planning. Place Catalog의 enum과 `Place`는 더 쓰지 않는다 |
 | Stats | stats | 94 → 63 → **0** (2026-10-13) | Planning. `TriggerType`·`DecisionType`은 공개 패키지(`trigger.api`)로 옮겨 더 세지 않는다 |
 | File | s3 | 0 | |
-| 합계 | | 274 → 199 → 128 → **65** (2026-10-13) | 패키지 기준 420건에서 146건이 컨텍스트 내부 참조로 빠졌다 |
+| 합계 | | 274 → 199 → 128 → 65 → **0** (2026-10-13) | 패키지 기준 420건에서 146건이 컨텍스트 내부 참조로 빠졌다 |
 
 추정보다 많은 이유: `plan → place` 52건 대부분이 후보가 아니라 `PlaceCategoryType` enum을 쓰는 것이었다. 카테고리 타입은 플랜의 카테고리가 가지는 값인데 enum이 `place.domain`에 있었다. 2026-10-13에 Catalog 소유로 두고 공개 API 패키지(`place.api`)로 옮겼다. Planning으로 옮기면 Catalog의 검색이 Planning을 import하게 되어 "나가는 의존 0"이 깨지기 때문이다.
 
@@ -381,17 +381,18 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 
 | 공개 API를 연 컨텍스트 | 위반 | 누가 무엇을 |
 |---|---|---|
-| Place Catalog (`place.api`) | 17 | Recommendation이 `PlaceSearchService`·`PlaceSearchResponse`·`PlaceErrorCase`를 쓴다 |
+| Place Catalog (`place.api`) | 17 → **0** (2026-10-13) | Recommendation이 `PlaceSearchService`·`PlaceSearchResponse`·`PlaceErrorCase`를 쓰던 것을 `PlaceSearchApi`로 바꿨다 |
 | Identity (`user.api`) | 0 | |
+| Planning (`plan.api`, `trigger.api`) | 0 (2026-10-13 규칙 추가) | |
 
 **구조·코딩 규칙**
 
 | 규칙 | 2026-10-08 |
 |---|---|
-| `new ApplicationException(...)` (from 사용) | 88 (2026-10-12: 80, 2026-10-13: 79) |
+| `new ApplicationException(...)` (from 사용) | 88 (2026-10-12: 80, 2026-10-13: 71) |
 | DTO가 `*Request`/`*Response` record가 아님 | 41 |
 | 컨트롤러가 `{Domain}Api`를 구현하지 않음 | 17 (2026-10-12: 16) |
-| `@Transactional` 서비스의 클래스 readOnly 선언 없음 | 14 (2026-10-13: 13) |
+| `@Transactional` 서비스의 클래스 readOnly 선언 없음 | 14 (2026-10-13: 12) |
 | domain·service의 `LocalDateTime.now()` (Clock 미사용) | 11 |
 | domain의 `IllegalArgumentException`·`IllegalStateException` | 10 |
 | global이 도메인 모듈에 의존 (C3) | 8 |
@@ -410,6 +411,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|---|
 | 2026-10-08 | v0 | 최초 작성 (코드 수정 없이 분석) |
 | 2026-10-08 | v0.1 | 경계 위반 기준선(ArchUnit) 추가 |
+| 2026-10-13 | v1.8 | Recommendation이 Planning·Place Catalog를 공개 API로만 쓰게 변경. Recommendation 65 → 0, Catalog `api` 밖 사용 17 → 0. 컨텍스트 사이의 Repository·Entity 직접 사용이 0이 됐다 |
 | 2026-10-13 | v1.7 | Stats가 Planning을 공개 API(`plan.api`, `trigger.api`)로만 쓰게 변경, 이벤트를 `trigger.api.event`로 이동. Stats 63 → 0, C2 해결, 합계 65 |
 | 2026-10-13 | v1.6 | `TriggerType`·`DecisionType`을 `trigger.api`로 이동. Recommendation 105 → 65, Stats 94 → 63, 합계 128 |
 | 2026-10-13 | v1.5 | Planning이 Place Catalog·Identity를 공개 API로만 쓰게 변경. Planning 기준선 49 → 0, 합계 274 → 199. 공개 API 사용 표 추가 |

@@ -65,7 +65,7 @@ public class Plan extends BaseEntity {
 
 - 서비스에 흩어진 같은 검증은 엔티티 메서드 하나로 모은다.
   - Planning 안에서는 `plan.validateOwner(userId)`(403 PLAN_ACCESS_DENIED)를 쓴다. 다른 에러 코드를 던져야 하면 `plan.isOwnedBy(userId)`로 판단만 한다(카테고리 API는 CATEGORY_ACCESS_DENIED).
-  - BReady 현황: 추천 서비스 2곳에 `if (!plan.getOwnerId().equals(userId))`가 남아 있다(`recommendation/service/RecommendValidationService.java:35`, `PlaceRecommendationService.java:62`). 추천은 다른 컨텍스트라 Planning 공개 API로 바꿀 때 함께 없앤다.
+  - 다른 컨텍스트가 소유권을 확인해야 하면 직접 비교하지 않고 Planning 공개 API에 맡긴다. 추천은 `TriggerContextApi.getTriggerContext(userId, triggerId)`를 부르고, 그 안에서 `plan.validateOwner(userId)`가 실행된다.
   ```java
   public void validateOwner(Long userId) {
       if (!ownerId.equals(userId)) {
@@ -123,4 +123,4 @@ public class Plan extends BaseEntity {
 
 - 컨트롤러 응답에 엔티티를 넣지 않는다(`dto.md` 4번).
 - 다른 모듈에 엔티티를 넘기지 않는다. 포트·공개 API 시그니처에도 넣지 않는다.
-  - BReady 현황: `CategoryRecommendationPort`가 `List<PlanCategory>`를 받는다(`recommendation/port/CategoryRecommendationPort.java:12`).
+  - 좋은 예: `CategoryRecommendationPort`는 엔티티 대신 공개 record `List<CategoryInfo>`를 받는다(`recommendation/port/CategoryRecommendationPort.java`).

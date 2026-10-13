@@ -73,4 +73,4 @@ throw ApplicationException.from(PlanErrorCase.PLAN_NOT_FOUND);
   - BReady 좋은 예: `OpenAiRerankService`는 AI 실패 시 빈 결과를 돌려주고 규칙 기반 결과를 쓴다(`recommendation/ai/OpenAiRerankService.java:91`). 실패해도 추천은 된다는 의도된 대체 동작이다.
 - 잡은 뒤 같은 예외를 다시 던지기만 하는 `catch (ApplicationException e) { throw e; }`는 지운다.
 - **에러 코드를 비교해서 흐름을 바꾸지 않는다.** 정상적으로 일어날 수 있는 결과(검색 결과 없음)는 예외가 아니라 반환값(빈 리스트, `Optional`)으로 표현한다.
-  - BReady 현황: `RuleBasedRecommendationAdapter`가 `PLACE_NOT_FOUND` 코드를 비교해 빈 리스트로 바꾼다(`recommendation/adapter/RuleBasedRecommendationAdapter.java:44`). 원인은 `PlaceSearchService`가 "결과 없음"을 예외로 던지는 것.
+  - 좋은 예: `PlaceSearchApi.searchPlaces`는 결과가 없으면 빈 목록을 돌려준다. 전에는 `PlaceSearchService`가 `PLACE_NOT_FOUND`를 던지고 추천 어댑터가 그 코드를 비교해 빈 목록으로 바꿨다.

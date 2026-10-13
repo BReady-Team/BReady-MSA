@@ -13,7 +13,7 @@
 | 2-3 | 전환 경쟁 상태 수정 | 완료 |
 | 2-4 | 소유권 검증 추가 | 완료 |
 | 2-5 | Planning → Place Catalog 공개 API | 완료 |
-| 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | 진행 중 (가·나 완료) |
+| 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | 진행 중 (가·나·다 완료) |
 
 ## 2-1 죽은 코드 제거
 
@@ -623,7 +623,52 @@ A는 B로 가는 중간 단계다. 5단계에서 Stats를 떼어낼 때 조회 A
 
 전환과 트리거 발생을 알리는 이벤트 클래스가 받는 쪽인 `stats.event`에 있어서, 보내는 쪽인 trigger가 stats를 import했다. 이벤트는 보내는 쪽이 주인이므로 Planning으로 옮긴다. `trigger.event`에 두면 Stats가 쓰는 순간 "공개 패키지로만" 규칙에 걸리므로 `trigger.api.event`에 뒀다.
 
+**묶음 다. Planning이 추천에 내주는 API의 모양**
+
+추천은 자기 테이블이 없고, 트리거 ID 하나를 받아 Planning의 리포지토리 4개와 엔티티(`Trigger`, `Plan`, `PlanCategory`, `CategoryState`, `PlaceCandidate`)를 따라가고 있었다. 엔티티는 포트의 파라미터로 어댑터 4개까지 흘러갔는데, 어댑터가 실제로 읽는 것은 카테고리의 ID·유형·순서뿐이었다.
+
+| 안 | 방법 | 버린 이유 또는 고른 이유 |
+|---|---|---|
+| **A (채택)** | 용도에 맞춘 조회 하나. "이 사용자의 이 트리거에 대한 추천 재료"를 record 하나로 내준다 | 호출이 한 번이다. 소유권 검증이 Planning 안으로 들어가 추천에 남아 있던 복사본 2곳이 사라진다. 대가는 추천 전용에 가까운 API가 된다는 것 |
+| B | 리포지토리를 본뜬 작은 조회 여러 개 | 재사용하기 쉽지만 추천 한 번에 호출이 3~4번이다. 추천은 5단계에서 떼어낼 대상이라 그만큼 네트워크 왕복이 된다 |
+
+`trigger.api.TriggerContextApi`에 두 메서드를 뒀다. `getTriggerContext(userId, triggerId)`는 트리거 유형, 플랜 지역, 현재 카테고리, 플랜의 카테고리 목록을 돌려주고, 트리거가 없거나 남의 플랜이면 전과 같은 에러 코드(7001, 4002)를 던진다. `getRepresentativePlaceId(categoryId)`는 장소 추천만 쓰며, 대표 후보가 없을 때의 에러(7005 등)도 Planning이 던진다. 그래서 추천은 Planning의 ErrorCase를 import하지 않는다.
+
+Catalog 쪽은 외부 검색을 `place.api.PlaceSearchApi`로 열었다. DB를 읽는 `PlaceCatalogApi`와 나눈 이유는 외부 API 호출이 읽기 트랜잭션을 여는 클래스 안에 있으면 안 되기 때문이다. 검색 결과가 없으면 예외 대신 빈 목록을 돌려준다. 전에는 서비스가 PLACE_NOT_FOUND를 던지고 추천 어댑터가 그 에러 코드를 비교해 빈 목록으로 바꿨다. 검색 화면(`GET /places/search`)의 404는 컨트롤러가 그대로 만든다.
+
+**묶음 다. 남의 에러 코드를 빌려 쓰던 분기**
+
+장소 추천은 대표 후보의 좌표가 null이면 Catalog의 `PlaceErrorCase.LOCATION_REQUIRED`(4101)를 던졌다. Catalog에 저장된 장소의 좌표는 null일 수 없다(`Place.create`가 거부하고 컬럼도 not null이다). 추천의 에러로 새로 만들면 일어나지 않는 상황을 위해 응답 코드를 바꾸는 셈이라, 도달할 수 없는 분기를 지우고 그 이유를 주석으로 남겼다.
+
 ### 흐름 (before → after)
+
+묶음 다:
+
+```
+POST /api/v1/recommendations/places
+
+before
+  PlaceRecommendationService               BEGIN (readOnly)
+    triggerRepository.findById…              Planning 리포지토리를 직접
+    trigger.getPlan().getOwnerId() 비교       소유권 검증을 추천이
+    categoryStateRepository.findByCategory_Id
+    placeCandidateRepository.findAliveById
+    placeCatalogApi.getPlaces
+    port.recommendPlaceCandidates(PlanCategory, …)
+      placeSearchService.search → 결과 없으면 예외 → 에러 코드를 비교해 빈 목록으로
+                                           COMMIT
+
+after
+  PlaceRecommendationService               BEGIN (readOnly)
+    triggerContextApi.getTriggerContext(userId, triggerId)    → Planning이 조회 + 소유권 검증
+    triggerContextApi.getRepresentativePlaceId(categoryId)    → Planning이 대표 후보의 장소 ID
+    placeCatalogApi.getPlaces([placeId])                      → Catalog가 좌표와 주소
+    port.recommendPlaceCandidates(PlaceCategoryType, …)
+      placeSearchApi.searchPlaces → 결과 없으면 빈 목록
+                                           COMMIT
+```
+
+카테고리 추천은 `getTriggerContext` 한 번으로 끝난다.
 
 묶음 나:
 
@@ -656,6 +701,22 @@ after   SwitchService ── new trigger.api.event.SwitchLogCreatedEvent ──�
 
 ### 구현 파일
 
+묶음 다:
+
+| 파일 | 변경 |
+|---|---|
+| `trigger/api/TriggerContextApi.java`, `TriggerContext.java`, `CategoryInfo.java` | 새로 추가 |
+| `trigger/service/TriggerContextService.java` | 새로 추가. 트리거 조회, 소유권 검증, 대표 후보의 장소 ID |
+| `place/api/PlaceSearchApi.java`, `PlaceSearchResult.java` | 새로 추가 |
+| `place/service/PlaceSearchService.java` | `PlaceSearchApi` 구현. 결과가 없으면 빈 목록 |
+| `recommendation/service/RecommendValidationService.java` | 삭제. 하던 일이 `TriggerContextService`로 옮겨 갔다 |
+| `recommendation/service/CategoryRecommendationService.java`, `PlaceRecommendationService.java` | 리포지토리·엔티티 대신 공개 API 사용 |
+| `recommendation/port/` 2개, `recommendation/adapter/` 4개 | 파라미터를 엔티티에서 `CategoryInfo`·`PlaceCategoryType`으로 |
+| `architecture/ModuleBoundaryTest.java` | `apiOnly("planning")` 규칙 추가 |
+| `integration/CategoryRecommendationContractIntegrationTest.java`, `PlaceRecommendationContractIntegrationTest.java` | 새로 추가. 추천 응답 고정 |
+| `recommendation/adapter/RuleBasedCategoryRecommendationAdapterTest.java` | 새로 추가. 엔티티 없이 값 record만으로 테스트 |
+| `place/service/PlaceSearchServiceTest.java` | 공개 API 테스트 2개 추가 |
+
 묶음 나:
 
 | 파일 | 변경 |
@@ -679,6 +740,28 @@ after   SwitchService ── new trigger.api.event.SwitchLogCreatedEvent ──�
 | `src/test/resources/archunit_store/` | 아래 참고 |
 
 ### 검증 증거
+
+묶음 다:
+
+구현 전에 추천 응답을 고정하는 테스트를 쓰고 옛 코드에서 통과하는 것을 확인했다. 장소 추천은 카카오 클라이언트만 가짜로 바꾸고 나머지는 실제 흐름을 탄다.
+
+```
+구현 전 (옛 코드)
+  CategoryRecommendationContractIntegrationTest   tests=3 failures=0
+  PlaceRecommendationContractIntegrationTest      tests=3 failures=0
+구현 후
+  .claude/scripts/verify.sh   format 통과 · compile 통과 · 전체 180 · 실패 0
+```
+
+| 기준선 | 전 | 후 |
+|---|---|---|
+| Recommendation이 다른 컨텍스트의 Repository·Entity 사용 | 65 | 0 |
+| Catalog를 api 패키지 밖으로 사용 | 17 | 0 |
+| Planning을 api 패키지 밖으로 사용 (새 규칙) | | 0 |
+| 경계 위반 합계 | 65 | 0 |
+| `new ApplicationException(...)` 사용 | 79 | 71 |
+
+기준선 파일을 손으로 고친 줄은 없다. `recommendation`과 `stats` 패키지의 import 가운데 다른 컨텍스트를 가리키는 것은 전부 `api` 패키지다.
 
 묶음 나:
 
@@ -720,5 +803,9 @@ after   SwitchService ── new trigger.api.event.SwitchLogCreatedEvent ──�
 - 통계 쿼리는 여전히 Planning의 테이블에서 돌아간다. 통계 조회 부하가 Planning의 DB에 걸린다.
 - 통계 갱신 이벤트는 메모리에만 있다. 커밋 직후 프로세스가 죽거나 리스너가 실패하면 `plan_stats`가 틀린 채로 남는다. 이번에는 이벤트 클래스의 위치만 옮겼다.
 - 통계 서비스 4곳에 복사된 기간 계산(`LocalDateTime.now()` 직접 호출), 삭제된 플랜의 트리거가 통계에 섞이는 문제, 플랜별 통계의 `categoryTypes`가 항상 null인 문제는 그대로다.
-- `apiOnly("planning")` 규칙은 아직 추가하지 않았다. Recommendation의 위반이 남아 있어 지금 넣으면 같은 위반이 두 규칙에 이중으로 잡힌다.
+- `TriggerContextApi`는 추천이 필요한 모양 그대로 연 API다. 다른 컨텍스트가 트리거 정보를 필요로 하면 맞지 않을 수 있다.
+- 장소 추천은 Planning에 두 번, Catalog에 한 번 묻고 카카오를 한 번 부른다. 추천을 서비스로 떼면 네 번의 네트워크 호출이 한 요청 안에 줄을 선다. 하나가 느리면 전부 느려진다.
+- 추천은 읽기 트랜잭션 안에서 카카오를 호출한다. 외부 호출 동안 DB 커넥션을 쥐고 있다. 전부터 있던 문제이고 이번에 고치지 않았다.
+- 대표 후보가 가리키는 장소가 Catalog에 없으면 장소 추천은 500이다. 플랜 상세와 같은 자리이고 4단계에서 다시 정한다.
+- `PlaceRecommendationPort`의 파라미터가 8개인 것은 그대로다.
 - 규칙 설명 문구만 바꿔도 기준선이 조용히 새로 만들어진다. `allowStoreCreation=false`는 기준선 폴더가 없을 때만 막는다. 이번에는 건수를 대조해 새로 인정된 위반이 없음을 확인했지만, 확인하지 않았다면 그 사이에 생긴 위반이 기준선에 묻혔을 것이다. `stored.rules`에 없는 규칙이 있으면 실패하는 검사가 필요하다.

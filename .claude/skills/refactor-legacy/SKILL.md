@@ -13,7 +13,7 @@ description: BReady 옛 코드를 규칙에 맞게 정리할 때 사용한다(�
 ```
 대상: PlanService (plan/service/PlanService.java)
 위반: 소유권 검증 복붙 4회(entity 4번) · 응답 빌더 조립(dto 4번) · 클래스 트랜잭션 선언 없음(service-transaction 2번)
-범위 밖: PlaceRecommendationService가 TriggerRepository를 쓰는 경계 위반(V1) → 2단계 조각에서
+범위 밖: GlobalExceptionHandler가 StatsErrorCase를 쓰는 경계 위반(V6) → 2단계 조각에서
 동작 변경: 없음
 ```
 - 한 번에 한 클래스, 또는 한 가지 규칙. 여러 모듈을 동시에 정리하지 않는다.
