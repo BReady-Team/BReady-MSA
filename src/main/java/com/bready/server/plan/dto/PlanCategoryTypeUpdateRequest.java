@@ -2,7 +2,7 @@ package com.bready.server.plan.dto;
 
 import jakarta.validation.constraints.NotNull;
 
-import com.bready.server.place.domain.PlaceCategoryType;
+import com.bready.server.place.api.PlaceCategoryType;
 
 import lombok.Getter;
 

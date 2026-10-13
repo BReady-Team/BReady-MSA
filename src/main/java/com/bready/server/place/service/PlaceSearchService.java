@@ -6,7 +6,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.domain.PlaceCategoryType;
+import com.bready.server.place.api.PlaceCategoryType;
 import com.bready.server.place.dto.PlaceSearchResponse;
 import com.bready.server.place.dto.kakao.KakaoPlaceDocument;
 import com.bready.server.place.exception.PlaceErrorCase;

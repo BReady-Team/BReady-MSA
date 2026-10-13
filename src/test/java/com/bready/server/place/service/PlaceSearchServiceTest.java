@@ -11,7 +11,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.domain.PlaceCategoryType;
+import com.bready.server.place.api.PlaceCategoryType;
 import com.bready.server.place.dto.PlaceSearchResponse;
 import com.bready.server.place.exception.PlaceErrorCase;
 import com.bready.server.place.external.KakaoPlaceClient;

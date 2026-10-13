@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.global.response.CommonResponse;
-import com.bready.server.place.domain.PlaceCategoryType;
+import com.bready.server.place.api.PlaceCategoryType;
 import com.bready.server.place.dto.PlaceSearchResponse;
 import com.bready.server.place.exception.PlaceErrorCase;
 import com.bready.server.place.service.PlaceSearchService;

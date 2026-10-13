@@ -1,4 +1,4 @@
-package com.bready.server.place.domain;
+package com.bready.server.place.api;
 
 import lombok.Getter;
 
