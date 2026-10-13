@@ -4,12 +4,9 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
-import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.place.api.PlaceCategoryType;
-import com.bready.server.place.dto.PlaceSearchResponse;
-import com.bready.server.place.exception.PlaceErrorCase;
-import com.bready.server.place.service.PlaceSearchService;
-import com.bready.server.plan.domain.PlanCategory;
+import com.bready.server.place.api.PlaceSearchApi;
+import com.bready.server.place.api.PlaceSearchResult;
 import com.bready.server.recommendation.dto.PlaceRecommendationResponse;
 import com.bready.server.recommendation.port.PlaceRecommendationPort;
 import com.bready.server.trigger.api.TriggerType;
@@ -20,11 +17,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RuleBasedRecommendationAdapter implements PlaceRecommendationPort {
 
-    private final PlaceSearchService placeSearchService;
+    private final PlaceSearchApi placeSearchApi;
 
     @Override
     public List<PlaceRecommendationResponse.RecommendationItem> recommendPlaceCandidates(
-            PlanCategory category,
+            PlaceCategoryType categoryType,
             TriggerType triggerType,
             String region,
             Double latitude,
@@ -33,23 +30,10 @@ public class RuleBasedRecommendationAdapter implements PlaceRecommendationPort {
             int limit,
             String excludeExternalId) {
 
-        PlaceCategoryType categoryType = category.getCategoryType();
         String keyword = normalizedRegion(region);
 
-        List<PlaceSearchResponse> candidates;
-
-        try {
-            candidates = placeSearchService.search(categoryType, keyword, latitude, longitude, radius);
-        } catch (ApplicationException e) {
-            if (e.getErrorCase().getErrorCode().equals(PlaceErrorCase.PLACE_NOT_FOUND.getErrorCode())) {
-                return List.of();
-            }
-            throw e;
-        }
-
-        if (candidates == null || candidates.isEmpty()) {
-            return List.of();
-        }
+        List<PlaceSearchResult> candidates =
+                placeSearchApi.searchPlaces(categoryType, keyword, latitude, longitude, radius);
 
         return candidates.stream()
                 .filter(p -> excludeExternalId == null || !excludeExternalId.equals(p.externalId()))

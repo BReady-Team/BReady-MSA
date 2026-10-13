@@ -1,32 +1,21 @@
 package com.bready.server.recommendation.service;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.place.api.PlaceCatalogApi;
 import com.bready.server.place.api.PlaceInfo;
-import com.bready.server.place.exception.PlaceErrorCase;
-import com.bready.server.plan.domain.CategoryState;
-import com.bready.server.plan.domain.PlaceCandidate;
-import com.bready.server.plan.domain.Plan;
-import com.bready.server.plan.domain.PlanCategory;
-import com.bready.server.plan.exception.PlaceCandidateErrorCase;
-import com.bready.server.plan.exception.PlanErrorCase;
-import com.bready.server.plan.repository.CategoryStateRepository;
-import com.bready.server.plan.repository.PlaceCandidateRepository;
 import com.bready.server.recommendation.cache.PlaceRecommendationCacheService;
 import com.bready.server.recommendation.dto.PlaceRecommendationQuery;
 import com.bready.server.recommendation.dto.PlaceRecommendationRequest;
 import com.bready.server.recommendation.dto.PlaceRecommendationResponse;
 import com.bready.server.recommendation.port.PlaceRecommendationPort;
+import com.bready.server.trigger.api.CategoryInfo;
+import com.bready.server.trigger.api.TriggerContext;
+import com.bready.server.trigger.api.TriggerContextApi;
 import com.bready.server.trigger.api.TriggerType;
-import com.bready.server.trigger.domain.Trigger;
-import com.bready.server.trigger.exception.TriggerErrorCase;
-import com.bready.server.trigger.repository.TriggerRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,9 +29,7 @@ public class PlaceRecommendationService {
     private static final int MAX_SIZE = 20;
     private static final int DEFAULT_RADIUS = 2000;
 
-    private final TriggerRepository triggerRepository;
-    private final PlaceCandidateRepository placeCandidateRepository;
-    private final CategoryStateRepository categoryStateRepository;
+    private final TriggerContextApi triggerContextApi;
     private final PlaceCatalogApi placeCatalogApi;
     private final PlaceRecommendationPort placeRecommendationPort;
     private final PlaceRecommendationCacheService placeRecommendationCacheService;
@@ -53,40 +40,34 @@ public class PlaceRecommendationService {
 
         long start = System.currentTimeMillis();
 
-        // trigger 존재 검증
-        Trigger trigger = triggerRepository
-                .findByIdAndDeletedAtIsNull(request.triggerId())
-                .orElseThrow(() -> new ApplicationException(TriggerErrorCase.TRIGGER_NOT_FOUND));
+        // 트리거 조회와 소유권 검증은 Planning으로
+        TriggerContext context = triggerContextApi.getTriggerContext(userId, request.triggerId());
 
         long t1 = System.currentTimeMillis();
 
-        // plan 존재 + 소유 검증
-        Plan plan = trigger.getPlan();
-        if (!plan.getOwnerId().equals(userId)) {
-            throw new ApplicationException(PlanErrorCase.PLAN_ACCESS_DENIED);
-        }
+        TriggerType triggerType = context.triggerType();
+        CategoryInfo category = context.currentCategory();
 
-        PlanCategory category = trigger.getCategory();
-
-        if (trigger.getTriggerType() == TriggerType.WEATHER_BAD
-                && !category.getCategoryType().isIndoor()) {
+        if (triggerType == TriggerType.WEATHER_BAD && !category.categoryType().isIndoor()) {
             return new PlaceRecommendationResponse(List.of());
         }
 
         int limit = normalizeSize(query.size());
         int radius = (query.radius() != null) ? query.radius() : DEFAULT_RADIUS;
 
-        ResolvedBase resolved = resolveBase(trigger.getTriggerType(), category.getId(), query);
+        ResolvedBase resolved = resolveBase(triggerType, category.categoryId(), query);
         long t2 = System.currentTimeMillis();
 
         String region = firstNonBlank(
-                normalizeRegion(resolved.region()), normalizeRegion(query.region()), normalizeRegion(plan.getRegion()));
+                normalizeRegion(resolved.region()),
+                normalizeRegion(query.region()),
+                normalizeRegion(context.planRegion()));
 
         Coordinate base = resolved.coordinate();
 
         // 캐시 key 생성
         String cacheKey = placeRecommendationCacheService.generateKey(
-                category.getCategoryType().name(), base.latitude, base.longitude);
+                category.categoryType().name(), base.latitude, base.longitude);
 
         // 캐시 조회
         List<PlaceRecommendationResponse.RecommendationItem> cachedItems =
@@ -101,8 +82,8 @@ public class PlaceRecommendationService {
 
         // 캐시 MISS
         List<PlaceRecommendationResponse.RecommendationItem> items = placeRecommendationPort.recommendPlaceCandidates(
-                category,
-                trigger.getTriggerType(),
+                category.categoryType(),
+                triggerType,
                 region,
                 base.latitude(),
                 base.longitude(),
@@ -137,35 +118,17 @@ public class PlaceRecommendationService {
             }
         }
 
-        CategoryState state = categoryStateRepository
-                .findByCategory_Id(categoryId)
-                .orElseThrow(() -> new ApplicationException(TriggerErrorCase.CATEGORY_STATE_NOT_FOUND));
+        // 기존 대표장소 기반 trigger -> 대표 후보가 가리키는 장소는 Planning에, 그 장소의 좌표와 주소는 Place Catalog에
+        Long placeId = triggerContextApi.getRepresentativePlaceId(categoryId);
 
-        Long representativeCandidateId = state.getCurrentCandidateId();
-        if (representativeCandidateId == null) {
-            throw new ApplicationException(TriggerErrorCase.CATEGORY_STATE_NOT_FOUND);
-        }
-
-        // 기존 대표장소 기반 trigger
-        PlaceCandidate candidate = placeCandidateRepository
-                .findAliveById(representativeCandidateId)
-                .orElseThrow(() -> new ApplicationException(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND));
-
-        PlaceInfo place = placeCatalogApi.getPlaces(List.of(candidate.getPlaceId())).stream()
+        PlaceInfo place = placeCatalogApi.getPlaces(List.of(placeId)).stream()
                 .findFirst()
-                .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND));
+                .orElseThrow(() -> new IllegalStateException("대표 후보의 장소를 찾을 수 없습니다. placeId=" + placeId));
 
-        Double lat = toDouble(place.latitude());
-        Double lng = toDouble(place.longitude());
+        Coordinate coordinate =
+                new Coordinate(place.latitude().doubleValue(), place.longitude().doubleValue());
 
-        if (lat == null || lng == null) {
-            throw new ApplicationException(PlaceErrorCase.LOCATION_REQUIRED);
-        }
-
-        String regionFromAddress = extractRegionFromAddress(place.address());
-        String excludeExternalId = place.externalId();
-
-        return new ResolvedBase(new Coordinate(lat, lng), regionFromAddress, excludeExternalId);
+        return new ResolvedBase(coordinate, extractRegionFromAddress(place.address()), place.externalId());
     }
 
     private String extractRegionFromAddress(String address) {
@@ -177,10 +140,6 @@ public class PlaceRecommendationService {
         if (parts.length >= 2) return parts[0] + " " + parts[1];
         if (parts.length == 1) return parts[0];
         return null;
-    }
-
-    private Double toDouble(BigDecimal value) {
-        return value == null ? null : value.doubleValue();
     }
 
     private int normalizeSize(Integer size) {

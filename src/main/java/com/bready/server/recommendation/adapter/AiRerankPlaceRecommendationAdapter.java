@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
-import com.bready.server.plan.domain.PlanCategory;
+import com.bready.server.place.api.PlaceCategoryType;
 import com.bready.server.recommendation.ai.AiRerankResult;
 import com.bready.server.recommendation.ai.AiRerankService;
 import com.bready.server.recommendation.dto.PlaceRecommendationResponse;
@@ -30,7 +30,7 @@ public class AiRerankPlaceRecommendationAdapter implements PlaceRecommendationPo
 
     @Override
     public List<PlaceRecommendationResponse.RecommendationItem> recommendPlaceCandidates(
-            PlanCategory category,
+            PlaceCategoryType categoryType,
             TriggerType triggerType,
             String region,
             Double latitude,
@@ -42,7 +42,7 @@ public class AiRerankPlaceRecommendationAdapter implements PlaceRecommendationPo
         log.info("[AI] Rerank adapter activated - trigger={}, region={}", triggerType, region);
 
         List<PlaceRecommendationResponse.RecommendationItem> base = ruleBasedAdapter.recommendPlaceCandidates(
-                category, triggerType, region, latitude, longitude, radius, limit, excludeExternalId);
+                categoryType, triggerType, region, latitude, longitude, radius, limit, excludeExternalId);
 
         if (base.isEmpty()) return base;
 
