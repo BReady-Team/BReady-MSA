@@ -13,7 +13,7 @@
 | 2-3 | 전환 경쟁 상태 수정 | 완료 |
 | 2-4 | 소유권 검증 추가 | 완료 |
 | 2-5 | Planning → Place Catalog 공개 API | 완료 |
-| 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | 진행 중 (가·나·다 완료) |
+| 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | 구현 완료 (가·나·다·라) |
 
 ## 2-1 죽은 코드 제거
 
@@ -640,7 +640,40 @@ Catalog 쪽은 외부 검색을 `place.api.PlaceSearchApi`로 열었다. DB를 �
 
 장소 추천은 대표 후보의 좌표가 null이면 Catalog의 `PlaceErrorCase.LOCATION_REQUIRED`(4101)를 던졌다. Catalog에 저장된 장소의 좌표는 null일 수 없다(`Place.create`가 거부하고 컬럼도 not null이다). 추천의 에러로 새로 만들면 일어나지 않는 상황을 위해 응답 코드를 바꾸는 셈이라, 도달할 수 없는 분기를 지우고 그 이유를 주석으로 남겼다.
 
+**묶음 라. global이 도메인 모듈을 아는 8건**
+
+`global`은 기술 공통만 담아야 하는데 세 클래스가 특정 모듈의 에러 enum을 import하고 있었다. 성격이 다른 두 덩어리다.
+
+인증 6건(`AuthUtils`, `JwtTokenProvider`가 `AuthErrorCase` 사용)은 6단계로 미뤘다. JWT를 다루는 클래스가 `global`에 있는 것 자체가 문제인데, 인증은 6단계 전에 손대지 않기로 했고 그때 JWT 검증 위치를 다시 정한다. 공통 에러 enum을 만들어 옮기면 같은 코드가 두 enum에 생기거나 응답 코드가 바뀐다.
+
+예외 핸들러 2건은 끊었다. 공통 핸들러가 파라미터 이름을 보고 어느 모듈의 요청인지 추측하고 있었다(`"file"`이면 S3, `"period"`면 통계).
+
+| 안 | 방법 | 버린 이유 또는 고른 이유 |
+|---|---|---|
+| A | 모듈마다 자기 컨트롤러에만 적용되는 예외 핸들러를 둔다 | `file` 파트는 파일 업로드(`s3`)와 프로필 이미지(`user`) 두 모듈의 컨트롤러가 쓴다. 적용 범위를 컨트롤러로 자르면 한쪽 응답이 달라진다 |
+| **B (채택)** | `global`이 인터페이스(`MissingPartErrorCaseProvider`)를 정하고 모듈이 구현한다. 핸들러는 구현체 목록에 묻는다 | 응답이 그대로다. 핸들러는 인터페이스만 안다. 의존 방향이 모듈 → global 하나가 된다 |
+
+처음에는 A로 가려 했다. 두 컨트롤러가 같은 파트 이름을 쓰는 것을 확인하고 B로 바꿨다.
+
+`period` 쪽은 안전망 테스트를 쓰다가 코드의 의도와 실제 응답이 다르다는 것을 알았다. 핸들러는 잘못된 `period`에 `StatsErrorCase.INVALID_PERIOD`(6003)를 던지는데, `@ExceptionHandler` 메서드 안에서 던진 예외는 다른 핸들러가 받지 않는다. 스프링 기본 처리로 넘어가 본문 없는 400이 나간다. 이 분기는 한 번도 6003을 내보낸 적이 없다. 응답을 바꾸지 않기 위해 동작하지 않는 분기만 지웠다. 6003을 실제로 내보내도록 고치는 것은 응답이 바뀌는 일이라 따로 정한다.
+
 ### 흐름 (before → after)
+
+묶음 라:
+
+```
+file 파트 없이 POST /api/v1/files/upload
+
+before
+  GlobalExceptionHandler.handleMissingPart
+    if ("file".equals(partName)) → S3ErrorCase.FILE_REQUIRED     global이 s3를 import
+
+after
+  GlobalExceptionHandler.handleMissingPart
+    providers에게 partName을 묻는다 (MissingPartErrorCaseProvider, global 소유 인터페이스)
+      └ S3MissingPartErrorCaseProvider (s3 소유 구현) → FILE_REQUIRED
+    아무도 답하지 않으면 일반 400
+```
 
 묶음 다:
 
@@ -701,6 +734,16 @@ after   SwitchService ── new trigger.api.event.SwitchLogCreatedEvent ──�
 
 ### 구현 파일
 
+묶음 라:
+
+| 파일 | 변경 |
+|---|---|
+| `global/exception/MissingPartErrorCaseProvider.java` | 새로 추가. 모듈이 구현하는 인터페이스 |
+| `s3/exception/S3MissingPartErrorCaseProvider.java` | 새로 추가. `file` 파트 → FILE_REQUIRED |
+| `global/exception/GlobalExceptionHandler.java` | `S3ErrorCase`·`StatsErrorCase` import 제거. 구현체 목록을 주입받는다 |
+| `integration/ErrorResponseContractIntegrationTest.java` | 새로 추가. 두 자리의 실제 응답 고정 |
+| `S3ControllerTest`, `PlanControllerTest`, `UserControllerTest` | 핸들러 생성 방식에 맞춤 |
+
 묶음 다:
 
 | 파일 | 변경 |
@@ -740,6 +783,19 @@ after   SwitchService ── new trigger.api.event.SwitchLogCreatedEvent ──�
 | `src/test/resources/archunit_store/` | 아래 참고 |
 
 ### 검증 증거
+
+묶음 라:
+
+```
+구현 전 (옛 코드)   ErrorResponseContractIntegrationTest   tests=5 failures=0
+  file 파트 없이 파일 업로드            400 {"errorCode":14006}
+  file 파트 없이 프로필 이미지 변경      400 {"errorCode":14006}
+  통계에 잘못된 period                  400 (본문 없음)
+  다른 API의 경로 변수 타입 오류         400 (본문 없음)
+구현 후            .claude/scripts/verify.sh   format 통과 · compile 통과 · 전체 185 · 실패 0
+```
+
+global이 도메인 모듈에 의존: 8 → 6. 남은 6건은 전부 인증이다.
 
 묶음 다:
 
@@ -798,6 +854,9 @@ after   SwitchService ── new trigger.api.event.SwitchLogCreatedEvent ──�
 
 ### 알려진 한계
 
+- 통계 API에 잘못된 `period`를 주면 본문 없는 400이 나간다. `StatsErrorCase.INVALID_PERIOD`(6003)는 정의만 돼 있고 나간 적이 없다. 다른 API의 타입 오류도 본문 없는 400이다.
+- global이 `AuthErrorCase`를 쓰는 6건은 남아 있다. 6단계에서 JWT 검증 위치를 정할 때 푼다.
+- `MissingPartErrorCaseProvider`는 파트 이름만 보고 판단한다. 두 모듈이 같은 파트 이름에 다른 에러를 주고 싶어지면 먼저 등록된 쪽이 이긴다.
 - Stats는 여전히 Planning에 의존한다. 내부 대신 공개 API에 의존하게 됐을 뿐이다. 서비스로 떼면 통계 화면마다 Planning을 동기로 호출하게 되고, 최근 활동은 호출이 두 번이다.
 - `ActivityQueryApi`의 메서드가 10개다. 통계 화면이 필요한 모양 그대로 열어서 Stats 전용에 가깝다. 5단계에서 Stats가 자기 테이블을 가지면 대부분 없어진다.
 - 통계 쿼리는 여전히 Planning의 테이블에서 돌아간다. 통계 조회 부하가 Planning의 DB에 걸린다.

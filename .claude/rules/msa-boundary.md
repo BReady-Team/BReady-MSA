@@ -35,7 +35,7 @@
 | **V3** | 모듈을 넘는 JOIN | 남은 것 없음. 플랜 상세의 `⋈ Place`는 공개 API 조회로, 통계의 `Trigger ⋈ Plan` 쿼리는 Planning 안의 조회 서비스만 부르게 바꿨다 | API 합성 또는 데이터 복제 필요 |
 | **V4** | 모듈을 넘는 트랜잭션 | 남은 것 없음. `PlaceCandidateService.createCandidate`의 장소 저장은 Catalog의 별도 트랜잭션이다(원자적이지 않다는 주석 있음) | Saga·보상 또는 경계 재설계 |
 | **V5** | 소비자 패키지의 이벤트 | 남은 것 없음. 이벤트는 발행자의 공개 패키지에 둔다(`trigger.api.event`) | 이벤트 스키마를 누가 소유하나 |
-| **V6** | global → 도메인 의존 | `GlobalExceptionHandler`가 `S3ErrorCase` import | 공통 모듈이 모든 서비스에 의존 |
+| **V6** | global → 도메인 의존 | `AuthUtils`·`JwtTokenProvider`가 `AuthErrorCase` import (6건, 6단계 인증 분리에서 푼다) | 공통 모듈이 모든 서비스에 의존 |
 
 ## 4. 래칫 — 위반은 늘지 않고 줄기만 한다
 

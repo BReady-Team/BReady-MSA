@@ -5,7 +5,7 @@
 ```
 global/exception/ApplicationException   ← 비즈니스 예외는 이것 하나
 global/exception/ErrorCase              ← 인터페이스: 상태 · 코드 · 메시지
-global/exception/CommonErrorCase        ← 도메인과 무관한 공통 오류 (검증 실패, 인증, 405, 404 리소스 …)
+global/exception/CommonErrorCase        ← (아직 없다) 도메인과 무관한 공통 오류. 지금은 핸들러가 숫자 코드와 문구를 직접 쓴다. 에러 코드 형식을 바꾸는 조각에서 만든다
 global/exception/GlobalExceptionHandler ← 예외 → CommonResponse 변환은 여기서만
 {module}/exception/{Domain}ErrorCase    ← 모듈마다 자기 enum
 ```
@@ -62,8 +62,10 @@ throw ApplicationException.from(PlanErrorCase.PLAN_NOT_FOUND);
 ## 5. GlobalExceptionHandler
 
 - 응답 본문은 항상 `CommonResponse.error(errorCase)`.
-- **도메인 모듈의 ErrorCase를 import하지 않는다.** 공통 상황은 `CommonErrorCase`로 표현한다. [빌드]
-  - BReady 현황: 핸들러가 `S3ErrorCase`·`StatsErrorCase`를 import하고(`global/exception/GlobalExceptionHandler.java:21`), 파라미터 이름(`"period"`, `"planDate"`, `"file"`)으로 분기한다. 모듈 지식이 global로 새고 있다.
+- **도메인 모듈의 ErrorCase를 import하지 않는다.** [빌드]
+  - 모듈이 공통 예외를 자기 에러로 알리고 싶으면 `global`이 정한 인터페이스를 그 모듈이 구현한다. 예: 빠진 multipart 파트는 `global.exception.MissingPartErrorCaseProvider`를 `s3`의 `S3MissingPartErrorCaseProvider`가 구현한다. 핸들러는 인터페이스만 알고, 의존 방향은 모듈 → global 하나다.
+  - `@ExceptionHandler` 메서드 안에서 예외를 던지면 다른 핸들러가 받지 않는다. 스프링 기본 처리로 넘어가 본문 없는 응답이 나간다. 에러 응답은 핸들러가 직접 만들어 반환한다.
+  - BReady 현황: `handleTypeMismatch`는 받은 예외를 다시 던져 본문 없는 400을 낸다(`global/exception/GlobalExceptionHandler.java`). 잘못된 `period`에 `StatsErrorCase.INVALID_PERIOD`를 주려던 분기가 있었지만 위 이유로 동작하지 않아 지웠다.
 - 핸들러를 추가하는 일은 드물다. 새 오류는 ErrorCase 한 줄로 해결되는지 먼저 본다.
 - 예상 못 한 예외(500)는 스택트레이스를 ERROR로 남기고, 응답에는 일반 메시지만 준다.
 
