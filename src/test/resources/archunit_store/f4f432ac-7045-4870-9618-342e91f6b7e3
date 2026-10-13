@@ -2,7 +2,6 @@ com.bready.server.auth.service.AuthService is not annotated with @Transactional(
 com.bready.server.auth.service.KakaoAuthTransactionHandler is not annotated with @Transactional(readOnly = true)
 com.bready.server.auth.service.NaverAuthTransactionHandler is not annotated with @Transactional(readOnly = true)
 com.bready.server.plan.service.PlaceCandidateService is not annotated with @Transactional(readOnly = true)
-com.bready.server.place.service.PlacePersistenceService is not annotated with @Transactional(readOnly = true)
 com.bready.server.plan.service.PlanCategoryService is not annotated with @Transactional(readOnly = true)
 com.bready.server.plan.service.PlanService is not annotated with @Transactional(readOnly = true)
 com.bready.server.recommendation.service.CategoryRecommendationService is not annotated with @Transactional(readOnly = true)

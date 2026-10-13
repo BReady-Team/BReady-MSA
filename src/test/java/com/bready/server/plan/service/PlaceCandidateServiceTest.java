@@ -14,8 +14,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.domain.Place;
-import com.bready.server.place.service.PlacePersistenceService;
+import com.bready.server.place.api.PlaceCatalogApi;
+import com.bready.server.place.api.PlaceInfo;
 import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlaceCandidate;
 import com.bready.server.plan.domain.Plan;
@@ -38,8 +38,15 @@ class PlaceCandidateServiceTest {
 
     private static final Long USER_ID = 1L;
 
+    private static final Long PLACE_ID = 5L;
+
     private static Plan ownedPlan() {
         return Plan.create(USER_ID, "제목", LocalDate.of(2026, 10, 20), "서울");
+    }
+
+    private static PlaceInfo registeredPlace() {
+        return new PlaceInfo(
+                PLACE_ID, "kakao-123", "성수 카페", "서울 성동구", BigDecimal.valueOf(37.5), BigDecimal.valueOf(127.0), true);
     }
 
     @InjectMocks
@@ -52,7 +59,7 @@ class PlaceCandidateServiceTest {
     private PlaceCandidateRepository placeCandidateRepository;
 
     @Mock
-    private PlacePersistenceService placePersistenceService;
+    private PlaceCatalogApi placeCatalogApi;
 
     @Mock
     private CategoryStateRepository categoryStateRepository;
@@ -68,7 +75,7 @@ class PlaceCandidateServiceTest {
 
         PlanCategory category = mock(PlanCategory.class);
         given(category.getPlan()).willReturn(ownedPlan());
-        Place place = mock(Place.class);
+        PlaceInfo place = registeredPlace();
 
         PlaceCandidate savedCandidate = mock(PlaceCandidate.class);
         when(savedCandidate.getId()).thenReturn(100L);
@@ -77,13 +84,15 @@ class PlaceCandidateServiceTest {
         when(planCategoryRepository.findByIdAndPlan_IdAndDeletedAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(category));
 
-        when(placePersistenceService.getOrCreate(any())).thenReturn(place);
+        given(placeCatalogApi.register(any())).willReturn(place);
 
         when(placeCandidateRepository.saveAndFlush(any())).thenReturn(savedCandidate);
 
         var response = placeCandidateService.createCandidate(USER_ID, request);
 
         assertThat(response.candidateId()).isEqualTo(100L);
+        assertThat(response.place().id()).isEqualTo(PLACE_ID);
+        assertThat(response.place().name()).isEqualTo("성수 카페");
         verify(placeCandidateRepository).saveAndFlush(any());
     }
 
@@ -95,12 +104,12 @@ class PlaceCandidateServiceTest {
 
         PlanCategory category = mock(PlanCategory.class);
         given(category.getPlan()).willReturn(ownedPlan());
-        Place place = mock(Place.class);
+        PlaceInfo place = registeredPlace();
 
         when(planCategoryRepository.findByIdAndPlan_IdAndDeletedAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(category));
 
-        when(placePersistenceService.getOrCreate(any())).thenReturn(place);
+        given(placeCatalogApi.register(any())).willReturn(place);
 
         when(placeCandidateRepository.saveAndFlush(any())).thenThrow(DataIntegrityViolationException.class);
 
@@ -122,7 +131,7 @@ class PlaceCandidateServiceTest {
         PlaceCandidate candidate = mock(PlaceCandidate.class);
         when(candidate.getCategory()).thenReturn(category);
 
-        when(placeCandidateRepository.findByIdWithCategoryAndPlace(candidateId)).thenReturn(Optional.of(candidate));
+        when(placeCandidateRepository.findByIdWithCategory(candidateId)).thenReturn(Optional.of(candidate));
 
         when(categoryStateRepository.findByCategory_IdForUpdate(10L)).thenReturn(Optional.empty());
         when(placeCandidateRepository.existsAliveByIdAndCategoryId(candidateId, 10L))
@@ -150,7 +159,7 @@ class PlaceCandidateServiceTest {
         CategoryState state = mock(CategoryState.class);
         when(state.isRepresentative(candidateId)).thenReturn(true);
 
-        when(placeCandidateRepository.findByIdWithCategoryAndPlace(candidateId)).thenReturn(Optional.of(candidate));
+        when(placeCandidateRepository.findByIdWithCategory(candidateId)).thenReturn(Optional.of(candidate));
 
         when(categoryStateRepository.findByCategory_IdForUpdate(10L)).thenReturn(Optional.of(state));
         when(placeCandidateRepository.existsAliveByIdAndCategoryId(candidateId, 10L))

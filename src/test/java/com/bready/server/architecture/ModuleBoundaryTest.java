@@ -13,8 +13,12 @@ import com.tngtech.archunit.lang.ArchRule;
 
 import static com.bready.server.architecture.ArchitectureRules.BASE_PACKAGE;
 import static com.bready.server.architecture.ArchitectureRules.contextOf;
+import static com.bready.server.architecture.ArchitectureRules.otherContextsPackages;
 import static com.bready.server.architecture.ArchitectureRules.otherContextsSubPackage;
 import static com.bready.server.architecture.ArchitectureRules.packagesOf;
+import static com.tngtech.archunit.base.DescribedPredicate.not;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.freeze.FreezingArchRule.freeze;
 
@@ -43,10 +47,16 @@ class ModuleBoundaryTest {
     static final ArchRule file_should_not_use_other_contexts_internals = boundaryOf("file");
 
     @ArchTest
+    static final ArchRule catalog_should_be_used_only_through_api = apiOnly("catalog");
+
+    @ArchTest
+    static final ArchRule identity_should_be_used_only_through_api = apiOnly("identity");
+
+    @ArchTest
     static final ArchRule events_should_be_created_by_owning_context = freeze(noClasses()
             .should()
             .callConstructorWhere(eventOfAnotherContext())
-            .because("이벤트 클래스는 발행하는 컨텍스트가 소유한다 (service-transaction.md 6번, msa-boundary.md V5)"));
+            .because("이벤트 클래스는 발행하는 컨텍스트가 소유한다"));
 
     private static ArchRule boundaryOf(String context) {
         String[] internals = Stream.concat(
@@ -60,7 +70,16 @@ class ModuleBoundaryTest {
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(internals)
-                .because("다른 컨텍스트의 Repository·Entity를 직접 쓰지 않는다. ID와 공개 API로 (msa-boundary.md 2번)"));
+                .because("다른 컨텍스트의 Repository·Entity를 직접 쓰지 않는다. ID와 공개 API로"));
+    }
+
+    private static ArchRule apiOnly(String context) {
+        return freeze(noClasses()
+                .that()
+                .resideInAnyPackage(otherContextsPackages(context))
+                .should()
+                .dependOnClassesThat(resideInAnyPackage(packagesOf(context)).and(not(resideInAPackage("..api.."))))
+                .because("공개 API를 연 컨텍스트는 api 패키지로만 쓴다"));
     }
 
     private static DescribedPredicate<JavaConstructorCall> eventOfAnotherContext() {

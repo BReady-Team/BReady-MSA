@@ -17,15 +17,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.place.api.PlaceCatalogApi;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.dto.*;
 import com.bready.server.plan.exception.PlanErrorCase;
 import com.bready.server.plan.repository.CategoryStateRepository;
 import com.bready.server.plan.repository.PlanCategoryRepository;
 import com.bready.server.plan.repository.PlanRepository;
-import com.bready.server.user.domain.User;
-import com.bready.server.user.domain.UserProfile;
-import com.bready.server.user.repository.UserRepository;
+import com.bready.server.user.api.UserApi;
+import com.bready.server.user.api.UserSummary;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,7 +46,10 @@ class PlanServiceTest {
     private CategoryStateRepository categoryStateRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private UserApi userApi;
+
+    @Mock
+    private PlaceCatalogApi placeCatalogApi;
 
     @InjectMocks
     private PlanService planService;
@@ -154,13 +157,7 @@ class PlanServiceTest {
             Plan plan = Plan.create(USER_ID, "title", LocalDate.now(), "서울");
             ReflectionTestUtils.setField(plan, "id", 1L);
 
-            User user = User.createLocal("test@test.com", "encoded-password");
-
-            UserProfile profile = UserProfile.create(user, "테스터");
-
-            profile.changeProfileImage(null);
-
-            given(userRepository.findByIdWithProfile(USER_ID)).willReturn(Optional.of(user));
+            given(userApi.findUserSummary(USER_ID)).willReturn(Optional.of(new UserSummary(USER_ID, "테스터", null)));
 
             given(planRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(plan));
 
@@ -169,6 +166,36 @@ class PlanServiceTest {
             PlanDetailResponse response = planService.getPlanDetail(USER_ID, 1L);
 
             assertThat(response.getCategories()).isEmpty();
+            assertThat(response.getPlan().getOwnerNickname()).isEqualTo("테스터");
+        }
+
+        @Test
+        @DisplayName("성공 - 작성자의 프로필이 없으면 닉네임은 기본값 '사용자'")
+        void ownerWithoutProfile() {
+            Plan plan = Plan.create(USER_ID, "title", LocalDate.now(), "서울");
+            ReflectionTestUtils.setField(plan, "id", 1L);
+            given(userApi.findUserSummary(USER_ID)).willReturn(Optional.of(new UserSummary(USER_ID, null, null)));
+            given(planRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(plan));
+            given(planCategoryRepository.findAllDetailByPlanId(1L)).willReturn(List.of());
+
+            PlanDetailResponse response = planService.getPlanDetail(USER_ID, 1L);
+
+            assertThat(response.getPlan().getOwnerNickname()).isEqualTo("사용자");
+            assertThat(response.getPlan().getOwnerProfileImageUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("실패 - 작성자를 찾을 수 없으면 PLAN_NOT_FOUND")
+        void ownerNotFound() {
+            Plan plan = Plan.create(USER_ID, "title", LocalDate.now(), "서울");
+            ReflectionTestUtils.setField(plan, "id", 1L);
+            given(userApi.findUserSummary(USER_ID)).willReturn(Optional.empty());
+            given(planRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(plan));
+
+            assertThatThrownBy(() -> planService.getPlanDetail(USER_ID, 1L))
+                    .isInstanceOf(ApplicationException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(PlanErrorCase.PLAN_NOT_FOUND.getErrorCode());
         }
     }
 
