@@ -94,8 +94,7 @@ public class Plan extends BaseEntity {
 
 - 다른 모듈 엔티티에 대한 `@ManyToOne`/`@OneToOne`/`@OneToMany`는 **새로 만들지 않는다**. 기존 것은 2단계에서 끊는다.
   - 여기서 "다른 모듈"은 다른 컨텍스트의 모듈이다(`msa-boundary.md` 1번). `Trigger.plan`, `SwitchLog.fromCandidate`처럼 Planning 안의 연관은 끊을 대상이 아니다.
-  - BReady 현황: `PlaceCandidate.place`(Planning → Place Catalog, `plan/domain/PlaceCandidate.java:39`). 근거는 `docs/architecture/context-map.md` 4번.
-  - 좋은 예(이미 ID로 끊어 둔 것): `Plan.ownerId`, `CategoryState.currentCandidateId`, `PlanStats.planId`.
+  - 좋은 예(ID로 끊어 둔 것): `PlaceCandidate.placeId`(Planning → Place Catalog), `Plan.ownerId`, `CategoryState.currentCandidateId`, `PlanStats.planId`.
 - `cascade`는 같은 애그리거트 안에서만.
 
 ## 7. soft delete
@@ -103,7 +102,7 @@ public class Plan extends BaseEntity {
 - `BaseEntity.softDelete()`로 지운다. 하위 객체도 지워야 하면 부모 엔티티의 메서드가 책임진다.
 - 조회에서 지운 행을 빼는 방법은 **쿼리에 명시**한다(`repository-query.md` 6번). `@SQLRestriction`을 새로 추가하지 않는다.
   - 이유: 숨은 필터라 통계·관리 쿼리에서 예상과 다른 결과가 나오고, 명시 필터와 섞이면 같은 조건이 두 번 걸린다.
-  - BReady 현황: `PlaceCandidate`는 `@SQLRestriction`(`plan/domain/PlaceCandidate.java:22`)과 쿼리의 `deletedAt is null`(`plan/repository/PlaceCandidateRepository.java:39`)을 둘 다 쓴다.
+  - BReady 현황: `PlaceCandidate`는 `@SQLRestriction`(`plan/domain/PlaceCandidate.java:21`)과 쿼리의 `deletedAt is null`(`plan/repository/PlaceCandidateRepository.java:29`)을 둘 다 쓴다.
 
 ## 8. 시간
 

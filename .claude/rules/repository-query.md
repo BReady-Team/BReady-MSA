@@ -34,8 +34,8 @@
 
 - 컬렉션·연관을 반복문에서 건드리기 전에 **몇 번 쿼리가 나가는지** 따진다. [리뷰]
 - 해결 순서:
-  1. `join fetch`(단건 또는 컬렉션 하나) — BReady 좋은 예: `PlanCategoryRepository.findAllDetailByPlanId` (`plan/repository/PlanCategoryRepository.java:63`)
-  2. ID를 모아서 `IN` 조회 후 `Map`으로 조립 — BReady 좋은 예: 대표 후보 일괄 조회 (`plan/service/PlanService.java:108`)
+  1. `join fetch`(단건 또는 컬렉션 하나) — BReady 좋은 예: `PlanCategoryRepository.findAllDetailByPlanId` (`plan/repository/PlanCategoryRepository.java:46`)
+  2. ID를 모아서 `IN` 조회 후 `Map`으로 조립 — BReady 좋은 예: 대표 후보 일괄 조회 (`plan/service/PlanService.java:110`), 후보들의 장소를 Catalog 공개 API로 한 번에 조회 (`plan/service/PlanService.java:127`). 다른 컨텍스트의 데이터는 JOIN할 수 없으므로 이 방법뿐이다
   3. `@EntityGraph`
 - 페이징과 컬렉션 `join fetch`를 같이 쓰지 않는다(메모리 페이징 경고 + 결과 중복). 페이징이 필요하면 ID 페이지를 먼저 조회하고 2번 방법으로.
 

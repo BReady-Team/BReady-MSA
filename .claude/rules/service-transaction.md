@@ -17,7 +17,7 @@ public PlanUpdateResponse updatePlan(Long userId, Long planId, PlanUpdateRequest
 - 한 public 메서드 = 한 유스케이스. 다른 public 메서드를 내부에서 부르지 않는다(8번 자기 호출 함정)
 - 반복되는 조회+예외는 private 헬퍼로: `getActivePlan(id)`, `getOwnedPlan(userId, id)`
 - 서비스 시그니처에 웹 타입(`HttpServletRequest`, `ResponseEntity`)을 쓰지 않는다. `MultipartFile`은 파일 업로드를 다루는 서비스 메서드에서만 허용한다.
-- 서비스 인터페이스(`XxxUsecase`)를 만들지 않는다. 구현이 하나뿐인 인터페이스는 YAGNI다. 다른 모듈이 부르는 **공개 API**는 2단계에서 인터페이스로 만든다(`msa-boundary.md` 2번)
+- 서비스 인터페이스(`XxxUsecase`)를 만들지 않는다. 구현이 하나뿐인 인터페이스는 YAGNI다. 다른 컨텍스트가 부르는 **공개 API**만 `{module}.api`의 인터페이스로 둔다(`msa-boundary.md` 2번). 서비스로 떼어낼 때 구현이 원격 호출로 바뀌는 자리라서다
 
 ## 2. 트랜잭션 선언 [빌드]
 
@@ -74,7 +74,7 @@ try {
     throw ApplicationException.from(PlaceErrorCase.DUPLICATE_PLACE_CANDIDATE);
 }
 ```
-(`plan/service/PlaceCandidateService.java:60`) — "먼저 조회해서 없으면 저장"은 동시 요청 두 개가 둘 다 "없음"을 본다. 유니크 제약이 최종 판정자다. `saveAndFlush`여야 예외가 이 try 안에서 터진다.
+(`plan/service/PlaceCandidateService.java:63`) — "먼저 조회해서 없으면 저장"은 동시 요청 두 개가 둘 다 "없음"을 본다. 유니크 제약이 최종 판정자다. `saveAndFlush`여야 예외가 이 try 안에서 터진다.
 
 **락 선택 기준**
 | 상황 | 방법 |
@@ -86,7 +86,7 @@ try {
 - 락은 항상 같은 순서로 잡는다(예: plan → category → state). 순서가 엇갈리면 데드락이 난다.
 
 **`REQUIRES_NEW`는 이유가 있을 때만**
-- 바깥 트랜잭션이 롤백돼도 남아야 하는 작업에만 쓴다(예: 공용 장소 카탈로그 `getOrCreate` — `place/service/PlacePersistenceService.java:22`).
+- 바깥 트랜잭션이 롤백돼도 남아야 하는 작업에만 쓴다(예: 공용 장소 카탈로그 `register` — `place/service/PlaceCatalogService.java:30`).
 - 같은 클래스 안에서 부르면 프록시를 거치지 않아 적용되지 않는다(8번). 반드시 다른 빈으로.
 
 ## 5. Clock 주입

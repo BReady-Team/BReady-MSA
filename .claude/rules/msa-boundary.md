@@ -19,16 +19,19 @@
 5. **이벤트는 발행자가 소유한다**(`service-transaction.md` 6번).
 6. **한 트랜잭션에서 다른 모듈의 데이터를 쓰지 않는다.** 필요하면 그 모듈의 공개 API를 부르고, 일관성이 깨질 수 있는 지점을 주석으로 남긴다.
 
-**공개 API의 모양**은 2단계(모듈러 모놀리스)에서 정한다(ADR). 그 전까지 새로 생기는 모듈 간 호출은 상대 모듈의 **서비스**를 부르는 것까지만 허용하고, 리포지토리·엔티티를 직접 쓰지 않는다.
+**공개 API의 모양**: 컨텍스트가 내놓는 것은 `{module}.api` 패키지에 둔다. 인터페이스(`PlaceCatalogApi`, `UserApi`), 주고받는 값 record(`PlaceInfo`, `UserSummary`), 값만 담은 enum(`PlaceCategoryType`). 구현은 그 모듈의 `service`에 둔다.
+- 다른 컨텍스트는 `api` 패키지의 타입만 import한다. 인터페이스를 주입받고 구현 클래스를 주입받지 않는다. [빌드]
+- `api` 패키지는 자기 모듈의 엔티티·리포지토리·서비스를 import하지 않는다. 그래서 엔티티 → 값 record 변환은 `from(Entity)`가 아니라 구현 서비스가 한다. 서비스로 떼어낼 때 이 패키지가 그대로 계약이 된다.
+- 아직 `api` 패키지가 없는 컨텍스트(Planning, Recommendation, Stats)를 새로 부를 일이 생기면 먼저 공개 API를 연다. ArchUnit의 `apiOnly(...)` 목록에 그 컨텍스트를 추가한다(`architecture/ModuleBoundaryTest`).
 
 ## 3. 위반 유형
 
 | 코드 | 유형 | 예 (BReady 현황) | 분리하면 무엇이 되나 |
 |---|---|---|---|
-| **V1** | 남의 Repository 주입 | `PlanService`가 `UserRepository` 사용, stats가 `TriggerRepository` 사용 | 남의 DB에 직접 붙음 → 불가능 |
-| **V2** | 모듈을 넘는 JPA 연관 | `PlaceCandidate.place` (Planning → Place Catalog) | 다른 DB의 FK → 불가능 |
-| **V3** | 모듈을 넘는 JOIN | `PlanCategory ⋈ PlaceCandidate ⋈ Place` (플랜 상세) | API 합성 또는 데이터 복제 필요 |
-| **V4** | 모듈을 넘는 트랜잭션 | `PlaceCandidateService.createCandidate` (후보 저장 + 장소 저장) | Saga·보상 또는 경계 재설계 |
+| **V1** | 남의 Repository 주입 | stats가 `TriggerRepository` 사용, recommendation이 `PlaceCandidateRepository` 사용 | 남의 DB에 직접 붙음 → 불가능 |
+| **V2** | 모듈을 넘는 JPA 연관 | 남은 것 없음. `PlaceCandidate.place`는 `placeId`로 끊었다 | 다른 DB의 FK → 불가능 |
+| **V3** | 모듈을 넘는 JOIN | `Trigger ⋈ Plan`을 stats가 호출 (ownerId 필터). 플랜 상세의 `⋈ Place`는 공개 API 조회로 바꿨다 | API 합성 또는 데이터 복제 필요 |
+| **V4** | 모듈을 넘는 트랜잭션 | 남은 것 없음. `PlaceCandidateService.createCandidate`의 장소 저장은 Catalog의 별도 트랜잭션이다(원자적이지 않다는 주석 있음) | Saga·보상 또는 경계 재설계 |
 | **V5** | 소비자 패키지의 이벤트 | `stats.event.*`를 trigger가 import | 이벤트 스키마를 누가 소유하나 |
 | **V6** | global → 도메인 의존 | `GlobalExceptionHandler`가 `S3ErrorCase` import | 공통 모듈이 모든 서비스에 의존 |
 
