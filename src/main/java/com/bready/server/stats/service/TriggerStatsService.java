@@ -2,7 +2,6 @@ package com.bready.server.stats.service;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,8 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bready.server.stats.domain.StatsPeriod;
 import com.bready.server.stats.dto.TriggerStatsItem;
 import com.bready.server.stats.dto.TriggerStatsResponse;
+import com.bready.server.trigger.api.ActivityQueryApi;
 import com.bready.server.trigger.api.TriggerType;
-import com.bready.server.trigger.repository.TriggerRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,18 +19,15 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class TriggerStatsService {
 
-    private final TriggerRepository triggerRepository;
+    private final ActivityQueryApi activityQueryApi;
 
     public TriggerStatsResponse getTriggerStats(Long userId, StatsPeriod period) {
 
         LocalDateTime startAt = resolveStartAt(period);
 
-        long totalCount = triggerRepository.countByOwnerIdAndPeriod(userId, startAt);
+        long totalCount = activityQueryApi.countTriggers(userId, startAt);
 
-        Map<TriggerType, Long> countsByType = triggerRepository.countByTriggerType(userId, startAt).stream()
-                .collect(Collectors.toMap(
-                        TriggerRepository.TriggerTypeCount::getTriggerType,
-                        TriggerRepository.TriggerTypeCount::getCount));
+        Map<TriggerType, Long> countsByType = activityQueryApi.countTriggersByType(userId, startAt);
 
         List<TriggerStatsItem> items = Arrays.stream(TriggerType.values())
                 .map(type -> {

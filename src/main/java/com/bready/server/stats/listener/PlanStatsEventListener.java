@@ -6,9 +6,9 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import com.bready.server.stats.domain.StatsPeriod;
-import com.bready.server.stats.event.SwitchLogCreatedEvent;
-import com.bready.server.stats.event.TriggerCreatedEvent;
 import com.bready.server.stats.service.PlanStatsUpdater;
+import com.bready.server.trigger.api.event.SwitchLogCreatedEvent;
+import com.bready.server.trigger.api.event.TriggerCreatedEvent;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

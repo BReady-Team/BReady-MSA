@@ -1,4 +1,4 @@
-package com.bready.server.stats.event;
+package com.bready.server.trigger.api.event;
 
 import java.time.LocalDateTime;
 import java.util.Objects;

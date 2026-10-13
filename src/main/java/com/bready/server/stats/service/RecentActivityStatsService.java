@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,9 +13,9 @@ import com.bready.server.stats.domain.StatsPeriod;
 import com.bready.server.stats.dto.RecentActivitiesResponse;
 import com.bready.server.stats.dto.RecentActivityItem;
 import com.bready.server.stats.exception.StatsErrorCase;
+import com.bready.server.trigger.api.ActivityQueryApi;
 import com.bready.server.trigger.api.DecisionType;
-import com.bready.server.trigger.repository.DecisionRepository;
-import com.bready.server.trigger.repository.SwitchLogRepository;
+import com.bready.server.trigger.api.RecentActivity;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,42 +27,40 @@ public class RecentActivityStatsService {
     private static final int DEFAULT_LIMIT = 3;
     private static final int MAX_LIMIT = 20;
 
-    private final SwitchLogRepository switchLogRepository;
-    private final DecisionRepository decisionRepository;
+    private final ActivityQueryApi activityQueryApi;
 
     public RecentActivitiesResponse getRecentActivities(Long ownerId, StatsPeriod period, Integer limitParam) {
         int limit = normalizeLimit(limitParam);
         LocalDateTime startAt = resolveStartAt(period);
 
-        PageRequest pageable = PageRequest.of(0, limit * 2);
+        // 전환과 유지를 합쳐 최신 limit건을 고른다.
+        int fetchSize = limit * 2;
 
-        List<SwitchLogRepository.RecentSwitchActivityRow> switchRows =
-                switchLogRepository.findRecentSwitchActivitiesAllPlans(ownerId, startAt, pageable);
+        List<RecentActivity> switches = activityQueryApi.findRecentSwitches(ownerId, startAt, fetchSize);
 
-        List<DecisionRepository.RecentKeepActivityRow> keepRows =
-                decisionRepository.findRecentKeepActivities(ownerId, startAt, pageable);
+        List<RecentActivity> keeps = activityQueryApi.findRecentKeeps(ownerId, startAt, fetchSize);
 
         List<RecentActivityItem> merged = new ArrayList<>();
 
-        for (SwitchLogRepository.RecentSwitchActivityRow row : switchRows) {
+        for (RecentActivity activity : switches) {
             merged.add(RecentActivityItem.builder()
-                    .activityId("SWITCH-" + row.getLogId())
-                    .planId(row.getPlanId())
-                    .planTitle(row.getPlanTitle())
-                    .triggerType(row.getTriggerType())
+                    .activityId("SWITCH-" + activity.id())
+                    .planId(activity.planId())
+                    .planTitle(activity.planTitle())
+                    .triggerType(activity.triggerType())
                     .decisionType(DecisionType.SWITCH)
-                    .createdAt(row.getCreatedAt())
+                    .createdAt(activity.createdAt())
                     .build());
         }
 
-        for (DecisionRepository.RecentKeepActivityRow row : keepRows) {
+        for (RecentActivity activity : keeps) {
             merged.add(RecentActivityItem.builder()
-                    .activityId("KEEP-" + row.getDecisionId())
-                    .planId(row.getPlanId())
-                    .planTitle(row.getPlanTitle())
-                    .triggerType(row.getTriggerType())
+                    .activityId("KEEP-" + activity.id())
+                    .planId(activity.planId())
+                    .planTitle(activity.planTitle())
+                    .triggerType(activity.triggerType())
                     .decisionType(DecisionType.KEEP)
-                    .createdAt(row.getCreatedAt())
+                    .createdAt(activity.createdAt())
                     .build());
         }
 
