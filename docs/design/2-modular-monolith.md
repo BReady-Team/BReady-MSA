@@ -1,6 +1,6 @@
 # 2단계 모듈러 모놀리스
 
-> 진행 중
+> 완료 (2026-10-13). 이 단계의 결정은 [ADR-0002](../adr/0002-public-api-package-per-module.md)
 
 ## 이 단계의 목표
 
@@ -13,7 +13,7 @@
 | 2-3 | 전환 경쟁 상태 수정 | 완료 |
 | 2-4 | 소유권 검증 추가 | 완료 |
 | 2-5 | Planning → Place Catalog 공개 API | 완료 |
-| 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | 구현 완료 (가·나·다·라) |
+| 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | 완료 |
 
 ## 2-1 죽은 코드 제거
 
@@ -580,8 +580,6 @@ Recommendation 131 → 105: enum이 `place.api`로 옮겨 가면서 19건, 대�
 
 ## 2-6 Stats·Recommendation → Planning 공개 API
 
-> 진행 중
-
 ### 왜 지금
 
 2-5까지 끝낸 뒤 경계 위반은 199건이 남았고, 전부 Recommendation과 Stats가 Planning의 내부를 직접 쓰는 것이다. 2-5에서 정한 `{module}.api` 방식을 이번에는 Planning이 내놓는 쪽이 되어 적용한다.
@@ -851,6 +849,17 @@ global이 도메인 모듈에 의존: 8 → 6. 남은 6건은 전부 인증이�
 파라미터 타입의 패키지가 바뀌어 시그니처 문자열이 달라진 기존 위반 10줄(`Trigger.create`, `Decision.create`, `PlaceRecommendationService.resolveBase`)은 문구만 갱신했다. 세 규칙의 건수는 그대로다(79, 10, 11).
 
 경계 규칙 9개의 기준선 파일 이름이 전부 바뀌었다. `ModuleBoundaryTest`의 `because(...)` 문구를 다듬으면서 규칙 설명이 달라졌고, ArchUnit은 설명 문자열로 기준선을 찾기 때문에 9개를 새 규칙으로 보고 기준선을 새로 만들었다. 새 기준선의 건수가 옛 기준선에서 enum 71건을 뺀 값과 같은 것을 확인한 뒤(65, 63, 17, 2, 나머지 0) 옛 파일 9개와 `stored.rules`의 옛 줄 9개를 지웠다.
+
+### 워크스루 요약
+
+통계 요약(`GET /api/v1/stats/summary`)과 카테고리 추천(`POST /api/v1/recommendations/categories`)을 따라가면 같은 모양이 나온다.
+
+1. `StatsService`와 `CategoryRecommendationService`는 Planning의 공개 인터페이스(`PlanQueryApi`, `ActivityQueryApi`, `TriggerContextApi`)만 주입받는다. Planning의 리포지토리도 엔티티도 모른다.
+2. 구현(`PlanQueryService`, `ActivityQueryService`, `TriggerContextService`)은 Planning 안에 있다. 여기서는 같은 컨텍스트라 리포지토리와 엔티티를 그대로 쓰고, 쿼리도 전에 있던 것을 그대로 부른다.
+3. 구현은 리포지토리의 결과(엔티티, 프로젝션)를 `api` 패키지의 record로 바꿔서 내보낸다. 경계를 넘는 것은 ID와 값뿐이다.
+4. 추천의 소유권 검증은 `getTriggerContext(userId, triggerId)` 안에서 `plan.validateOwner(userId)`로 끝난다. 남의 플랜이면 아무것도 내주지 않고 403을 던진다.
+5. 전환이나 트리거가 일어나면 Planning이 `trigger.api.event`의 이벤트를 발행하고 Stats의 리스너가 받는다. Planning은 누가 듣는지 모른다.
+6. 공통 예외 핸들러는 반대 방향이다. `global`이 정한 인터페이스를 `s3`가 구현하고, 핸들러는 구현체 목록에 묻는다.
 
 ### 알려진 한계
 
