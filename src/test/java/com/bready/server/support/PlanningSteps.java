@@ -104,6 +104,16 @@ public class PlanningSteps {
                         """);
     }
 
+    public long decideKeep(String token, long triggerId) throws Exception {
+        MvcResult result = perform(
+                post("/api/v1/triggers/{triggerId}/decision", triggerId),
+                token,
+                """
+                        {"decisionType": "KEEP"}
+                        """);
+        return readLong(result, "$.data.decisionId");
+    }
+
     public MvcResult switchTo(String token, long decisionId, long toCandidateId) throws Exception {
         return perform(
                 post("/api/v1/triggers/{decisionId}/switch", decisionId),
