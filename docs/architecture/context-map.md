@@ -73,7 +73,7 @@
 | # | 순환 | 어디서 |
 |---|---|---|
 | C1 | `plan ⇄ place` | `PlanCategory.candidates`(OneToMany) ↔ `PlaceCandidate.category`(ManyToOne) **엔티티 양방향** + 서비스끼리 서로의 Repository 사용 |
-| C2 | `trigger ⇄ stats` | trigger가 `stats.event.*`를 발행, stats가 `trigger.repository.*`를 조회. **이벤트 클래스가 소비자(stats) 패키지에 있음** |
+| C2 | ~~`trigger ⇄ stats`~~ **해결(2026-10-13)** | trigger가 `stats.event.*`를 발행, stats가 `trigger.repository.*`를 조회하던 순환. 이벤트를 `trigger.api.event`로 옮기고 조회를 공개 API로 바꿔 stats → Planning 한 방향이 됐다 |
 | C3 | `global ⇄ 도메인` | `GlobalExceptionHandler`가 `S3ErrorCase`·`StatsErrorCase`를, `AuthUtils`가 `AuthErrorCase`를 import |
 
 ---
@@ -369,9 +369,9 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 | Planning | plan, trigger | 49 → **0** (2026-10-13) | Place Catalog의 `PlaceCategoryType`·`Place`, Identity의 `UserRepository`·`User`·`UserProfile`. 공개 API로 바꿔 전부 끊었다 |
 | Place Catalog | place | 0 | |
 | Recommendation | recommendation | 131 → 105 → **65** (2026-10-13) | Planning. Place Catalog의 enum과 `Place`는 더 쓰지 않는다 |
-| Stats | stats | 94 → **63** (2026-10-13) | Planning. `TriggerType`·`DecisionType`은 공개 패키지(`trigger.api`)로 옮겨 더 세지 않는다 |
+| Stats | stats | 94 → 63 → **0** (2026-10-13) | Planning. `TriggerType`·`DecisionType`은 공개 패키지(`trigger.api`)로 옮겨 더 세지 않는다 |
 | File | s3 | 0 | |
-| 합계 | | 274 → 199 → **128** (2026-10-13) | 패키지 기준 420건에서 146건이 컨텍스트 내부 참조로 빠졌다 |
+| 합계 | | 274 → 199 → 128 → **65** (2026-10-13) | 패키지 기준 420건에서 146건이 컨텍스트 내부 참조로 빠졌다 |
 
 추정보다 많은 이유: `plan → place` 52건 대부분이 후보가 아니라 `PlaceCategoryType` enum을 쓰는 것이었다. 카테고리 타입은 플랜의 카테고리가 가지는 값인데 enum이 `place.domain`에 있었다. 2026-10-13에 Catalog 소유로 두고 공개 API 패키지(`place.api`)로 옮겼다. Planning으로 옮기면 Catalog의 검색이 Planning을 import하게 되어 "나가는 의존 0"이 깨지기 때문이다.
 
@@ -398,7 +398,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 | ErrorCase 코드 중복 | 8 |
 | 엔티티 public 기본 생성자 | 6 |
 | 필드 주입(`@Value` 필드 포함) | 5 |
-| 다른 모듈의 이벤트 클래스 생성 (C2) | 2 |
+| 다른 모듈의 이벤트 클래스 생성 (C2) | 2 (2026-10-13: 0) |
 | 엔티티 public setter | 2 |
 | 레이어 방향, 표준 출력, private `@Transactional`, enum ORDINAL | 0 |
 
@@ -410,6 +410,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|---|
 | 2026-10-08 | v0 | 최초 작성 (코드 수정 없이 분석) |
 | 2026-10-08 | v0.1 | 경계 위반 기준선(ArchUnit) 추가 |
+| 2026-10-13 | v1.7 | Stats가 Planning을 공개 API(`plan.api`, `trigger.api`)로만 쓰게 변경, 이벤트를 `trigger.api.event`로 이동. Stats 63 → 0, C2 해결, 합계 65 |
 | 2026-10-13 | v1.6 | `TriggerType`·`DecisionType`을 `trigger.api`로 이동. Recommendation 105 → 65, Stats 94 → 63, 합계 128 |
 | 2026-10-13 | v1.5 | Planning이 Place Catalog·Identity를 공개 API로만 쓰게 변경. Planning 기준선 49 → 0, 합계 274 → 199. 공개 API 사용 표 추가 |
 | 2026-10-12 | v1.4 | R1(인가 누락) 해결 |

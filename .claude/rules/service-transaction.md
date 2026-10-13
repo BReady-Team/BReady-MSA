@@ -98,7 +98,7 @@ try {
 ## 6. 이벤트
 
 - **이벤트 클래스는 발행하는 모듈이 소유한다.** 소비자 패키지에 두지 않는다. [빌드]
-  - BReady 현황: `TriggerCreatedEvent`·`SwitchLogCreatedEvent`가 `stats.event`에 있고 trigger가 import한다(`trigger/service/SwitchService.java:14`) → trigger ⇄ stats 순환 의존.
+  - 다른 컨텍스트가 듣는 이벤트는 발행자의 공개 패키지에 둔다: `trigger.api.event.TriggerCreatedEvent`·`SwitchLogCreatedEvent`. 듣는 쪽(stats)만 발행자의 `api`를 import하고, 발행자는 누가 듣는지 모른다.
 - 이벤트는 사실(과거형) 이름: `SwitchExecutedEvent`, `TriggerOccurredEvent`. 필요한 ID와 값만 담는다. 엔티티를 담지 않는다.
 - `@TransactionalEventListener(AFTER_COMMIT)` + `@Async`의 의미를 알고 쓴다:
   - 커밋된 뒤에만 실행된다(롤백된 변경으로 통계가 바뀌지 않는다)

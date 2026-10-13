@@ -13,7 +13,7 @@
 | 2-3 | 전환 경쟁 상태 수정 | 완료 |
 | 2-4 | 소유권 검증 추가 | 완료 |
 | 2-5 | Planning → Place Catalog 공개 API | 완료 |
-| 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | 진행 중 (가 완료) |
+| 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | 진행 중 (가·나 완료) |
 
 ## 2-1 죽은 코드 제거
 
@@ -606,7 +606,69 @@ Recommendation 131 → 105: enum이 `place.api`로 옮겨 가면서 19건, 대�
 | **A (채택)** | `trigger.api.TriggerType`, `trigger.api.DecisionType` | 지금 패키지 구조 그대로라 이동이 가장 작다. Planning의 공개 패키지가 둘(`plan.api`, `trigger.api`)이 되지만 같은 컨텍스트라 경계 규칙에는 차이가 없다 |
 | B | `plan.api`로 모은다 | 창구가 한 곳이 되지만 `trigger`의 엔티티가 `plan.api`의 enum을 쓰게 되어 어색하다 |
 
+**묶음 나. Stats가 Planning의 데이터를 어떻게 얻나**
+
+통계 서비스 6개가 Planning의 리포지토리 4개를 직접 주입받아 쿼리 메서드 11개를 부르고 있었다.
+
+| 안 | 방법 | 버린 이유 또는 고른 이유 |
+|---|---|---|
+| **A (채택)** | Planning이 조회용 공개 API를 열고 Stats가 부른다 | 변경이 작고 동작이 그대로다. 대가는 Stats를 서비스로 떼었을 때 통계 화면이 Planning에 동기로 의존한다는 것 |
+| B | Stats가 이벤트를 받아 자기 테이블에 통계용 데이터를 쌓고 조회는 자기 테이블만 읽는다 | Planning이 죽어도 통계가 보이는 진짜 분리지만, 이벤트가 유실되면 숫자가 계속 틀린다. 유실을 막는 Outbox와 Kafka는 5단계의 일이다 |
+
+A는 B로 가는 중간 단계다. 5단계에서 Stats를 떼어낼 때 조회 API 호출을 자기 테이블 조회로 바꾼다.
+
+인터페이스는 데이터의 주인 패키지에 뒀다. `plan.api.PlanQueryApi`(플랜 수, 소유한 플랜, 최근 플랜)와 `trigger.api.ActivityQueryApi`(트리거·결정·전환의 건수와 최근 목록). 리포지토리 안의 프로젝션 인터페이스(`RecentSwitchActivityRow` 등)는 경계 밖으로 내보내지 않고 공개 record(`RecentActivity`, `PlanActivity`, `PlanSummary`)로 바꿔 내보낸다. 쿼리는 리포지토리에 있던 것을 그대로 쓴다.
+
+**묶음 나. 이벤트 클래스의 위치**
+
+전환과 트리거 발생을 알리는 이벤트 클래스가 받는 쪽인 `stats.event`에 있어서, 보내는 쪽인 trigger가 stats를 import했다. 이벤트는 보내는 쪽이 주인이므로 Planning으로 옮긴다. `trigger.event`에 두면 Stats가 쓰는 순간 "공개 패키지로만" 규칙에 걸리므로 `trigger.api.event`에 뒀다.
+
+### 흐름 (before → after)
+
+묶음 나:
+
+```
+GET /api/v1/stats/summary
+
+before
+  StatsService                          BEGIN (readOnly)
+    planRepository.countActiveByOwnerId          Planning의 리포지토리를 직접
+    switchLogRepository.countByOwnerIdAndPeriod
+    decisionRepository.countByOwnerIdAndPeriod
+                                        COMMIT
+
+after
+  StatsService                          BEGIN (readOnly)
+    planQueryApi.countActivePlans(ownerId)        → PlanQueryService → PlanRepository
+    activityQueryApi.countSwitches(ownerId, startAt)   → ActivityQueryService → SwitchLogRepository
+    activityQueryApi.countDecisions(ownerId, startAt)  → ActivityQueryService → DecisionRepository
+                                        COMMIT
+```
+
+```
+전환 실행 → 통계 갱신
+
+before  SwitchService ── new stats.event.SwitchLogCreatedEvent ──▶ PlanStatsEventListener
+        trigger가 stats를 import하고 stats는 trigger를 import한다 (순환)
+after   SwitchService ── new trigger.api.event.SwitchLogCreatedEvent ──▶ PlanStatsEventListener
+        stats만 trigger.api를 import한다 (한 방향)
+```
+
 ### 구현 파일
+
+묶음 나:
+
+| 파일 | 변경 |
+|---|---|
+| `plan/api/PlanQueryApi.java`, `PlanSummary.java` | 새로 추가 |
+| `plan/service/PlanQueryService.java` | 새로 추가. `PlanQueryApi` 구현 |
+| `trigger/api/ActivityQueryApi.java`, `RecentActivity.java`, `PlanActivity.java` | 새로 추가 |
+| `trigger/service/ActivityQueryService.java` | 새로 추가. `ActivityQueryApi` 구현 |
+| `trigger/api/event/TriggerCreatedEvent.java`, `SwitchLogCreatedEvent.java` | `stats.event`에서 이동 |
+| `stats/service/` 6개 (`StatsService`, `TriggerStatsService`, `RecentActivityStatsService`, `PlanActivityStatsService`, `PlanStatsMaterializedService`, `PlanStatsUpdater`) | 리포지토리 주입을 공개 API 주입으로 |
+| `stats/listener/PlanStatsEventListener.java`, `TriggerService`, `SwitchService` | 이벤트 import 경로 |
+| `integration/StatsContractIntegrationTest.java` | 새로 추가. 통계 API 5개의 응답 고정 |
+| `stats/service/StatsServiceTest.java` | 새로 추가 |
 
 묶음 가:
 
@@ -617,6 +679,23 @@ Recommendation 131 → 105: enum이 `place.api`로 옮겨 가면서 19건, 대�
 | `src/test/resources/archunit_store/` | 아래 참고 |
 
 ### 검증 증거
+
+묶음 나:
+
+구현 전에 통계 API 5개의 응답을 고정하는 테스트를 쓰고 옛 코드에서 통과하는 것을 확인했다. 트리거 2건(유지 1, 전환 1)을 만든 뒤 요약, 트리거 분석, 최근 활동, 플랜별 활동, 플랜별 통계를 확인한다.
+
+```
+구현 전 (옛 코드)   StatsContractIntegrationTest   tests=5 failures=0
+구현 후            .claude/scripts/verify.sh      format 통과 · compile 통과 · 전체 169 · 실패 0
+```
+
+| 기준선 | 전 | 후 |
+|---|---|---|
+| Stats가 다른 컨텍스트의 Repository·Entity 사용 | 63 | 0 |
+| 다른 컨텍스트의 이벤트 클래스 생성 | 2 | 0 |
+| 경계 위반 합계 | 128 | 65 |
+
+기준선 파일을 손으로 고친 줄은 없다. `stats` 패키지의 import 가운데 `plan`·`trigger`를 가리키는 것은 전부 `api` 패키지다.
 
 묶음 가:
 
@@ -636,4 +715,10 @@ Recommendation 131 → 105: enum이 `place.api`로 옮겨 가면서 19건, 대�
 
 ### 알려진 한계
 
+- Stats는 여전히 Planning에 의존한다. 내부 대신 공개 API에 의존하게 됐을 뿐이다. 서비스로 떼면 통계 화면마다 Planning을 동기로 호출하게 되고, 최근 활동은 호출이 두 번이다.
+- `ActivityQueryApi`의 메서드가 10개다. 통계 화면이 필요한 모양 그대로 열어서 Stats 전용에 가깝다. 5단계에서 Stats가 자기 테이블을 가지면 대부분 없어진다.
+- 통계 쿼리는 여전히 Planning의 테이블에서 돌아간다. 통계 조회 부하가 Planning의 DB에 걸린다.
+- 통계 갱신 이벤트는 메모리에만 있다. 커밋 직후 프로세스가 죽거나 리스너가 실패하면 `plan_stats`가 틀린 채로 남는다. 이번에는 이벤트 클래스의 위치만 옮겼다.
+- 통계 서비스 4곳에 복사된 기간 계산(`LocalDateTime.now()` 직접 호출), 삭제된 플랜의 트리거가 통계에 섞이는 문제, 플랜별 통계의 `categoryTypes`가 항상 null인 문제는 그대로다.
+- `apiOnly("planning")` 규칙은 아직 추가하지 않았다. Recommendation의 위반이 남아 있어 지금 넣으면 같은 위반이 두 규칙에 이중으로 잡힌다.
 - 규칙 설명 문구만 바꿔도 기준선이 조용히 새로 만들어진다. `allowStoreCreation=false`는 기준선 폴더가 없을 때만 막는다. 이번에는 건수를 대조해 새로 인정된 위반이 없음을 확인했지만, 확인하지 않았다면 그 사이에 생긴 위반이 기준선에 묻혔을 것이다. `stored.rules`에 없는 규칙이 있으면 실패하는 검사가 필요하다.
