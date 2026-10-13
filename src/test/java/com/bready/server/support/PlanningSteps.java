@@ -52,12 +52,16 @@ public class PlanningSteps {
     }
 
     public long createCategory(String token, long planId) throws Exception {
+        return createCategory(token, planId, "CAFE");
+    }
+
+    public long createCategory(String token, long planId, String categoryType) throws Exception {
         MvcResult result = perform(
                 post("/api/v1/plans/{planId}/categories", planId),
                 token,
                 """
-                        {"categoryType": "CAFE"}
-                        """);
+                        {"categoryType": "%s"}
+                        """.formatted(categoryType));
         return readLong(result, "$.data.planCategoryId");
     }
 
