@@ -14,8 +14,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.plan.domain.Plan;
+import com.bready.server.trigger.api.DecisionType;
 import com.bready.server.trigger.domain.Decision;
-import com.bready.server.trigger.domain.DecisionType;
 import com.bready.server.trigger.domain.Trigger;
 import com.bready.server.trigger.dto.DecisionCreateRequest;
 import com.bready.server.trigger.dto.DecisionCreateResponse;

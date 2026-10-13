@@ -15,7 +15,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import com.bready.server.global.config.security.TestSecurityConfig;
 import com.bready.server.global.config.security.jwt.JwtAuthentication;
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.trigger.domain.TriggerType;
+import com.bready.server.trigger.api.TriggerType;
 import com.bready.server.trigger.dto.TriggerCreateRequest;
 import com.bready.server.trigger.dto.TriggerCreateResponse;
 import com.bready.server.trigger.exception.TriggerErrorCase;

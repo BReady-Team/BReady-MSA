@@ -53,10 +53,8 @@ class ModuleBoundaryTest {
     static final ArchRule identity_should_be_used_only_through_api = apiOnly("identity");
 
     @ArchTest
-    static final ArchRule events_should_be_created_by_owning_context = freeze(noClasses()
-            .should()
-            .callConstructorWhere(eventOfAnotherContext())
-            .because("이벤트 클래스는 발행하는 컨텍스트가 소유한다"));
+    static final ArchRule events_should_be_created_by_owning_context = freeze(
+            noClasses().should().callConstructorWhere(eventOfAnotherContext()).because("이벤트 클래스는 발행하는 컨텍스트가 소유한다"));
 
     private static ArchRule boundaryOf(String context) {
         String[] internals = Stream.concat(
