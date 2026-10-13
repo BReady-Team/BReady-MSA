@@ -13,7 +13,7 @@
 | 2-3 | 전환 경쟁 상태 수정 | 완료 |
 | 2-4 | 소유권 검증 추가 | 완료 |
 | 2-5 | Planning → Place Catalog 공개 API | 완료 |
-| 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | |
+| 2-6 | Stats·Recommendation → Planning 공개 API, 이벤트 소유권, global의 도메인 의존 | 진행 중 (가 완료) |
 
 ## 2-1 죽은 코드 제거
 
@@ -577,3 +577,63 @@ Recommendation 131 → 105: enum이 `place.api`로 옮겨 가면서 19건, 대�
 - 작성자를 찾지 못하면 PLAN_NOT_FOUND를 돌려주는 기존 동작과, 닉네임 기본값 `"사용자"`를 서비스가 정하는 것은 그대로 뒀다.
 - `PlaceCandidateServiceTest`는 엔티티를 mock으로 만드는 옛 방식이 그대로다. 바뀐 협력 객체만 맞췄다.
 - 새 ArchUnit 규칙의 기준선은 `allowStoreCreation=false`인 채로 만들어졌다. 이 설정은 기준선 폴더가 없을 때만 막고, 이미 있는 폴더에 새 규칙이 추가되는 것은 막지 않는다.
+
+## 2-6 Stats·Recommendation → Planning 공개 API
+
+> 진행 중
+
+### 왜 지금
+
+2-5까지 끝낸 뒤 경계 위반은 199건이 남았고, 전부 Recommendation과 Stats가 Planning의 내부를 직접 쓰는 것이다. 2-5에서 정한 `{module}.api` 방식을 이번에는 Planning이 내놓는 쪽이 되어 적용한다.
+
+| 남은 것 | 건수 |
+|---|---|
+| `TriggerType`·`DecisionType` enum을 Recommendation·Stats가 사용 | 71 |
+| Stats → Planning 리포지토리·엔티티 | 63 |
+| Recommendation → Planning 리포지토리·엔티티 | 65 |
+| Recommendation → Catalog를 `api` 패키지 밖으로 사용 | 17 |
+| trigger가 `stats.event.*` 이벤트를 생성 | 2 |
+| global이 도메인 모듈의 ErrorCase를 사용 | 8 |
+
+### 설계 (선택지 · 결정)
+
+양이 많아 네 묶음으로 나눠 묶음마다 확인하며 진행한다: 가) enum 이동, 나) Stats → Planning 조회 API와 이벤트 소유권, 다) Recommendation → Planning·Catalog 공개 API, 라) global의 도메인 의존.
+
+**묶음 가. enum을 어디로 옮기나**
+
+| 안 | 위치 | 버린 이유 또는 고른 이유 |
+|---|---|---|
+| **A (채택)** | `trigger.api.TriggerType`, `trigger.api.DecisionType` | 지금 패키지 구조 그대로라 이동이 가장 작다. Planning의 공개 패키지가 둘(`plan.api`, `trigger.api`)이 되지만 같은 컨텍스트라 경계 규칙에는 차이가 없다 |
+| B | `plan.api`로 모은다 | 창구가 한 곳이 되지만 `trigger`의 엔티티가 `plan.api`의 enum을 쓰게 되어 어색하다 |
+
+### 구현 파일
+
+묶음 가:
+
+| 파일 | 변경 |
+|---|---|
+| `trigger/api/TriggerType.java`, `DecisionType.java` | `trigger.domain`에서 이동 |
+| 두 enum을 쓰는 파일 23개 (trigger, recommendation, stats와 그 테스트) | import 경로만 변경 |
+| `src/test/resources/archunit_store/` | 아래 참고 |
+
+### 검증 증거
+
+묶음 가:
+
+```
+.claude/scripts/verify.sh   format 통과 · compile 통과 · 전체 162 · 실패 0
+```
+
+| 기준선 | 전 | 후 |
+|---|---|---|
+| Recommendation이 다른 컨텍스트의 Repository·Entity 사용 | 105 | 65 |
+| Stats가 다른 컨텍스트의 Repository·Entity 사용 | 94 | 63 |
+| 경계 위반 합계 | 199 | 128 |
+
+파라미터 타입의 패키지가 바뀌어 시그니처 문자열이 달라진 기존 위반 10줄(`Trigger.create`, `Decision.create`, `PlaceRecommendationService.resolveBase`)은 문구만 갱신했다. 세 규칙의 건수는 그대로다(79, 10, 11).
+
+경계 규칙 9개의 기준선 파일 이름이 전부 바뀌었다. `ModuleBoundaryTest`의 `because(...)` 문구를 다듬으면서 규칙 설명이 달라졌고, ArchUnit은 설명 문자열로 기준선을 찾기 때문에 9개를 새 규칙으로 보고 기준선을 새로 만들었다. 새 기준선의 건수가 옛 기준선에서 enum 71건을 뺀 값과 같은 것을 확인한 뒤(65, 63, 17, 2, 나머지 0) 옛 파일 9개와 `stored.rules`의 옛 줄 9개를 지웠다.
+
+### 알려진 한계
+
+- 규칙 설명 문구만 바꿔도 기준선이 조용히 새로 만들어진다. `allowStoreCreation=false`는 기준선 폴더가 없을 때만 막는다. 이번에는 건수를 대조해 새로 인정된 위반이 없음을 확인했지만, 확인하지 않았다면 그 사이에 생긴 위반이 기준선에 묻혔을 것이다. `stored.rules`에 없는 규칙이 있으면 실패하는 검사가 필요하다.
