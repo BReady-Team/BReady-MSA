@@ -1,0 +1,64 @@
+package com.bready.server.plan.repository;
+
+import java.util.List;
+import java.util.Optional;
+import jakarta.persistence.LockModeType;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import com.bready.server.plan.domain.PlaceCandidate;
+
+public interface PlaceCandidateRepository extends JpaRepository<PlaceCandidate, Long> {
+    @Query(
+            """
+        select pc
+        from PlaceCandidate pc
+        join fetch pc.category c
+        where pc.id = :candidateId
+    """)
+    Optional<PlaceCandidate> findByIdWithCategory(Long candidateId);
+
+    @Query(
+            """
+        select pc
+        from PlaceCandidate pc
+        where pc.id = :candidateId
+          and pc.deletedAt is null
+    """)
+    Optional<PlaceCandidate> findAliveById(Long candidateId);
+
+    // 카테고리 일치 + 살아있는 후보 검증
+    @Query(
+            """
+        select (count(pc) > 0)
+        from PlaceCandidate pc
+        where pc.id = :candidateId
+          and pc.category.id = :categoryId
+          and pc.deletedAt is null
+    """)
+    boolean existsAliveByIdAndCategoryId(Long candidateId, Long categoryId);
+
+    @Query(
+            """
+        select pc
+        from PlaceCandidate pc
+        where pc.id = :candidateId
+          and pc.category.id = :categoryId
+          and pc.deletedAt is null
+    """)
+    Optional<PlaceCandidate> findAliveByIdAndCategoryId(Long candidateId, Long categoryId);
+
+    // 카테고리의 살아있는 후보 전부 조회
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query(
+            """
+        select pc
+        from PlaceCandidate pc
+        where pc.category.id = :categoryId
+            and pc.deletedAt is null
+    """)
+    List<PlaceCandidate> findAllAliveByCategoryIdForUpdate(@Param("categoryId") Long categoryId);
+}

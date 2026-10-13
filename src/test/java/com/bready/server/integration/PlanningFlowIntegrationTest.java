@@ -22,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // 한 사용자가 가입해서 전환을 실행하기까지의 흐름을 HTTP부터 MySQL까지 사이클 검증
+@DisplayName("핵심 흐름 통합 테스트 - 가입부터 전환까지")
 class PlanningFlowIntegrationTest extends IntegrationTestSupport {
 
     private static final String PASSWORD = "local-test!1";

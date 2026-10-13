@@ -11,7 +11,7 @@
 
 - 비즈니스 예외(`ApplicationException`, 4xx)는 WARN 한 줄이면 충분하다. 스택트레이스를 남기지 않는다.
 - 요청마다 찍히는 INFO 로그를 새로 만들지 않는다.
-  - BReady 현황: `PlaceSearchService`가 검색마다 `log.info("카카오 검색어 = …")` (`place/service/PlaceSearchService.java:38`).
+  - BReady 현황: `PlaceSearchService`가 검색마다 `log.info("카카오 검색어 = …")` (`place/service/PlaceSearchService.java:55`).
 
 ## 2. 남기지 않는 것 [린트]
 

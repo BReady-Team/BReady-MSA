@@ -7,7 +7,8 @@
 
 - 모듈 = `com.bready.server` 바로 아래 패키지: `auth` `user` `plan` `place` `trigger` `recommendation` `stats` `s3`.
 - `global`은 **기술 공통**(응답 봉투, 예외 뼈대, 보안 필터, 설정, BaseEntity)만 담는다. 도메인 지식(특정 모듈의 ErrorCase, 엔티티, 규칙)을 넣지 않는다. [빌드]
-- 바운디드 컨텍스트(ADR-0001로 확정): Identity(auth+user) · Planning(plan+후보+trigger) · Place Catalog · Recommendation · Stats · File(s3). 같은 컨텍스트 안의 패키지끼리 참조하는 것은 끊을 대상이 아니다. ArchUnit의 모듈 정의는 아직 패키지 기준이고, 2단계에서 컨텍스트 기준으로 바꾼다.
+- 바운디드 컨텍스트(ADR-0001로 확정): Identity(auth+user) · Planning(plan+후보+trigger) · Place Catalog · Recommendation · Stats · File(s3). 같은 컨텍스트 안의 패키지끼리 참조하는 것은 끊을 대상이 아니다. ArchUnit도 컨텍스트 단위로 경계를 본다(`architecture/ArchitectureRules.CONTEXTS`). 아래 규칙에서 "다른 모듈"은 **다른 컨텍스트의 모듈**을 뜻한다.
+- 장소 후보(`PlaceCandidate`와 그 리포지토리·서비스·컨트롤러·DTO)는 Planning 소유라서 `plan` 패키지에 있다. `place` 패키지는 Place Catalog다. URL(`/api/v1/places/candidates`)은 외부 계약이라 그대로다.
 
 ## 2. 새 코드의 규칙 [빌드]
 
@@ -18,18 +19,23 @@
 5. **이벤트는 발행자가 소유한다**(`service-transaction.md` 6번).
 6. **한 트랜잭션에서 다른 모듈의 데이터를 쓰지 않는다.** 필요하면 그 모듈의 공개 API를 부르고, 일관성이 깨질 수 있는 지점을 주석으로 남긴다.
 
-**공개 API의 모양**은 2단계(모듈러 모놀리스)에서 정한다(ADR). 그 전까지 새로 생기는 모듈 간 호출은 상대 모듈의 **서비스**를 부르는 것까지만 허용하고, 리포지토리·엔티티를 직접 쓰지 않는다.
+**공개 API의 모양**: 컨텍스트가 내놓는 것은 `{module}.api` 패키지에 둔다. 인터페이스(`PlaceCatalogApi`, `UserApi`), 주고받는 값 record(`PlaceInfo`, `UserSummary`), 값만 담은 enum(`PlaceCategoryType`). 구현은 그 모듈의 `service`에 둔다.
+- 다른 컨텍스트는 `api` 패키지의 타입만 import한다. 인터페이스를 주입받고 구현 클래스를 주입받지 않는다. [빌드]
+- `api` 패키지는 자기 모듈의 엔티티·리포지토리·서비스를 import하지 않는다. 그래서 엔티티 → 값 record 변환은 `from(Entity)`가 아니라 구현 서비스가 한다. 서비스로 떼어낼 때 이 패키지가 그대로 계약이 된다.
+- 공개 API를 연 컨텍스트: Place Catalog(`place.api`), Identity(`user.api`), Planning(`plan.api`, `trigger.api`). 아직 없는 컨텍스트(Recommendation, Stats)를 새로 부를 일이 생기면 먼저 공개 API를 열고 ArchUnit의 `apiOnly(...)` 목록에 추가한다(`architecture/ModuleBoundaryTest`).
+- 조회 API는 쓰는 쪽이 한 번에 필요한 것을 묶어 내준다(`TriggerContextApi.getTriggerContext`, `PlaceCatalogApi.getPlaces(ids)`). 리포지토리 메서드를 하나씩 본뜨면 서비스로 떼었을 때 호출 횟수만큼 네트워크 왕복이 된다.
+- 다른 컨텍스트의 ErrorCase를 import해서 던지지 않는다. 그 에러는 그 컨텍스트의 공개 API가 던지게 한다.
 
 ## 3. 위반 유형
 
 | 코드 | 유형 | 예 (BReady 현황) | 분리하면 무엇이 되나 |
 |---|---|---|---|
-| **V1** | 남의 Repository 주입 | `PlaceCandidateService`가 `CategoryStateRepository` 사용 | 남의 DB에 직접 붙음 → 불가능 |
-| **V2** | 모듈을 넘는 JPA 연관 | `Trigger.plan`, `SwitchLog.fromCandidate` | 다른 DB의 FK → 불가능 |
-| **V3** | 모듈을 넘는 JOIN | `SwitchLog ⋈ Decision ⋈ Trigger ⋈ Plan` | API 합성 또는 데이터 복제 필요 |
-| **V4** | 모듈을 넘는 트랜잭션 | `SwitchService.executeSwitch` | Saga·보상 또는 경계 재설계 |
-| **V5** | 소비자 패키지의 이벤트 | `stats.event.*`를 trigger가 import | 이벤트 스키마를 누가 소유하나 |
-| **V6** | global → 도메인 의존 | `GlobalExceptionHandler`가 `S3ErrorCase` import | 공통 모듈이 모든 서비스에 의존 |
+| **V1** | 남의 Repository 주입 | 남은 것 없음. 예전 예: stats가 `TriggerRepository`를, recommendation이 `PlaceCandidateRepository`를 주입 | 남의 DB에 직접 붙음 → 불가능 |
+| **V2** | 모듈을 넘는 JPA 연관 | 남은 것 없음. `PlaceCandidate.place`는 `placeId`로 끊었다 | 다른 DB의 FK → 불가능 |
+| **V3** | 모듈을 넘는 JOIN | 남은 것 없음. 플랜 상세의 `⋈ Place`는 공개 API 조회로, 통계의 `Trigger ⋈ Plan` 쿼리는 Planning 안의 조회 서비스만 부르게 바꿨다 | API 합성 또는 데이터 복제 필요 |
+| **V4** | 모듈을 넘는 트랜잭션 | 남은 것 없음. `PlaceCandidateService.createCandidate`의 장소 저장은 Catalog의 별도 트랜잭션이다(원자적이지 않다는 주석 있음) | Saga·보상 또는 경계 재설계 |
+| **V5** | 소비자 패키지의 이벤트 | 남은 것 없음. 이벤트는 발행자의 공개 패키지에 둔다(`trigger.api.event`) | 이벤트 스키마를 누가 소유하나 |
+| **V6** | global → 도메인 의존 | `AuthUtils`·`JwtTokenProvider`가 `AuthErrorCase` import (6건, 6단계 인증 분리에서 푼다) | 공통 모듈이 모든 서비스에 의존 |
 
 ## 4. 래칫 — 위반은 늘지 않고 줄기만 한다
 

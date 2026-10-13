@@ -17,7 +17,7 @@ public PlanUpdateResponse updatePlan(Long userId, Long planId, PlanUpdateRequest
 - 한 public 메서드 = 한 유스케이스. 다른 public 메서드를 내부에서 부르지 않는다(8번 자기 호출 함정)
 - 반복되는 조회+예외는 private 헬퍼로: `getActivePlan(id)`, `getOwnedPlan(userId, id)`
 - 서비스 시그니처에 웹 타입(`HttpServletRequest`, `ResponseEntity`)을 쓰지 않는다. `MultipartFile`은 파일 업로드를 다루는 서비스 메서드에서만 허용한다.
-- 서비스 인터페이스(`XxxUsecase`)를 만들지 않는다. 구현이 하나뿐인 인터페이스는 YAGNI다. 다른 모듈이 부르는 **공개 API**는 2단계에서 인터페이스로 만든다(`msa-boundary.md` 2번)
+- 서비스 인터페이스(`XxxUsecase`)를 만들지 않는다. 구현이 하나뿐인 인터페이스는 YAGNI다. 다른 컨텍스트가 부르는 **공개 API**만 `{module}.api`의 인터페이스로 둔다(`msa-boundary.md` 2번). 서비스로 떼어낼 때 구현이 원격 호출로 바뀌는 자리라서다
 
 ## 2. 트랜잭션 선언 [빌드]
 
@@ -62,7 +62,9 @@ KakaoAuthService.login()              ← 트랜잭션 없음
 ## 4. 동시성
 
 **검증과 변경은 같은 락 안에서 한다.** 락을 잡기 전에 읽은 값으로 판단하면, 락을 기다리는 사이에 다른 트랜잭션이 그 값을 바꿀 수 있다.
-- BReady 현황(경쟁 상태 R7): `SwitchService.executeSwitch`는 전환 대상 후보가 살아 있는지 **락 없이** 확인한 뒤 `category_states` 락을 잡는다. 그 사이 후보 삭제가 커밋되면 삭제된 후보가 대표로 지정된다. → 락을 먼저 잡고 검증한다.
+- **락을 잡은 뒤의 검증은 최신 커밋을 봐야 한다.** MySQL 기본 격리 수준(REPEATABLE READ)에서 일반 조회는 트랜잭션이 처음 조회한 시점의 스냅샷을 본다. 락을 먼저 잡아도, 락을 기다리는 동안 다른 트랜잭션이 커밋한 변경은 일반 조회에 보이지 않는다. 잠금 읽기(`FOR UPDATE`)만 최신을 본다.
+  - 락 뒤에 일반 조회로 검증해야 하면 그 메서드를 `@Transactional(isolation = Isolation.READ_COMMITTED)`로 두고 이유를 주석으로 남긴다.
+  - 예: `SwitchService.executeSwitch`, `PlaceCandidateService.setRepresentative`. 락 → 검증 순서와 READ_COMMITTED 둘 다 있어야 한다. 하나만으로는 `CandidateDeletionRaceIntegrationTest`가 실패한다.
 
 **중복 생성은 DB 유니크 제약으로 막고 예외를 번역한다** 
 ```java
@@ -72,7 +74,7 @@ try {
     throw ApplicationException.from(PlaceErrorCase.DUPLICATE_PLACE_CANDIDATE);
 }
 ```
-(`place/service/PlaceCandidateService.java:49`) — "먼저 조회해서 없으면 저장"은 동시 요청 두 개가 둘 다 "없음"을 본다. 유니크 제약이 최종 판정자다. `saveAndFlush`여야 예외가 이 try 안에서 터진다.
+(`plan/service/PlaceCandidateService.java:63`) — "먼저 조회해서 없으면 저장"은 동시 요청 두 개가 둘 다 "없음"을 본다. 유니크 제약이 최종 판정자다. `saveAndFlush`여야 예외가 이 try 안에서 터진다.
 
 **락 선택 기준**
 | 상황 | 방법 |
@@ -84,7 +86,7 @@ try {
 - 락은 항상 같은 순서로 잡는다(예: plan → category → state). 순서가 엇갈리면 데드락이 난다.
 
 **`REQUIRES_NEW`는 이유가 있을 때만**
-- 바깥 트랜잭션이 롤백돼도 남아야 하는 작업에만 쓴다(예: 공용 장소 카탈로그 `getOrCreate` — `place/service/PlacePersistenceService.java:22`).
+- 바깥 트랜잭션이 롤백돼도 남아야 하는 작업에만 쓴다(예: 공용 장소 카탈로그 `register` — `place/service/PlaceCatalogService.java:30`).
 - 같은 클래스 안에서 부르면 프록시를 거치지 않아 적용되지 않는다(8번). 반드시 다른 빈으로.
 
 ## 5. Clock 주입
@@ -96,7 +98,7 @@ try {
 ## 6. 이벤트
 
 - **이벤트 클래스는 발행하는 모듈이 소유한다.** 소비자 패키지에 두지 않는다. [빌드]
-  - BReady 현황: `TriggerCreatedEvent`·`SwitchLogCreatedEvent`가 `stats.event`에 있고 trigger가 import한다(`trigger/service/SwitchService.java:14`) → trigger ⇄ stats 순환 의존.
+  - 다른 컨텍스트가 듣는 이벤트는 발행자의 공개 패키지에 둔다: `trigger.api.event.TriggerCreatedEvent`·`SwitchLogCreatedEvent`. 듣는 쪽(stats)만 발행자의 `api`를 import하고, 발행자는 누가 듣는지 모른다.
 - 이벤트는 사실(과거형) 이름: `SwitchExecutedEvent`, `TriggerOccurredEvent`. 필요한 ID와 값만 담는다. 엔티티를 담지 않는다.
 - `@TransactionalEventListener(AFTER_COMMIT)` + `@Async`의 의미를 알고 쓴다:
   - 커밋된 뒤에만 실행된다(롤백된 변경으로 통계가 바뀌지 않는다)

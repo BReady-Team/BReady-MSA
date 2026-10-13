@@ -14,7 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.bready.server.recommendation.ai.AiRerankResult;
 import com.bready.server.recommendation.ai.AiRerankService;
 import com.bready.server.recommendation.dto.PlaceRecommendationResponse;
-import com.bready.server.trigger.domain.TriggerType;
+import com.bready.server.trigger.api.TriggerType;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.*;

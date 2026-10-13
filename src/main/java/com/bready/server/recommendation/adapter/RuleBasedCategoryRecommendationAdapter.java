@@ -6,11 +6,11 @@ import java.util.Objects;
 
 import org.springframework.stereotype.Component;
 
-import com.bready.server.place.domain.PlaceCategoryType;
-import com.bready.server.plan.domain.PlanCategory;
+import com.bready.server.place.api.PlaceCategoryType;
 import com.bready.server.recommendation.dto.CategoryRecommendationResponse;
 import com.bready.server.recommendation.port.CategoryRecommendationPort;
-import com.bready.server.trigger.domain.TriggerType;
+import com.bready.server.trigger.api.CategoryInfo;
+import com.bready.server.trigger.api.TriggerType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,18 +20,18 @@ public class RuleBasedCategoryRecommendationAdapter implements CategoryRecommend
 
     @Override
     public List<CategoryRecommendationResponse.CategoryItem> recommendCategories(
-            List<PlanCategory> planCategories, PlanCategory currentCategory, TriggerType triggerType) {
+            List<CategoryInfo> planCategories, CategoryInfo currentCategory, TriggerType triggerType) {
 
-        PlaceCategoryType currentType = currentCategory.getCategoryType();
+        PlaceCategoryType currentType = currentCategory.categoryType();
 
         PlaceCategoryType prevType = null;
         PlaceCategoryType nextType = null;
 
         for (int i = 0; i < planCategories.size(); i++) {
-            if (Objects.equals(planCategories.get(i).getId(), currentCategory.getId())) {
-                if (i - 1 >= 0) prevType = planCategories.get(i - 1).getCategoryType();
+            if (Objects.equals(planCategories.get(i).categoryId(), currentCategory.categoryId())) {
+                if (i - 1 >= 0) prevType = planCategories.get(i - 1).categoryType();
                 if (i + 1 < planCategories.size())
-                    nextType = planCategories.get(i + 1).getCategoryType();
+                    nextType = planCategories.get(i + 1).categoryType();
                 break;
             }
         }

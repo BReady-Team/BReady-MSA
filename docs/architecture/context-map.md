@@ -1,9 +1,27 @@
 # 경계 지도 (Context Map)
 
 > **상태**: 확정 (2026-10-12). 결정과 근거는 [ADR-0001](../adr/0001-bounded-contexts-and-extraction-order.md)
+> **2026-10-12 이후**: 장소 후보(`PlaceCandidate`와 그 리포지토리·서비스·컨트롤러·DTO)를 `plan` 패키지로 옮겼다. 아래 1~6번은 분석 시점의 패키지 기준 기록이라 후보가 `place`에 있는 것으로 나온다. 
+> **2026-10-13 이후**: Planning은 Place Catalog와 Identity를 공개 API(`place.api`, `user.api`)로만 쓴다. `PlaceCandidate.place` 연관은 `placeId`가 됐고 플랜 상세는 `places`를 JOIN하지 않는다. 아래 3~6번의 해당 행에 표시했다.
 > **분석 방법**: `com.bready.server.*` 전체 import 그래프 추출 → 엔티티 연관관계·JPQL/Native 쿼리·`@Transactional` 메서드 전수 확인
 > **이 문서의 용도**: 로드맵 1단계(경계 지도)의 출발점. 2단계(모듈러 모놀리스)에서 "무엇을 끊어야 하는지"의 체크리스트
 > 위반을 하나 끊을 때마다 이 문서의 해당 행을 갱신
+
+---
+
+## 용어
+
+이 문서와 ADR에서 쓰는 이름이다. 비슷해서 헷갈리기 쉬운 것을 먼저 적는다.
+
+| 용어 | 뜻 | 코드에서 |
+|---|---|---|
+| **Place Catalog** (장소 카탈로그) | 장소 자체에 대한 정보 모음. 이름·주소·좌표처럼 누구의 플랜과도 무관한 공용 데이터와 카카오 장소 검색 | `place` 패키지, `places` 테이블 |
+| **카테고리** (PlanCategory) | 플랜 안의 한 단계. 식사, 카페, 산책 같은 것. Place Catalog와는 다른 말이다 | `plan` 패키지, `plan_categories` 테이블 |
+| **장소 후보** (PlaceCandidate) | 어떤 카테고리에 올려 둔 장소. "이 플랜의 카페 후보 중 하나" | `plan` 패키지, `place_candidates` 테이블 |
+| **Planning** | 플랜, 카테고리, 장소 후보, 대표 후보 상태, 트리거·결정·전환 | `plan`, `trigger` 패키지 |
+| **Identity** | 가입, 로그인, 토큰, 프로필 | `auth`, `user` 패키지 |
+
+장소 후보는 장소를 가리킨다. 후보는 Planning의 것이고 장소는 Place Catalog의 것이다.
 
 ---
 
@@ -55,8 +73,8 @@
 | # | 순환 | 어디서 |
 |---|---|---|
 | C1 | `plan ⇄ place` | `PlanCategory.candidates`(OneToMany) ↔ `PlaceCandidate.category`(ManyToOne) **엔티티 양방향** + 서비스끼리 서로의 Repository 사용 |
-| C2 | `trigger ⇄ stats` | trigger가 `stats.event.*`를 발행, stats가 `trigger.repository.*`를 조회. **이벤트 클래스가 소비자(stats) 패키지에 있음** |
-| C3 | `global ⇄ 도메인` | `GlobalExceptionHandler`가 `S3ErrorCase`·`StatsErrorCase`를, `AuthUtils`가 `AuthErrorCase`를 import |
+| C2 | ~~`trigger ⇄ stats`~~ **해결(2026-10-13)** | trigger가 `stats.event.*`를 발행, stats가 `trigger.repository.*`를 조회하던 순환. 이벤트를 `trigger.api.event`로 옮기고 조회를 공개 API로 바꿔 stats → Planning 한 방향이 됐다 |
+| C3 | `global ⇄ 도메인` (일부 해결 2026-10-13) | `GlobalExceptionHandler`가 `S3ErrorCase`·`StatsErrorCase`를 import하던 것은 끊었다. `AuthUtils`·`JwtTokenProvider`가 `AuthErrorCase`를 import하는 6건은 6단계 인증 분리에서 푼다 |
 
 ---
 
@@ -106,7 +124,7 @@
 |---|---|---|
 | auth | `UserRepository`, `UserProfileRepository`, `User`, `UserProfile`, `UserErrorCase` | `AuthService`, `KakaoAuthTransactionHandler`, `NaverAuthTransactionHandler` |
 | user | `S3Uploader` (Service) | `UserService.updateProfileImage` |
-| plan | `UserRepository.findByIdWithProfile` | `PlanService.buildPlanDto` (작성자 닉네임/이미지) |
+| plan | ~~`UserRepository.findByIdWithProfile`~~ **해결(2026-10-13)**: `user.api.UserApi.findUserSummary` | `PlanService.buildPlanDto` (작성자 닉네임/이미지) |
 | plan | `PlaceCandidateRepository.findAllAliveByCategoryIdForUpdate` | `PlanCategoryService.updateCategoryType` |
 | place | `PlanCategoryRepository`, `CategoryStateRepository`, `CategorySelectionLogRepository` | `PlaceCandidateService` (3개 메서드 전부) |
 | trigger | `PlanCategoryRepository`, `CategoryStateRepository`, `PlaceCandidateRepository` | `TriggerService`, `SwitchService` |
@@ -114,7 +132,7 @@
 | recommendation | `TriggerRepository`, `PlanCategoryRepository`, `CategoryStateRepository`, `PlaceCandidateRepository` | `PlaceRecommendationService`, `RecommendValidationService` |
 | recommendation | `PlaceSearchService` (Service) | `RuleBasedRecommendationAdapter` |
 | recommendation | `PlanCategory`(엔티티)가 **port 인터페이스 시그니처**에 노출 | `CategoryRecommendationPort`, `PlaceRecommendationPort` |
-| stats | `PlanRepository`, `PlanCategoryRepository`, `TriggerRepository`, `DecisionRepository`, `SwitchLogRepository` | `StatsService`, `TriggerStatsService`, `RecentActivityStatsService`, `PlanActivityStatsService`, `PlanStatsMaterializedService`, `PlanStatsUpdater`, `PlanStatsJoinService` |
+| stats | `PlanRepository`, `PlanCategoryRepository`, `TriggerRepository`, `DecisionRepository`, `SwitchLogRepository` | `StatsService`, `TriggerStatsService`, `RecentActivityStatsService`, `PlanActivityStatsService`, `PlanStatsMaterializedService`, `PlanStatsUpdater` |
 
 > 주목: **"남의 Service를 호출"하는 곳은 2곳뿐**(`user→s3`, `recommendation→place`). 나머지 모든 모듈 간 결합은 **Repository 직접 주입**이다.
 > 즉 2단계의 핵심 작업은 "남의 Repository 직접 사용 → 그 모듈이 공개한 API(인터페이스) 호출"로 바꾸는 것이다.
@@ -127,7 +145,7 @@
 |---|---|---|---|---|
 | `PlaceCandidate` (place) | `category` | `PlanCategory` (plan) | `@ManyToOne LAZY` | ID 참조 또는 같은 컨텍스트로 이동 |
 | `PlanCategory` (plan) | `candidates` | `PlaceCandidate` (place) | `@OneToMany(mappedBy)` | **양방향 → 순환 C1의 원인** |
-| `PlaceCandidate` (place) | `place` | `Place` (place) | `@ManyToOne LAZY` | 패키지는 같지만 "후보 ↔ 카탈로그"는 다른 개념 (8번) |
+| `PlaceCandidate` (place) | ~~`place`~~ | `Place` (place) | ~~`@ManyToOne LAZY`~~ **해결(2026-10-13)**: `Long placeId` | 패키지는 같지만 "후보 ↔ 카탈로그"는 다른 개념 (8번) |
 | `Trigger` (trigger) | `plan` | `Plan` (plan) | `@ManyToOne LAZY` | `planId` (Long) |
 | `Trigger` (trigger) | `category` | `PlanCategory` (plan) | `@ManyToOne LAZY` | `categoryId` (Long) |
 | `SwitchLog` (trigger) | `fromCandidate`, `toCandidate` | `PlaceCandidate` (place) | `@ManyToOne LAZY` | `fromCandidateId`, `toCandidateId` |
@@ -141,6 +159,7 @@
 | `Plan.ownerId` | `User.id` (user) |
 | `Trigger.candidateId` | `PlaceCandidate.id` (place) — 트리거 발생 당시 대표 후보 스냅샷 |
 | `CategoryState.currentCandidateId` | `PlaceCandidate.id` (place) |
+| `PlaceCandidate.placeId` | `Place.id` (Place Catalog). 2026-10-13에 연관에서 ID로 바꿨다 |
 | `CategorySelectionLog.categoryId`, `candidateId` | plan / place |
 | `PlanStats.planId` | `Plan.id` (plan) |
 
@@ -158,25 +177,16 @@
 | `SwitchLogRepository` (trigger) | `findRecentSwitchActivities`, `countByOwnerIdAndPeriod`, `findRecentSwitchActivitiesAllPlans` | `SwitchLog ⋈ Decision ⋈ Trigger ⋈ Plan` | stats |
 | `SwitchLogRepository` (trigger) | `countSwitchByPlanIdAndPeriod` | `SwitchLog ⋈ Decision ⋈ Trigger`, `t.plan.id` (FK 컬럼만 사용, `plans` JOIN 없음) | stats |
 | `TriggerRepository` (trigger) | `countByPlanIdAndPeriod` | `t.plan.id` (FK 컬럼만 사용, 실제 JOIN은 없음) | stats |
-| `PlanCategoryRepository` (plan) | `findAllDetailByPlanId` | `PlanCategory ⋈ PlaceCandidate ⋈ Place` (fetch) | plan(상세) |
-| `PlaceCandidateRepository` (place) | `findByIdWithCategoryAndPlace`, `findByIdWithCategory`, `findAliveByIdWithCategoryAndPlace` | `PlaceCandidate ⋈ PlanCategory (⋈ Place)` (fetch) | place, recommendation |
+| `PlanCategoryRepository` (plan) | `findAllDetailByPlanId` | `PlanCategory ⋈ PlaceCandidate` (fetch). `⋈ Place`는 2026-10-13에 제거하고 Catalog 공개 API 조회로 바꿨다 | plan(상세) |
+| `PlaceCandidateRepository` (place) | `findByIdWithCategory` | `PlaceCandidate ⋈ PlanCategory` (fetch). 장소까지 가져오던 `findByIdWithCategoryAndPlace`, `findAliveByIdWithCategoryAndPlace`는 2026-10-13에 삭제 | place |
 | `PlaceCandidateRepository` | `existsAliveByIdAndCategoryId`, `findAliveByIdAndCategoryId`, `findAllAliveByCategoryIdForUpdate` | `pc.category.id` 경로 (FK 컬럼만 사용, 실제 JOIN은 없음) | trigger, plan |
 
 **패턴**: trigger/stats 쿼리의 대부분은 **`ownerId`로 필터하려고 `Plan`까지 JOIN** 한다.
 → 분리 시 대표적 해법은 (a) `triggers`에 `owner_id`를 비정규화, (b) stats가 이벤트로 자기 읽기 모델을 구축. (5단계 주제)
 
-### 5.2 Native SQL — 테이블 4개를 한 번에
+### 5.2 Native SQL
 
-`PlanRepository.findPlanSwitchStatsOptimized` 
-```sql
-plans (서브쿼리, LIMIT push-down)
-  LEFT JOIN triggers    ON t.plan_id = p.id
-  LEFT JOIN decisions   ON d.trigger_id = t.id
-  LEFT JOIN switch_logs ON sl.decision_id = d.id
-```
-- plan 패키지의 Repository가 **trigger 컨텍스트 테이블 3개를 직접 JOIN**
-- 사용처는 `PlanStatsJoinService` 하나인데, **이 서비스는 어떤 컨트롤러에서도 쓰이지 않는다**(README의 성능 개선 1차 실험 흔적. 현재 API는 `PlanStatsMaterializedService` 사용)
-- → **죽은 코드를 지우는 것만으로 경계 위반 1건이 공짜로 사라진다.**
+없음. `PlanRepository.findPlanSwitchStatsOptimized`(`plans`에 `triggers`·`decisions`·`switch_logs`를 JOIN하던 통계 쿼리)는 유일한 사용처 `PlanStatsJoinService`가 어떤 컨트롤러에서도 쓰이지 않아 함께 삭제했다(2026-10-12). 성능 비교 실험의 "개선 전" 구현이었고, 커밋 `3c61053` 이전 이력에 남아 있다.
 
 ---
 
@@ -191,7 +201,7 @@ MSA로 쪼개면 **이 목록이 곧 "분산 트랜잭션 문제가 생길 자�
 | T3 | `PlanCategoryService.updateCategoryType` | plan(`plans` 락, `plan_categories` 락·UPDATE) + place(`place_candidates` 락·soft delete 일괄) + plan(`category_states` 리셋) | 락 3종 | ★★★ |
 | T4 | `TriggerService.createTrigger` | plan(`plan_categories`, `category_states`) + place(후보 생존 확인) + trigger(`triggers` INSERT) + after-commit 이벤트(stats) | – | ★★ |
 | T5 | `PlaceCandidateService.setRepresentative` / `deleteCandidate` | place(`place_candidates`) + plan(`category_states` 락, `category_selection_logs`) | `PESSIMISTIC_WRITE` | ★★ |
-| T6 | `PlanService.getPlanDetail` / `getSharedPlanDetail` (읽기) | user(`users`+`user_profiles`) + plan + place(후보+장소) + plan(`category_states`) | – | ★★ (API Composition) |
+| T6 | `PlanService.getPlanDetail` / `getSharedPlanDetail` (읽기) | user(`users`+`user_profiles`) + plan + place(후보+장소) + plan(`category_states`). **2026-10-13**: user와 장소는 공개 API 호출로 바꿨다(한 프로세스 안의 API 합성). 서비스로 떼면 이 두 호출이 네트워크를 탄다 | – | ★★ (API Composition) |
 | T7 | `AuthService.signup`, `Kakao/NaverAuthTransactionHandler` | user(`users`, `user_profiles`) INSERT + **Redis에 refresh token 저장(트랜잭션 밖 자원)** | – | ★ (identity를 한 서비스로 두면 내부 문제) |
 | T8 | `UserService.updateProfileImage` | DB(`user_profiles` UPDATE) 트랜잭션 **안에서 S3 업로드·삭제(외부 I/O)** | – | ★ (커밋 실패 시 S3 고아 객체) |
 | T9 | `PlanStatsEventListener` (`@Async` + `AFTER_COMMIT`) | trigger 커밋 **후** 별도 스레드·별도 트랜잭션에서 `plan_stats` 재계산 | `PESSIMISTIC_WRITE` on `plan_stats` | ★ — 이미 "최종 일관성"이지만 **유실 가능** |
@@ -228,13 +238,15 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 
 | # | 발견 | 근거 | 영향 |
 |---|---|---|---|
-| R1 | **인가(소유자 확인) 누락 — IDOR.** 로그인만 하면 **남의 플랜**의 후보 등록/대표 변경/삭제, 트리거 발생, 결정, 전환이 가능 | `PlaceCandidateController`, `TriggerController`, `DecisionController`, `SwitchController`에 `@CurrentUser` 없음 + 서비스에 owner 체크 없음 (plan·recommendation·stats는 체크함) | 보안 결함. 고치려면 trigger/place가 "이 플랜이 이 사용자 것인가?"를 plan에 물어야 함 → **첫 번째 모듈 공개 API의 자연스러운 후보** |
+| R1 | ~~인가(소유자 확인) 누락 — IDOR~~ **해결(2026-10-12)**: 후보 등록·대표 지정·후보 삭제·트리거·결정·전환 여섯 API가 요청한 사용자를 받아 플랜 소유자인지 확인한다 | 수정 전에는 컨트롤러에 `@CurrentUser`가 없고 서비스에 소유자 확인이 없었다. 다른 사용자의 토큰으로 여섯 API를 호출해 전부 200이 나오는 것을 `PlanningAuthorizationIntegrationTest`로 재현한 뒤 고침 | 남의 플랜이면 403 PLAN_ACCESS_DENIED(4002). URL과 요청 본문은 그대로 |
 | R2 | ~~현재 로컬 컨텍스트 기동 불가~~ **해결(0-1, 2026-10-12)**: 키 없는 `application.yml` 커밋, 127개 통과 | `./gradlew test` → 100개 중 99 통과, `BReadyApplicationTests.contextLoads` 실패: `Could not resolve placeholder 'cloud.aws.credentials.access-key'` | `application.yml`이 gitignore되어 레포에 없고, test 프로필엔 S3 설정이 없다. **"진짜 키 없이 로컬에서 돈다"가 아직 성립 안 함** → 0단계 첫 작업 |
 | R3 | `gradlew` 실행 권한 없음 | `git ls-files -s gradlew` → `100644` | `./gradlew` 실패(`permission denied`), `sh ./gradlew`로 우회 중. 사용자가 `git update-index --chmod=+x gradlew` 필요 |
-| R4 | 죽은 코드 | `PlaceService`(빈 클래스), `PlaceController`(빈 컨트롤러), `PlanStatsService`(TODO 스텁, 테스트에서 mock만 됨), `PlanStatsJoinService`(미사용) | 경계 지도 노이즈. 특히 `PlanStatsJoinService`는 경계 위반 native query를 끌고 있음 |
+| R4 | ~~죽은 코드~~ **해결(2026-10-12)**: `PlaceService`, `PlaceController`, `PlanStatsService`, `PlanStatsJoinService`와 그것만 쓰던 쿼리 3개 삭제 | 참조 검색, 컴파일, 전체 테스트 137개 통과로 확인 | 기준선 stats 109 → 94, 컨트롤러 규칙 17 → 16 |
 | R5 | 이벤트 유실 가능 | T9 참고 | stats 정합성 |
-| R7 | **전환 검증이 락보다 먼저 실행됨 (경쟁 상태)** | `SwitchService.executeSwitch`는 `toCandidate` 생존 검증(락 없음)을 한 **뒤에** `category_states FOR UPDATE`를 잡는다. 그 사이 `deleteCandidate`가 같은 락을 잡고 그 후보를 지우고 커밋하면, 전환은 락을 얻은 뒤 다시 확인하지 않고 **삭제된 후보를 대표로 지정**한다 | 모놀리식 안에서도 이미 생기는 버그. 안전망에 동시성 테스트로 재현할 후보. "검증과 변경은 같은 락 안에서" 원칙의 근거 |
+| R7 | ~~전환 검증이 락보다 먼저 실행됨 (경쟁 상태)~~ **해결(2026-10-12)**: 락을 먼저 잡고, 그 뒤의 검증이 최신 커밋을 보도록 READ_COMMITTED로 변경 | 수정 전 `SwitchService.executeSwitch`는 `toCandidate` 생존을 락 없이 확인한 뒤 `category_states FOR UPDATE`를 잡았다. 그 사이 삭제가 커밋되면 삭제된 후보가 대표가 됐다. `CandidateDeletionRaceIntegrationTest`로 재현하고 고침 | 락 순서만 바꿔서는 고쳐지지 않았다(REPEATABLE READ의 스냅샷). TROUBLESHOOTING T-005 |
+| R9 | ~~대표 지정에도 같은 경쟁 상태~~ **발견·해결(2026-10-12)** | `PlaceCandidateService.setRepresentative`도 후보를 먼저 읽고 락을 잡은 뒤 다시 확인하지 않았다. R7을 고치다가 찾았다 | 같은 테스트 클래스에서 재현하고 같은 방법으로 고침 |
 | R6 | 소프트 삭제 일관성 | `Plan.softDelete()`는 하위 카테고리/후보/트리거를 지우지 않음. stats 쿼리 중 일부만 `p.deletedAt is null` 필터 (예: `TriggerRepository.countByOwnerIdAndPeriod`는 필터 없음) | 삭제한 플랜의 트리거가 통계에 섞임. 안전망 테스트에서 "현재 동작"으로 기록할지 결정 필요 |
+| R8 | **통계 응답의 `categoryTypes`가 항상 null** | `PlanStatsItem.categoryTypes`를 채우는 코드는 삭제한 `PlanStatsJoinService`에만 있었다. 지금 API가 쓰는 `PlanStatsMaterializedService`는 이 필드를 채우지 않는다 | `GET /api/v1/stats/plans` 응답에 카테고리 정보가 빠진다. API를 통합할 때 누락된 것으로 보인다. Stats를 떼면서 읽기 모델을 다시 만들 때 고친다 |
 
 ---
 
@@ -315,16 +327,17 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 
 **모듈 경계 — 다른 모듈의 Repository·Entity 직접 사용**
 
-| 모듈 | 2026-10-08 |
-|---|---|
-| recommendation | 131 |
-| stats | 109 |
-| auth | 67 |
-| plan | 58 |
-| trigger | 38 |
-| place | 32 |
-| user | 0 |
-| s3 | 0 |
+| 모듈 | 2026-10-08 | 2026-10-12 |
+|---|---|---|
+| recommendation | 131 | 131 |
+| stats | 109 | 94 |
+| auth | 67 | 67 |
+| plan | 58 | 58 |
+| trigger | 38 | 38 |
+| place | 32 | 32 |
+| user | 0 | 0 |
+| s3 | 0 | 0 |
+| 합계 | 435 | 420 |
 
 **컨텍스트 기준으로 다시 보기 (2026-10-12)**
 
@@ -344,23 +357,49 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 | stats → plan | 36 | 경계 위반 |
 | plan → user | 6 | 경계 위반 |
 
-컨텍스트 내부 참조가 약 189건(43%), 실제로 끊어야 하는 경계 위반이 약 246건이다. ArchUnit 규칙의 모듈 정의를 컨텍스트 기준으로 바꾸는 일은 2단계에서 패키지를 옮길 때 함께 한다.
+컨텍스트 내부 참조가 약 189건(43%), 실제로 끊어야 하는 경계 위반이 약 246건이다. (이 표는 경계를 확정한 시점의 집계다. 그 뒤 죽은 코드 삭제로 stats → plan이 15건 줄어 실제 경계 위반은 약 231건이 됐다.) ArchUnit 규칙의 모듈 정의를 컨텍스트 기준으로 바꾸는 일은 2단계에서 패키지를 옮길 때 함께 한다.
+
+**컨텍스트 기준 기준선**
+
+장소 후보를 `plan` 패키지로 옮기고 ArchUnit의 경계를 컨텍스트 단위로 바꾼 뒤 다시 기록한 기준선이다. 
+
+| 컨텍스트 | 포함 패키지 | 위반 | 무엇을 넘나 |
+|---|---|---|---|
+| Identity | auth, user | 0 | |
+| Planning | plan, trigger | 49 → **0** (2026-10-13) | Place Catalog의 `PlaceCategoryType`·`Place`, Identity의 `UserRepository`·`User`·`UserProfile`. 공개 API로 바꿔 전부 끊었다 |
+| Place Catalog | place | 0 | |
+| Recommendation | recommendation | 131 → 105 → 65 → **0** (2026-10-13) | Planning. Place Catalog의 enum과 `Place`는 더 쓰지 않는다 |
+| Stats | stats | 94 → 63 → **0** (2026-10-13) | Planning. `TriggerType`·`DecisionType`은 공개 패키지(`trigger.api`)로 옮겨 더 세지 않는다 |
+| File | s3 | 0 | |
+| 합계 | | 274 → 199 → 128 → 65 → **0** (2026-10-13) | 패키지 기준 420건에서 146건이 컨텍스트 내부 참조로 빠졌다 |
+
+추정보다 많은 이유: `plan → place` 52건 대부분이 후보가 아니라 `PlaceCategoryType` enum을 쓰는 것이었다. 카테고리 타입은 플랜의 카테고리가 가지는 값인데 enum이 `place.domain`에 있었다. 2026-10-13에 Catalog 소유로 두고 공개 API 패키지(`place.api`)로 옮겼다. Planning으로 옮기면 Catalog의 검색이 Planning을 import하게 되어 "나가는 의존 0"이 깨지기 때문이다.
+
+**공개 API 사용 (2026-10-13 추가)**
+
+공개 API(`api` 패키지)를 연 컨텍스트를 다른 컨텍스트가 `api` 패키지 밖으로 쓰는 건수다. 위 표가 Repository·Entity만 본다면 이 표는 서비스·DTO·ErrorCase까지 본다.
+
+| 공개 API를 연 컨텍스트 | 위반 | 누가 무엇을 |
+|---|---|---|
+| Place Catalog (`place.api`) | 17 → **0** (2026-10-13) | Recommendation이 `PlaceSearchService`·`PlaceSearchResponse`·`PlaceErrorCase`를 쓰던 것을 `PlaceSearchApi`로 바꿨다 |
+| Identity (`user.api`) | 0 | |
+| Planning (`plan.api`, `trigger.api`) | 0 (2026-10-13 규칙 추가) | |
 
 **구조·코딩 규칙**
 
 | 규칙 | 2026-10-08 |
 |---|---|
-| `new ApplicationException(...)` (from 사용) | 88 |
+| `new ApplicationException(...)` (from 사용) | 88 (2026-10-12: 80, 2026-10-13: 71) |
 | DTO가 `*Request`/`*Response` record가 아님 | 41 |
-| 컨트롤러가 `{Domain}Api`를 구현하지 않음 | 17 |
-| `@Transactional` 서비스의 클래스 readOnly 선언 없음 | 14 |
+| 컨트롤러가 `{Domain}Api`를 구현하지 않음 | 17 (2026-10-12: 16) |
+| `@Transactional` 서비스의 클래스 readOnly 선언 없음 | 14 (2026-10-13: 12) |
 | domain·service의 `LocalDateTime.now()` (Clock 미사용) | 11 |
 | domain의 `IllegalArgumentException`·`IllegalStateException` | 10 |
-| global이 도메인 모듈에 의존 (C3) | 8 |
+| global이 도메인 모듈에 의존 (C3) | 8 (2026-10-13: 6, 전부 인증) |
 | ErrorCase 코드 중복 | 8 |
 | 엔티티 public 기본 생성자 | 6 |
 | 필드 주입(`@Value` 필드 포함) | 5 |
-| 다른 모듈의 이벤트 클래스 생성 (C2) | 2 |
+| 다른 모듈의 이벤트 클래스 생성 (C2) | 2 (2026-10-13: 0) |
 | 엔티티 public setter | 2 |
 | 레이어 방향, 표준 출력, private `@Transactional`, enum ORDINAL | 0 |
 
@@ -372,6 +411,15 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|---|
 | 2026-10-08 | v0 | 최초 작성 (코드 수정 없이 분석) |
 | 2026-10-08 | v0.1 | 경계 위반 기준선(ArchUnit) 추가 |
+| 2026-10-13 | v1.9 | 공통 예외 핸들러의 도메인 의존 제거. global → 도메인 8 → 6 (남은 것은 인증, 6단계) |
+| 2026-10-13 | v1.8 | Recommendation이 Planning·Place Catalog를 공개 API로만 쓰게 변경. Recommendation 65 → 0, Catalog `api` 밖 사용 17 → 0. 컨텍스트 사이의 Repository·Entity 직접 사용이 0이 됐다 |
+| 2026-10-13 | v1.7 | Stats가 Planning을 공개 API(`plan.api`, `trigger.api`)로만 쓰게 변경, 이벤트를 `trigger.api.event`로 이동. Stats 63 → 0, C2 해결, 합계 65 |
+| 2026-10-13 | v1.6 | `TriggerType`·`DecisionType`을 `trigger.api`로 이동. Recommendation 105 → 65, Stats 94 → 63, 합계 128 |
+| 2026-10-13 | v1.5 | Planning이 Place Catalog·Identity를 공개 API로만 쓰게 변경. Planning 기준선 49 → 0, 합계 274 → 199. 공개 API 사용 표 추가 |
+| 2026-10-12 | v1.4 | R1(인가 누락) 해결 |
+| 2026-10-12 | v1.3 | R7 해결, R9(대표 지정의 같은 경쟁 상태) 발견·해결, 용어 절 추가 |
+| 2026-10-12 | v1.2 | 장소 후보를 plan 패키지로 이동, 기준선을 컨텍스트 단위로 다시 기록(11번): 420 → 274 |
+| 2026-10-12 | v1.1 | 죽은 코드 삭제 반영: 5.2 native SQL 제거, R4 해결, R8 추가, 기준선 stats 109 → 94 |
 | 2026-10-12 | v1.0 | 추출 순서 확정(9번), 남은 결정 질문 정리(10번), ADR-0001 연결 |
 | 2026-10-12 | v0.3 | 바운디드 컨텍스트 경계 확정(8번, Q1~Q3), 기준선을 컨텍스트 기준으로 다시 집계(11번) |
 | 2026-10-08 | v0.2 | 5.1 정정: `countSwitchByPlanIdAndPeriod`는 `plans`를 JOIN하지 않음, `TriggerRepository.countByPlanIdAndPeriod` 누락 추가 (boundary-auditor 감사로 발견) |

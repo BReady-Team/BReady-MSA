@@ -4,15 +4,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.plan.domain.Plan;
-import com.bready.server.plan.repository.PlanRepository;
+import com.bready.server.plan.api.PlanQueryApi;
+import com.bready.server.plan.api.PlanSummary;
 import com.bready.server.stats.domain.PlanStats;
 import com.bready.server.stats.domain.StatsPeriod;
 import com.bready.server.stats.dto.PlanStatsItem;
@@ -28,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class PlanStatsMaterializedService {
 
     private final PlanStatsRepository planStatsRepository;
-    private final PlanRepository planRepository;
+    private final PlanQueryApi planQueryApi;
 
     private static final int DEFAULT_LIMIT = 20;
     private static final int MAX_LIMIT = 50;
@@ -36,30 +33,26 @@ public class PlanStatsMaterializedService {
     public PlanStatsResponse getStats(Long ownerId, StatsPeriod period, Integer limit) {
         int size = normalizeLimit(limit);
 
-        Pageable pageable = PageRequest.of(0, size, Sort.by("planDate").descending());
-
-        List<Plan> plans = planRepository
-                .findAllByOwnerIdAndDeletedAtIsNull(ownerId, pageable)
-                .getContent();
+        List<PlanSummary> plans = planQueryApi.findRecentPlans(ownerId, size);
 
         if (plans.isEmpty()) {
             return PlanStatsResponse.empty(period);
         }
 
-        List<Long> planIds = plans.stream().map(Plan::getId).toList();
+        List<Long> planIds = plans.stream().map(PlanSummary::planId).toList();
 
         Map<Long, PlanStats> statsMap = planStatsRepository.findByPeriodAndPlanIdIn(period, planIds).stream()
                 .collect(Collectors.toMap(PlanStats::getPlanId, s -> s));
 
         List<PlanStatsItem> items = plans.stream()
                 .map(plan -> {
-                    PlanStats stats = statsMap.get(plan.getId());
+                    PlanStats stats = statsMap.get(plan.planId());
 
                     return PlanStatsItem.builder()
-                            .planId(plan.getId())
-                            .planTitle(plan.getTitle())
-                            .planDate(plan.getPlanDate())
-                            .region(plan.getRegion())
+                            .planId(plan.planId())
+                            .planTitle(plan.title())
+                            .planDate(plan.planDate())
+                            .region(plan.region())
                             .totalSwitches(stats == null ? 0L : stats.getTotalSwitches())
                             .build();
                 })

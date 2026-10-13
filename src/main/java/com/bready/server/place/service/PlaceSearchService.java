@@ -6,7 +6,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.domain.PlaceCategoryType;
+import com.bready.server.place.api.PlaceCategoryType;
+import com.bready.server.place.api.PlaceSearchApi;
+import com.bready.server.place.api.PlaceSearchResult;
 import com.bready.server.place.dto.PlaceSearchResponse;
 import com.bready.server.place.dto.kakao.KakaoPlaceDocument;
 import com.bready.server.place.exception.PlaceErrorCase;
@@ -20,10 +22,24 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class PlaceSearchService {
+public class PlaceSearchService implements PlaceSearchApi {
 
     private final KakaoPlaceClient kakaoPlaceClient;
     private final ObjectMapper objectMapper;
+
+    @Override
+    public List<PlaceSearchResult> searchPlaces(
+            PlaceCategoryType category, String keyword, Double latitude, Double longitude, Integer radius) {
+        return search(category, keyword, latitude, longitude, radius).stream()
+                .map(place -> new PlaceSearchResult(
+                        place.externalId(),
+                        place.name(),
+                        place.address(),
+                        place.latitude(),
+                        place.longitude(),
+                        place.isIndoor()))
+                .toList();
+    }
 
     public List<PlaceSearchResponse> search(
             PlaceCategoryType category, String keyword, Double latitude, Double longitude, Integer radius) {
@@ -45,10 +61,6 @@ public class PlaceSearchService {
 
             List<KakaoPlaceDocument> kakaoPlaces =
                     objectMapper.readerForListOf(KakaoPlaceDocument.class).readValue(documents.toString());
-
-            if (kakaoPlaces.isEmpty()) {
-                throw ApplicationException.from(PlaceErrorCase.PLACE_NOT_FOUND);
-            }
 
             return kakaoPlaces.stream()
                     .map(p -> PlaceSearchResponse.builder()

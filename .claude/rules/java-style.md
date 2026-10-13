@@ -85,12 +85,11 @@ DTO는 record이므로 Lombok이 필요 없다(`dto.md` 1번).
 - 상태를 문자열로 들고 다니지 않는다.
   - 나쁜 예: `Plan.status`가 `String`이고 `"ACTIVE"`를 넣는다(`plan/domain/Plan.java:34`). → enum.
 - 표시용 기본값을 서비스에 박지 않는다.
-  - 나쁜 예: 닉네임 없으면 `"사용자"` (`plan/service/PlanService.java:129`)
+  - 나쁜 예: 닉네임 없으면 `"사용자"` (`plan/service/PlanService.java:37`, 상수로만 뽑아 둔 상태)
 
 ## 9. 죽은 코드
 
 - 빈 클래스, 호출되지 않는 서비스, 쓰이지 않는 메서드는 지운다.
-  - 현재 예: `PlaceService`, `PlaceController`, `PlanStatsService`, `PlanStatsJoinService`.
 - 실험 코드는 브랜치에 남긴다.
 
 ## 10. 불변성

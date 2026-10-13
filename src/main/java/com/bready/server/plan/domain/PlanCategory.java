@@ -5,8 +5,7 @@ import java.util.List;
 import jakarta.persistence.*;
 
 import com.bready.server.global.entity.BaseEntity;
-import com.bready.server.place.domain.PlaceCandidate;
-import com.bready.server.place.domain.PlaceCategoryType;
+import com.bready.server.place.api.PlaceCategoryType;
 
 import lombok.AccessLevel;
 import lombok.Getter;

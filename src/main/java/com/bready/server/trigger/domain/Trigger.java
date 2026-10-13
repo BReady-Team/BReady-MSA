@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import com.bready.server.global.entity.BaseEntity;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
+import com.bready.server.trigger.api.TriggerType;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

@@ -1,5 +1,7 @@
 package com.bready.server.user.controller;
 
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -75,7 +77,7 @@ class UserControllerTest {
         };
 
         mockMvc = MockMvcBuilders.standaloneSetup(userController)
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler(List.of()))
                 .setCustomArgumentResolvers(currentUserResolver)
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
                 .build();

@@ -6,14 +6,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
-import com.bready.server.place.domain.PlaceCategoryType;
-import com.bready.server.plan.domain.PlanCategory;
+import com.bready.server.place.api.PlaceCategoryType;
 import com.bready.server.recommendation.ai.AiRerankResult;
 import com.bready.server.recommendation.ai.AiRerankService;
 import com.bready.server.recommendation.ai.AiRerankTarget;
 import com.bready.server.recommendation.dto.CategoryRecommendationResponse;
 import com.bready.server.recommendation.port.CategoryRecommendationPort;
-import com.bready.server.trigger.domain.TriggerType;
+import com.bready.server.trigger.api.CategoryInfo;
+import com.bready.server.trigger.api.TriggerType;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +30,7 @@ public class AiRerankCategoryRecommendationAdapter implements CategoryRecommenda
 
     @Override
     public List<CategoryRecommendationResponse.CategoryItem> recommendCategories(
-            List<PlanCategory> planCategories, PlanCategory currentCategory, TriggerType triggerType) {
+            List<CategoryInfo> planCategories, CategoryInfo currentCategory, TriggerType triggerType) {
         List<CategoryRecommendationResponse.CategoryItem> base =
                 ruleBasedAdapter.recommendCategories(planCategories, currentCategory, triggerType);
 
@@ -80,10 +80,10 @@ public class AiRerankCategoryRecommendationAdapter implements CategoryRecommenda
     }
 
     private String buildContext(
-            TriggerType triggerType, PlanCategory currentCategory, List<PlanCategory> planCategories) {
+            TriggerType triggerType, CategoryInfo currentCategory, List<CategoryInfo> planCategories) {
         String flow = planCategories.stream()
-                .sorted(Comparator.comparing(PlanCategory::getSequence))
-                .map(c -> c.getSequence() + ":" + c.getCategoryType().name())
+                .sorted(Comparator.comparing(CategoryInfo::sequence))
+                .map(c -> c.sequence() + ":" + c.categoryType().name())
                 .reduce((a, b) -> a + ", " + b)
                 .orElse("");
 
@@ -101,7 +101,7 @@ public class AiRerankCategoryRecommendationAdapter implements CategoryRecommenda
         current=%s
         planFlow=[%s]
         """
-                .formatted(triggerType, currentCategory.getCategoryType().name(), flow);
+                .formatted(triggerType, currentCategory.categoryType().name(), flow);
     }
 
     private record CategoryRerankCandidate(String id, String name, PlaceCategoryType type) implements AiRerankTarget {

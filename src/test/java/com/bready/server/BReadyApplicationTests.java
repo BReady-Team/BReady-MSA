@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import com.bready.server.support.IntegrationTestSupport;
 
+@DisplayName("애플리케이션 기동")
 class BReadyApplicationTests extends IntegrationTestSupport {
 
     @Test

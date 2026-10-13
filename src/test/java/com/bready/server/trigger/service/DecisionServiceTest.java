@@ -1,5 +1,6 @@
 package com.bready.server.trigger.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -12,8 +13,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.plan.domain.Plan;
+import com.bready.server.trigger.api.DecisionType;
 import com.bready.server.trigger.domain.Decision;
-import com.bready.server.trigger.domain.DecisionType;
 import com.bready.server.trigger.domain.Trigger;
 import com.bready.server.trigger.dto.DecisionCreateRequest;
 import com.bready.server.trigger.dto.DecisionCreateResponse;
@@ -29,6 +31,12 @@ import static org.mockito.Mockito.mock;
 @ExtendWith(MockitoExtension.class)
 class DecisionServiceTest {
 
+    private static final Long USER_ID = 1L;
+
+    private static Plan ownedPlan() {
+        return Plan.create(USER_ID, "제목", LocalDate.of(2026, 10, 20), "서울");
+    }
+
     @InjectMocks
     private DecisionService decisionService;
 
@@ -43,6 +51,7 @@ class DecisionServiceTest {
     void createDecision_success_switch() {
         Long triggerId = 1L;
         Trigger trigger = mock(Trigger.class);
+        given(trigger.getPlan()).willReturn(ownedPlan());
 
         Decision decision = mock(Decision.class);
         given(decision.getId()).willReturn(10L);
@@ -55,7 +64,7 @@ class DecisionServiceTest {
         given(decisionRepository.save(any())).willReturn(decision);
 
         DecisionCreateResponse response =
-                decisionService.createDecision(triggerId, new DecisionCreateRequest(DecisionType.SWITCH));
+                decisionService.createDecision(USER_ID, triggerId, new DecisionCreateRequest(DecisionType.SWITCH));
 
         assertThat(response.decisionId()).isEqualTo(10L);
         assertThat(response.decisionType()).isEqualTo("SWITCH");
@@ -67,7 +76,8 @@ class DecisionServiceTest {
     void createDecision_triggerNotFound() {
         given(triggerRepository.findById(1L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> decisionService.createDecision(1L, new DecisionCreateRequest(DecisionType.KEEP)))
+        assertThatThrownBy(
+                        () -> decisionService.createDecision(USER_ID, 1L, new DecisionCreateRequest(DecisionType.KEEP)))
                 .isInstanceOf(ApplicationException.class)
                 .hasMessageContaining("존재하지 않는 트리거");
     }
@@ -76,12 +86,14 @@ class DecisionServiceTest {
     @DisplayName("결정 생성 실패 - 이미 결정됨")
     void createDecision_alreadyDecided() {
         Trigger trigger = mock(Trigger.class);
+        given(trigger.getPlan()).willReturn(ownedPlan());
 
         given(triggerRepository.findById(1L)).willReturn(Optional.of(trigger));
 
         given(decisionRepository.save(any())).willThrow(DataIntegrityViolationException.class);
 
-        assertThatThrownBy(() -> decisionService.createDecision(1L, new DecisionCreateRequest(DecisionType.KEEP)))
+        assertThatThrownBy(
+                        () -> decisionService.createDecision(USER_ID, 1L, new DecisionCreateRequest(DecisionType.KEEP)))
                 .isInstanceOf(ApplicationException.class)
                 .hasMessageContaining("이미 결정이 완료된");
     }

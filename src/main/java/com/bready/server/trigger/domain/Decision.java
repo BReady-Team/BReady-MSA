@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import jakarta.persistence.*;
 
 import com.bready.server.global.entity.BaseEntity;
+import com.bready.server.trigger.api.DecisionType;
 
 import lombok.AccessLevel;
 import lombok.Getter;

@@ -1,5 +1,6 @@
 package com.bready.server.trigger.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -12,15 +13,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.repository.PlaceCandidateRepository;
 import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.repository.CategoryStateRepository;
+import com.bready.server.plan.repository.PlaceCandidateRepository;
 import com.bready.server.plan.repository.PlanCategoryRepository;
-import com.bready.server.stats.event.TriggerCreatedEvent;
+import com.bready.server.trigger.api.TriggerType;
+import com.bready.server.trigger.api.event.TriggerCreatedEvent;
 import com.bready.server.trigger.domain.Trigger;
-import com.bready.server.trigger.domain.TriggerType;
 import com.bready.server.trigger.dto.TriggerCreateRequest;
 import com.bready.server.trigger.dto.TriggerCreateResponse;
 import com.bready.server.trigger.exception.TriggerErrorCase;
@@ -35,6 +36,12 @@ import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class TriggerServiceTest {
+
+    private static final Long USER_ID = 1L;
+
+    private static Plan ownedPlan() {
+        return Plan.create(USER_ID, "제목", LocalDate.of(2026, 10, 20), "서울");
+    }
 
     @InjectMocks
     private TriggerService triggerService;
@@ -86,8 +93,8 @@ class TriggerServiceTest {
         given(trigger.getId()).willReturn(100L);
         given(trigger.getOccurredAt()).willReturn(LocalDateTime.now());
 
-        TriggerCreateResponse response =
-                triggerService.createTrigger(new TriggerCreateRequest(planId, categoryId, TriggerType.WEATHER_BAD));
+        TriggerCreateResponse response = triggerService.createTrigger(
+                USER_ID, new TriggerCreateRequest(planId, categoryId, TriggerType.WEATHER_BAD));
 
         assertThat(response.triggerId()).isEqualTo(100L);
         verify(eventPublisher).publishEvent(any(TriggerCreatedEvent.class));
@@ -97,13 +104,15 @@ class TriggerServiceTest {
     @DisplayName("트리거 생성 실패 - CategoryState 없음")
     void createTrigger_categoryStateNotFound() {
         PlanCategory category = mock(PlanCategory.class);
+        given(category.getPlan()).willReturn(ownedPlan());
 
         given(planCategoryRepository.findByIdAndPlan_IdAndDeletedAtIsNull(1L, 1L))
                 .willReturn(Optional.of(category));
 
         given(categoryStateRepository.findByCategory_Id(any())).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> triggerService.createTrigger(new TriggerCreateRequest(1L, 1L, TriggerType.FATIGUE)))
+        assertThatThrownBy(() ->
+                        triggerService.createTrigger(USER_ID, new TriggerCreateRequest(1L, 1L, TriggerType.FATIGUE)))
                 .isInstanceOf(ApplicationException.class)
                 .satisfies(ex -> {
                     ApplicationException ae = (ApplicationException) ex;
@@ -117,8 +126,8 @@ class TriggerServiceTest {
         given(planCategoryRepository.findByIdAndPlan_IdAndDeletedAtIsNull(any(), any()))
                 .willReturn(Optional.empty());
 
-        assertThatThrownBy(
-                        () -> triggerService.createTrigger(new TriggerCreateRequest(1L, 999L, TriggerType.WEATHER_BAD)))
+        assertThatThrownBy(() -> triggerService.createTrigger(
+                        USER_ID, new TriggerCreateRequest(1L, 999L, TriggerType.WEATHER_BAD)))
                 .isInstanceOf(ApplicationException.class)
                 .satisfies(ex -> {
                     ApplicationException ae = (ApplicationException) ex;

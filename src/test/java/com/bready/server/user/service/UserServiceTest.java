@@ -13,9 +13,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.s3.service.S3Uploader;
+import com.bready.server.user.api.UserSummary;
 import com.bready.server.user.domain.User;
 import com.bready.server.user.domain.UserProfile;
 import com.bready.server.user.dto.UserProfileDto;
@@ -43,6 +45,47 @@ class UserServiceTest {
 
     @InjectMocks
     private UserService userService;
+
+    @Nested
+    @DisplayName("findUserSummary")
+    class FindUserSummaryTest {
+
+        @Test
+        @DisplayName("성공 - 닉네임과 프로필 이미지를 엔티티가 아닌 UserSummary로 돌려준다")
+        void findUserSummary_success() {
+            User savedUser = User.createLocal("test@test.com", "encoded-password");
+            ReflectionTestUtils.setField(savedUser, "id", 1L);
+            UserProfile profile = UserProfile.create(savedUser, "테스터");
+            profile.changeProfileImage("imageUrl");
+            given(userRepository.findByIdWithProfile(1L)).willReturn(Optional.of(savedUser));
+
+            Optional<UserSummary> result = userService.findUserSummary(1L);
+
+            assertThat(result).contains(new UserSummary(1L, "테스터", "imageUrl"));
+        }
+
+        @Test
+        @DisplayName("성공 - 프로필이 없는 사용자는 닉네임과 이미지가 null")
+        void findUserSummary_withoutProfile() {
+            User savedUser = User.createLocal("test@test.com", "encoded-password");
+            ReflectionTestUtils.setField(savedUser, "id", 1L);
+            given(userRepository.findByIdWithProfile(1L)).willReturn(Optional.of(savedUser));
+
+            Optional<UserSummary> result = userService.findUserSummary(1L);
+
+            assertThat(result).contains(new UserSummary(1L, null, null));
+        }
+
+        @Test
+        @DisplayName("성공 - 없는 사용자는 빈 Optional")
+        void findUserSummary_notFound() {
+            given(userRepository.findByIdWithProfile(1L)).willReturn(Optional.empty());
+
+            Optional<UserSummary> result = userService.findUserSummary(1L);
+
+            assertThat(result).isEmpty();
+        }
+    }
 
     @Nested
     @DisplayName("getMyProfile")

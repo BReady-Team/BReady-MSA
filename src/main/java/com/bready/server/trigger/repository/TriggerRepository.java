@@ -8,8 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.bready.server.trigger.api.TriggerType;
 import com.bready.server.trigger.domain.Trigger;
-import com.bready.server.trigger.domain.TriggerType;
 
 public interface TriggerRepository extends JpaRepository<Trigger, Long> {
     interface TriggerTypeCount {

@@ -2,7 +2,7 @@ package com.bready.server.plan.dto;
 
 import java.util.List;
 
-import com.bready.server.place.domain.PlaceCategoryType;
+import com.bready.server.place.api.PlaceCategoryType;
 
 import lombok.Builder;
 import lombok.Getter;

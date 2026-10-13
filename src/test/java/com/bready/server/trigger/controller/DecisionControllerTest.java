@@ -10,10 +10,12 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com.bready.server.global.config.security.TestSecurityConfig;
+import com.bready.server.global.config.security.jwt.JwtAuthentication;
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.trigger.domain.DecisionType;
+import com.bready.server.trigger.api.DecisionType;
 import com.bready.server.trigger.dto.DecisionCreateRequest;
 import com.bready.server.trigger.dto.DecisionCreateResponse;
 import com.bready.server.trigger.exception.TriggerDecisionErrorCase;
@@ -24,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -31,6 +34,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(DecisionController.class)
 @Import(TestSecurityConfig.class)
 class DecisionControllerTest {
+
+    private static final Long USER_ID = 1L;
+
+    private static RequestPostProcessor asUser() {
+        return authentication(new JwtAuthentication(USER_ID));
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -54,9 +63,10 @@ class DecisionControllerTest {
                 .needSwitch(true)
                 .build();
 
-        given(decisionService.createDecision(eq(10L), any())).willReturn(response);
+        given(decisionService.createDecision(eq(USER_ID), eq(10L), any())).willReturn(response);
 
         mockMvc.perform(post("/api/v1/triggers/10/decision")
+                        .with(asUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -71,10 +81,11 @@ class DecisionControllerTest {
 
         DecisionCreateRequest request = new DecisionCreateRequest(DecisionType.KEEP);
 
-        given(decisionService.createDecision(eq(10L), any()))
+        given(decisionService.createDecision(eq(USER_ID), eq(10L), any()))
                 .willThrow(ApplicationException.from(TriggerDecisionErrorCase.DECISION_ALREADY_MADE));
 
         mockMvc.perform(post("/api/v1/triggers/10/decision")
+                        .with(asUser())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict());

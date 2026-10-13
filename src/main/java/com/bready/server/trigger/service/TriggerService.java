@@ -7,12 +7,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.repository.PlaceCandidateRepository;
 import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.repository.CategoryStateRepository;
+import com.bready.server.plan.repository.PlaceCandidateRepository;
 import com.bready.server.plan.repository.PlanCategoryRepository;
-import com.bready.server.stats.event.TriggerCreatedEvent;
+import com.bready.server.trigger.api.event.TriggerCreatedEvent;
 import com.bready.server.trigger.domain.Trigger;
 import com.bready.server.trigger.dto.TriggerCreateRequest;
 import com.bready.server.trigger.dto.TriggerCreateResponse;
@@ -32,11 +32,12 @@ public class TriggerService {
     private final PlaceCandidateRepository placeCandidateRepository;
 
     @Transactional
-    public TriggerCreateResponse createTrigger(TriggerCreateRequest request) {
+    public TriggerCreateResponse createTrigger(Long userId, TriggerCreateRequest request) {
 
         PlanCategory category = planCategoryRepository
                 .findByIdAndPlan_IdAndDeletedAtIsNull(request.categoryId(), request.planId())
                 .orElseThrow(() -> ApplicationException.from(TriggerErrorCase.PLAN_OR_CATEGORY_NOT_FOUND));
+        category.getPlan().validateOwner(userId);
 
         CategoryState state = categoryStateRepository
                 .findByCategory_Id(category.getId())

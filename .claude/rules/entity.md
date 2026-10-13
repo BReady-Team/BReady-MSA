@@ -64,7 +64,8 @@ public class Plan extends BaseEntity {
 ## 4. 규칙 검증 메서드 — 소유권·상태
 
 - 서비스에 흩어진 같은 검증은 엔티티 메서드 하나로 모은다.
-  - BReady 현황: `if (!plan.getOwnerId().equals(userId))`가 `PlanService`·`PlanCategoryService`·추천 서비스에 10번 복사돼 있다(`plan/service/PlanService.java:58` 외).
+  - Planning 안에서는 `plan.validateOwner(userId)`(403 PLAN_ACCESS_DENIED)를 쓴다. 다른 에러 코드를 던져야 하면 `plan.isOwnedBy(userId)`로 판단만 한다(카테고리 API는 CATEGORY_ACCESS_DENIED).
+  - 다른 컨텍스트가 소유권을 확인해야 하면 직접 비교하지 않고 Planning 공개 API에 맡긴다. 추천은 `TriggerContextApi.getTriggerContext(userId, triggerId)`를 부르고, 그 안에서 `plan.validateOwner(userId)`가 실행된다.
   ```java
   public void validateOwner(Long userId) {
       if (!ownerId.equals(userId)) {
@@ -92,8 +93,8 @@ public class Plan extends BaseEntity {
 | `@OneToMany` | 부모를 통해서만 생명주기가 관리되는 하위 객체일 때만. `mappedBy` 양방향은 이유가 있을 때만 |
 
 - 다른 모듈 엔티티에 대한 `@ManyToOne`/`@OneToOne`/`@OneToMany`는 **새로 만들지 않는다**. 기존 것은 2단계에서 끊는다.
-  - BReady 현황: `PlaceCandidate.category`(place → plan), `PlanCategory.candidates`(plan → place), `Trigger.plan`·`Trigger.category`(trigger → plan), `SwitchLog.fromCandidate`·`toCandidate`(trigger → place). 근거는 `docs/architecture/context-map.md` 4번.
-  - 좋은 예(이미 ID로 끊어 둔 것): `Plan.ownerId`, `CategoryState.currentCandidateId`, `PlanStats.planId`.
+  - 여기서 "다른 모듈"은 다른 컨텍스트의 모듈이다(`msa-boundary.md` 1번). `Trigger.plan`, `SwitchLog.fromCandidate`처럼 Planning 안의 연관은 끊을 대상이 아니다.
+  - 좋은 예(ID로 끊어 둔 것): `PlaceCandidate.placeId`(Planning → Place Catalog), `Plan.ownerId`, `CategoryState.currentCandidateId`, `PlanStats.planId`.
 - `cascade`는 같은 애그리거트 안에서만.
 
 ## 7. soft delete
@@ -101,7 +102,7 @@ public class Plan extends BaseEntity {
 - `BaseEntity.softDelete()`로 지운다. 하위 객체도 지워야 하면 부모 엔티티의 메서드가 책임진다.
 - 조회에서 지운 행을 빼는 방법은 **쿼리에 명시**한다(`repository-query.md` 6번). `@SQLRestriction`을 새로 추가하지 않는다.
   - 이유: 숨은 필터라 통계·관리 쿼리에서 예상과 다른 결과가 나오고, 명시 필터와 섞이면 같은 조건이 두 번 걸린다.
-  - BReady 현황: `PlaceCandidate`는 `@SQLRestriction`(`place/domain/PlaceCandidate.java:22`)과 쿼리의 `deletedAt is null`(`place/repository/PlaceCandidateRepository.java:39`)을 둘 다 쓴다.
+  - BReady 현황: `PlaceCandidate`는 `@SQLRestriction`(`plan/domain/PlaceCandidate.java:21`)과 쿼리의 `deletedAt is null`(`plan/repository/PlaceCandidateRepository.java:29`)을 둘 다 쓴다.
 
 ## 8. 시간
 
@@ -122,4 +123,4 @@ public class Plan extends BaseEntity {
 
 - 컨트롤러 응답에 엔티티를 넣지 않는다(`dto.md` 4번).
 - 다른 모듈에 엔티티를 넘기지 않는다. 포트·공개 API 시그니처에도 넣지 않는다.
-  - BReady 현황: `CategoryRecommendationPort`가 `List<PlanCategory>`를 받는다(`recommendation/port/CategoryRecommendationPort.java:12`).
+  - 좋은 예: `CategoryRecommendationPort`는 엔티티 대신 공개 record `List<CategoryInfo>`를 받는다(`recommendation/port/CategoryRecommendationPort.java`).

@@ -1,6 +1,5 @@
 com.bready.server.auth.controller.AuthController does not implement AuthApi
-com.bready.server.place.controller.PlaceCandidateController does not implement PlaceCandidateApi
-com.bready.server.place.controller.PlaceController does not implement PlaceApi
+com.bready.server.plan.controller.PlaceCandidateController does not implement PlaceCandidateApi
 com.bready.server.place.controller.PlaceSearchController does not implement PlaceSearchApi
 com.bready.server.plan.controller.PlanCategoryController does not implement PlanCategoryApi
 com.bready.server.plan.controller.PlanController does not implement PlanApi

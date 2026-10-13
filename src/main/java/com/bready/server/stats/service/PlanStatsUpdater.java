@@ -10,8 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bready.server.stats.domain.PlanStats;
 import com.bready.server.stats.domain.StatsPeriod;
 import com.bready.server.stats.repository.PlanStatsRepository;
-import com.bready.server.trigger.repository.SwitchLogRepository;
-import com.bready.server.trigger.repository.TriggerRepository;
+import com.bready.server.trigger.api.ActivityQueryApi;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,17 +20,16 @@ import lombok.RequiredArgsConstructor;
 public class PlanStatsUpdater {
 
     private final PlanStatsRepository planStatsRepository;
-    private final TriggerRepository triggerRepository;
-    private final SwitchLogRepository switchLogRepository;
+    private final ActivityQueryApi activityQueryApi;
 
     @Transactional
     public void recalculate(Long planId, StatsPeriod period) {
 
         LocalDateTime from = resolveFrom(period);
 
-        long triggerCount = triggerRepository.countByPlanIdAndPeriod(planId, from);
+        long triggerCount = activityQueryApi.countTriggersOfPlan(planId, from);
 
-        long switchCount = switchLogRepository.countSwitchByPlanIdAndPeriod(planId, from);
+        long switchCount = activityQueryApi.countSwitchesOfPlan(planId, from);
 
         BigDecimal reliability = calculateReliability(triggerCount, switchCount);
 

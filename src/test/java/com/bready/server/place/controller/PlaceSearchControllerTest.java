@@ -13,7 +13,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.bready.server.global.exception.GlobalExceptionHandler;
-import com.bready.server.place.domain.PlaceCategoryType;
+import com.bready.server.place.api.PlaceCategoryType;
 import com.bready.server.place.dto.PlaceSearchResponse;
 import com.bready.server.place.exception.PlaceErrorCase;
 import com.bready.server.place.service.PlaceSearchService;

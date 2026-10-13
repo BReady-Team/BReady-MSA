@@ -13,22 +13,6 @@ import org.springframework.data.repository.query.Param;
 import com.bready.server.plan.domain.PlanCategory;
 
 public interface PlanCategoryRepository extends JpaRepository<PlanCategory, Long> {
-    interface PlanCategoryTypeRow {
-        Long getPlanId();
-
-        String getCategoryType();
-    }
-
-    @Query(
-            """
-        select
-            pc.plan.id as planId,
-            pc.categoryType as categoryType
-        from PlanCategory pc
-        join pc.plan p
-        where p.ownerId = :ownerId
-    """)
-    List<PlanCategoryTypeRow> findCategoryTypesByOwner(@Param("ownerId") Long ownerId);
 
     Optional<PlanCategory> findByIdAndPlan_IdAndDeletedAtIsNull(Long id, Long planId);
 
@@ -48,13 +32,12 @@ public interface PlanCategoryRepository extends JpaRepository<PlanCategory, Long
     // 장소 후보쪽에서 category가 plan에 속하는지 검증하기 위해서 추가
     Optional<PlanCategory> findByIdAndPlan_Id(Long id, Long planId);
 
-    // 플랜 상세 조회 - 카테고리 + 후보 + place
+    // 플랜 상세 조회 - 카테고리 + 후보, 장소 정보는 Place Catalog 소유라 JOIN하지 않는다
     @Query(
             """
         select distinct pc
         from PlanCategory pc
         left join fetch pc.candidates cand
-        left join fetch cand.place
         where pc.plan.id = :planId
           and pc.deletedAt is null
           and (cand is null or cand.deletedAt is null)
@@ -73,16 +56,4 @@ public interface PlanCategoryRepository extends JpaRepository<PlanCategory, Long
     """)
     Optional<PlanCategory> findAliveByIdAndPlanIdForUpdate(
             @Param("planCategoryId") Long planCategoryId, @Param("planId") Long planId);
-
-    @Query(
-            """
-        select
-            pc.plan.id as planId,
-            pc.categoryType as categoryType
-        from PlanCategory pc
-        where pc.plan.id in :planIds
-          and pc.deletedAt is null
-        order by pc.plan.id asc, pc.sequence asc
-    """)
-    List<PlanCategoryTypeRow> findCategoryTypesByPlanIds(@Param("planIds") List<Long> planIds);
 }

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.*;
 
+import com.bready.server.global.auth.CurrentUser;
 import com.bready.server.global.response.CommonResponse;
 import com.bready.server.trigger.dto.DecisionCreateRequest;
 import com.bready.server.trigger.dto.DecisionCreateResponse;
@@ -27,6 +28,10 @@ public class DecisionController {
     @Operation(summary = "트리거 결정 등록", description = "발생한 트리거에 대해 유지(KEEP) 또는 전환(SWITCH)을 결정합니다.")
     @ApiResponses({
         @ApiResponse(
+                responseCode = "403",
+                description = "플랜 소유자가 아님 (4002)",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
                 responseCode = "200",
                 description = "결정 성공",
                 content = @Content(schema = @Schema(implementation = CommonResponse.class))),
@@ -40,7 +45,7 @@ public class DecisionController {
                 content = @Content(schema = @Schema(implementation = CommonResponse.class)))
     })
     public CommonResponse<DecisionCreateResponse> createDecision(
-            @PathVariable Long triggerId, @RequestBody @Valid DecisionCreateRequest request) {
-        return CommonResponse.success(decisionService.createDecision(triggerId, request));
+            @CurrentUser Long userId, @PathVariable Long triggerId, @RequestBody @Valid DecisionCreateRequest request) {
+        return CommonResponse.success(decisionService.createDecision(userId, triggerId, request));
     }
 }

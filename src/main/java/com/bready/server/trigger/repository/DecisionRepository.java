@@ -9,9 +9,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.bready.server.trigger.api.DecisionType;
+import com.bready.server.trigger.api.TriggerType;
 import com.bready.server.trigger.domain.Decision;
-import com.bready.server.trigger.domain.DecisionType;
-import com.bready.server.trigger.domain.TriggerType;
 
 public interface DecisionRepository extends JpaRepository<Decision, Long> {
     interface KeepDecisionActivityRow {
@@ -93,7 +93,7 @@ public interface DecisionRepository extends JpaRepository<Decision, Long> {
         join t.plan p
         where p.ownerId = :ownerId
           and p.deletedAt is null
-          and d.decisionType = com.bready.server.trigger.domain.DecisionType.KEEP
+          and d.decisionType = com.bready.server.trigger.api.DecisionType.KEEP
           and (:startAt is null or d.decidedAt >= :startAt)
         order by d.decidedAt desc
     """)

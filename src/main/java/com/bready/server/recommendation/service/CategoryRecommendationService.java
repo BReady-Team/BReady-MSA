@@ -9,6 +9,8 @@ import com.bready.server.recommendation.cache.CategoryRecommendationCacheService
 import com.bready.server.recommendation.dto.CategoryRecommendationRequest;
 import com.bready.server.recommendation.dto.CategoryRecommendationResponse;
 import com.bready.server.recommendation.port.CategoryRecommendationPort;
+import com.bready.server.trigger.api.TriggerContext;
+import com.bready.server.trigger.api.TriggerContextApi;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CategoryRecommendationService {
 
     private final CategoryRecommendationPort categoryRecommendationPort;
-    private final RecommendValidationService validationService;
+    private final TriggerContextApi triggerContextApi;
     private final CategoryRecommendationCacheService categoryRecommendationCacheService;
 
     @Transactional(readOnly = true)
@@ -27,7 +29,7 @@ public class CategoryRecommendationService {
 
         long start = System.currentTimeMillis();
 
-        RecommendValidationService.Validated v = validationService.validateUserAndLoad(userId, request);
+        TriggerContext context = triggerContextApi.getTriggerContext(userId, request.triggerId());
         long t1 = System.currentTimeMillis();
 
         String cacheKey = categoryRecommendationCacheService.generateKey(request.triggerId());
@@ -40,7 +42,7 @@ public class CategoryRecommendationService {
         }
 
         List<CategoryRecommendationResponse.CategoryItem> items = categoryRecommendationPort.recommendCategories(
-                v.planCategories(), v.currentCategory(), v.trigger().getTriggerType());
+                context.planCategories(), context.currentCategory(), context.triggerType());
         long t2 = System.currentTimeMillis();
 
         log.info("categoryReco validate={}ms, recommend={}ms, total={}ms", t1 - start, t2 - t1, t2 - start);

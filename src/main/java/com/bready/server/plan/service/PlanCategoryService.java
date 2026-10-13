@@ -11,14 +11,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.domain.PlaceCandidate;
-import com.bready.server.place.repository.PlaceCandidateRepository;
+import com.bready.server.plan.domain.PlaceCandidate;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.dto.*;
 import com.bready.server.plan.exception.CategoryErrorCase;
 import com.bready.server.plan.exception.PlanErrorCase;
 import com.bready.server.plan.repository.CategoryStateRepository;
+import com.bready.server.plan.repository.PlaceCandidateRepository;
 import com.bready.server.plan.repository.PlanCategoryRepository;
 import com.bready.server.plan.repository.PlanRepository;
 
@@ -40,8 +40,8 @@ public class PlanCategoryService {
                 .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
-        if (!plan.getOwnerId().equals(userId)) {
-            throw new ApplicationException(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
+        if (!plan.isOwnedBy(userId)) {
+            throw ApplicationException.from(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
         }
 
         PlanCategory last = planCategoryRepository.findLastByPlanId(planId, PageRequest.of(0, 1)).stream()
@@ -68,8 +68,8 @@ public class PlanCategoryService {
                 .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
-        if (!plan.getOwnerId().equals(userId)) {
-            throw new ApplicationException(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
+        if (!plan.isOwnedBy(userId)) {
+            throw ApplicationException.from(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
         }
 
         PlanCategory category = planCategoryRepository
@@ -93,8 +93,8 @@ public class PlanCategoryService {
                 .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
-        if (!plan.getOwnerId().equals(userId)) {
-            throw new ApplicationException(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
+        if (!plan.isOwnedBy(userId)) {
+            throw ApplicationException.from(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
         }
 
         List<PlanCategoryOrderUpdateRequest.OrderItem> orders = request.getOrders();
@@ -170,8 +170,8 @@ public class PlanCategoryService {
                 .findByIdAndDeletedAtIsNullForUpdate(planId)
                 .orElseThrow(() -> new ApplicationException(PlanErrorCase.PLAN_NOT_FOUND));
 
-        if (!plan.getOwnerId().equals(userId)) {
-            throw new ApplicationException(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
+        if (!plan.isOwnedBy(userId)) {
+            throw ApplicationException.from(CategoryErrorCase.CATEGORY_ACCESS_DENIED);
         }
 
         PlanCategory category = planCategoryRepository

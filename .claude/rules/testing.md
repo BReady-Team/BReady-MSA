@@ -114,7 +114,7 @@ class PlanControllerTest {
 
 ## 9. 동시성 테스트
 
-- 경쟁 상태(R7 같은)는 통합 테스트에서 `ExecutorService` + `CountDownLatch`로 같은 시점에 요청을 보내 재현한다.
+- 경쟁 상태는 통합 테스트에서 재현한다. "동시에 여러 번 보내 보기"는 운에 달려 있으므로, 순서를 강제한다: 테스트가 락을 먼저 쥐고 요청들을 차례로 대기시킨 뒤 푼다(`integration/CandidateDeletionRaceIntegrationTest`).
 - 재현하지 못한 동시성 버그를 "고쳤다"고 하지 않는다.
 
 ## 10. 금지 목록

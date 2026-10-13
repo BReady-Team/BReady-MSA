@@ -5,7 +5,7 @@
 컨트롤러가 하는 일은 네 가지뿐이다: **HTTP 매핑 · 형식 검증 · 인증 사용자 주입 · 서비스 호출 결과를 `CommonResponse`로 감싸기**.
 
 - 비즈니스 판단, 조회 결과에 따른 분기, 예외 던지기를 하지 않는다.
-  - BReady 현황: `PlaceSearchController`가 위도/경도 짝 검증과 "결과 없음" 예외를 직접 던진다(`place/controller/PlaceSearchController.java:91,98`). 후자는 서비스가 이미 같은 예외를 던져서 중복이다.
+  - BReady 현황: `PlaceSearchController`가 위도/경도 짝 검증과 "결과 없음" 예외를 직접 던진다(`place/controller/PlaceSearchController.java:91,98`). 서비스는 결과가 없으면 빈 목록을 돌려주고, "없음"을 404로 바꾸는 판단이 아직 컨트롤러에 있다.
 - 리포지토리를 주입하지 않는다. 서비스는 하나만 주입하는 것을 기본으로 한다.
 - 한 엔드포인트는 서비스 메서드 하나를 부른다.
 
@@ -82,7 +82,7 @@ public class PlanController implements PlanApi {
 
 - 인증이 필요한 엔드포인트는 `@CurrentUser Long userId`로 받는다. `SecurityContextHolder`를 직접 쓰지 않는다.
 - **사용자 데이터를 바꾸는 모든 엔드포인트는 `userId`를 받아 소유권을 검증한다.** [리뷰]
-  - BReady 현황(IDOR): 장소 후보·트리거·결정·전환 엔드포인트에 `@CurrentUser`가 없다. 2단계에서 공개 API와 함께 고친다.
+  - 장소 후보·트리거·결정·전환 엔드포인트도 `@CurrentUser`를 받고 서비스가 `plan.validateOwner(userId)`로 확인한다. `integration/PlanningAuthorizationIntegrationTest`가 지킨다.
 - 인증 방식(JWT 필터·`SecurityConfig`)은 6단계 전까지 바꾸지 않는다.
 
 ## 6. 응답
