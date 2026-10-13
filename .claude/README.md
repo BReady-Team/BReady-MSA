@@ -87,7 +87,8 @@ CLAUDE.md  →  rules/*.md (작업별)  →  skills/* (절차)  →  실제 코�
 - 테스트: `src/test/java/com/bready/server/architecture/` (레이어 · 코딩 규칙 · 모듈 경계)
 - 기준선: `src/test/resources/archunit_store/`. 기록된 옛 위반은 통과, 새 위반은 실패. 위반을 고치면 테스트가 기준선에서 지운다.
 - 기준선은 **규칙 설명 문자열**이 키다. `because(...)`를 바꾸면 새 규칙이 된다.
-- 새 규칙 추가: `archunit.properties`의 `allowStoreCreation`을 잠깐 `true` → 실행 → `false`. 기준선을 손으로 고쳐 새 위반을 인정하지 않는다.
+- 새 규칙 추가: `archunit.properties`의 `freeze.store.allowNewRules`를 잠깐 `true` → 실행 → `false`. 만들어진 기준선의 건수를 확인한다. 기준선을 손으로 고쳐 새 위반을 인정하지 않는다.
+- 기준선에 없는 규칙을 만나면 `RatchetViolationStore`가 빌드를 실패시킨다. 규칙의 `because(...)` 문구만 고쳐도 없는 규칙이 되므로, 문구를 고칠 때는 `stored.rules`의 그 줄도 함께 바꾼다(TROUBLESHOOTING T-006).
 - 현재 수치: `docs/architecture/context-map.md` 11번.
 
 ## 검증 · 수정
