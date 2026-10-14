@@ -13,6 +13,9 @@
 | [T-005](#t-005) | 2026-10-12 | 락을 먼저 잡도록 고쳤는데도 삭제된 후보가 대표로 지정됨 | 2-3 |
 | [T-006](#t-006) | 2026-10-13 | 테스트는 전부 통과하는데 ArchUnit 경계 기준선 9개가 통째로 새로 만들어짐 | 2-6 |
 | [T-007](#t-007) | 2026-10-13 | 통계 API에 잘못된 `period`를 주면 에러 코드 6003 대신 본문 없는 400 | 2-6 |
+| [T-008](#t-008) | 2026-10-14 | Gateway를 거친 요청에 `X-Forwarded-*` 헤더가 하나도 없음 | 3-2 |
+| [T-009](#t-009) | 2026-10-14 | 모놀리식이 허용하는 Origin인데 Gateway를 거치면 CORS preflight가 403 | 3-2 |
+| [T-010](#t-010) | 2026-10-14 | Gateway 첫 요청 때 `MacOSDnsServerAddressStreamProvider` ERROR 로그 | 3-2 |
 
 ---
 
@@ -294,3 +297,86 @@ Status = 400, Body = (비어 있음)
 
 - 에러 응답은 핸들러가 직접 만들어 반환한다. 핸들러 안에서 다른 예외를 던져 다른 핸들러에 넘기는 방식은 동작하지 않는다.
 - 코드를 읽고 "응답은 그대로다"라고 말할 뻔했다. 구조를 바꾸기 전에 실제 응답을 테스트로 먼저 고정하면, 코드의 의도와 실제 동작이 다른 곳이 이때 드러난다.
+
+---
+
+## T-008
+
+**증상**
+
+Gateway가 원래 Host를 `X-Forwarded-Host`로 넘긴다고 예상하고 테스트를 썼다. 실패했다.
+```
+GatewayRoutingTest > 성공 - Host는 모놀리식 주소로 바뀌고 원래 Host는 X-Forwarded-Host로 넘어간다 FAILED
+expected: "localhost:51020"
+ but was: null
+```
+
+**원인을 좁힌 과정**
+
+1. WireMock 설정이 헤더를 못 남기는 줄 알았다. 틀렸다. 헤더를 그대로 찍는 서버를 8080에 띄우고 Gateway로 요청을 보내 보니 `host: localhost:8080`, `Authorization`만 있고 `X-Forwarded-*`·`Forwarded`가 하나도 없었다.
+2. Gateway 4.3 jar의 `GatewayAutoConfiguration`을 열어 보니 `XForwardedHeadersFilter` 빈에 `TrustedProxies$XForwardedTrustedProxiesCondition` 조건이 붙어 있었다.
+
+**원인**
+
+Spring Cloud Gateway 4.3부터 `spring.cloud.gateway.server.webflux.trusted-proxies`를 설정하지 않으면 X-Forwarded·Forwarded 필터가 만들어지지 않는다. 예전에는 무조건 붙였는데, 클라이언트가 직접 넣어 보낸 `X-Forwarded-For`도 그대로 믿고 넘겨서 뒤쪽 서버가 위조된 IP를 믿는 문제가 있었다.
+
+**해결**
+
+모놀리식에 Host로 URL을 만들거나 클라이언트 IP를 쓰는 코드가 0건이라 켜지 않았다. 테스트를 "Host는 모놀리식 주소로 바뀌고 X-Forwarded 헤더는 붙지 않는다"로 바꿔, 누가 켜면 깨지게 고정했다(`trusted-proxies: ".*"`로 켜서 실패하는 것 확인).
+
+**배운 것**
+
+- 옛 버전 기준 지식으로 기본 동작을 예상하면 틀린다. 예상이 틀렸을 때는 실제로 도착한 요청을 찍어 보고, 라이브러리의 조건을 직접 확인한다.
+- 켤 때는 `.*`가 아니라 실제 프록시 주소만 믿게 한다. 모두 믿으면 위조를 막으려고 꺼 둔 의미가 없다.
+
+---
+
+## T-009
+
+**증상**
+
+같은 요청을 모놀리식 직접(`:8080`)과 Gateway 경유(`:8000`)로 보내 비교했다. 모놀리식이 허용하는 Origin의 preflight만 결과가 달랐다.
+```
+=== :8080  OPTIONS /api/v1/plans, Origin: http://localhost:5173
+HTTP/1.1 200
+Access-Control-Allow-Origin: http://localhost:5173
+X-Frame-Options: DENY ...
+
+=== :8000  같은 요청
+HTTP/1.1 403 Forbidden
+Vary: Origin ...
+content-length: 0
+```
+
+**원인을 좁힌 과정**
+
+1. Gateway가 `Origin` 헤더를 지워서 모놀리식이 거절한 줄 알았다. 틀렸다. 403 응답에 모놀리식의 보안 헤더(`X-Frame-Options` 등)가 없었다. 모놀리식까지 가지 않고 Gateway가 답한 것이다.
+2. `Origin` 없는 OPTIONS는 `:8000`에서도 200이었다. preflight(Origin + `Access-Control-Request-Method`)만 막힌다.
+
+**원인**
+
+Gateway는 WebFlux 위에서 돈다. WebFlux의 핸들러 매핑은 preflight 요청을 라우트로 넘기지 않고 그 자리에서 자기 CORS 설정으로 판정한다. Gateway에 CORS 설정이 없으니 전부 거절했다. "CORS는 모놀리식에 둔다"는 설계가 Gateway 뒤에서는 성립하지 않았다.
+
+**해결**
+
+CORS를 Gateway(`globalcors`)로 옮기고 모놀리식은 `.cors(cors -> cors.disable())`로 껐다. 양쪽에 두면 실제 응답에 `Access-Control-Allow-Origin`이 두 번 붙어 브라우저가 거부한다. preflight와 실제 요청을 고정하는 `GatewayCorsTest`를 먼저 써서 실패를 확인하고 고쳤다.
+
+**배운 것**
+
+- 프록시를 끼우면 "그대로 전달된다"고 가정한 것 중 일부는 프록시가 직접 처리한다. preflight가 그렇다.
+- 자동 테스트에 preflight 시나리오가 없어서 실제 기동 비교에서 처음 드러났다. 가짜 서버 테스트는 내가 떠올린 경우만 검사한다.
+
+---
+
+## T-010
+
+**증상**
+```
+ERROR ... i.n.r.d.DnsServerAddressStreamProviders : Unable to load io.netty.resolver.dns.macos.MacOSDnsServerAddressStreamProvider, fallback to system defaults. This may result in incorrect DNS resolutions on MacOS.
+```
+
+**원인**: Netty가 macOS용 네이티브 DNS 라이브러리(`netty-resolver-dns-native-macos`)를 찾지 못해 시스템 기본 DNS 설정으로 대신 동작한다는 알림이다. Apple Silicon Mac에서 Gateway(WebFlux·Netty)를 띄우면 나온다.
+
+**해결**: 두었다. 로컬에서 `localhost`만 부르고 라우팅은 정상이다. 없애려면 `runtimeOnly 'io.netty:netty-resolver-dns-native-macos::osx-aarch_64'`를 추가하면 되지만, 의존성을 최소로 두기로 해서 넣지 않았다.
+
+**배운 것**: ERROR 레벨이라도 동작에 영향이 없는 로그가 있다. 레벨이 아니라 내용(무엇을 대신 했는가)을 읽는다.

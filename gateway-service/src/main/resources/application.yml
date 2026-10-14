@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # preflight는 라우트로 가지 않아 모놀리식이 판정할 수 없다. CORS는 Gateway 한 곳에서만
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowed-origins:
+                  - http://localhost:5173
+                  - https://bready-app.vercel.app
+                allowed-methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+                allowed-headers: "*"
+                allow-credentials: true
+          routes:
+            - id: monolith
+              uri: ${MONOLITH_URI:http://localhost:8080}
+              predicates:
+                - Path=/**
+
+server:
+  port: ${SERVER_PORT:8000}
