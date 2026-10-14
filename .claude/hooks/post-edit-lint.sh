@@ -18,12 +18,14 @@ NEW="$(printf '%s' "$HOOK_INPUT" | jq -r '[.tool_input.content, .tool_input.new_
 
 # 파일 전체 문맥이 필요한 판단(엔티티인가)은 디스크의 현재 파일로 한다.
 FULL="$(cat "$FILE" 2>/dev/null)"
+# 경로는 {서비스}/src/... (서비스마다 독립 Gradle 프로젝트)
+SERVICE="${REL%%/*}"
 IS_TEST=0
-case "$REL" in src/test/*) IS_TEST=1 ;; esac
+case "$REL" in */src/test/*) IS_TEST=1 ;; esac
 IS_ENTITY=0
 printf '%s' "$FULL" | grep -q '^@Entity' && IS_ENTITY=1
 
-MODULE="$(printf '%s' "$REL" | sed -nE 's#^src/(main|test)/java/com/bready/server/([a-z0-9]+)/.*#\2#p')"
+MODULE="$(printf '%s' "$REL" | sed -nE 's#^[a-z0-9-]+/src/(main|test)/java/com/bready/server/([a-z0-9]+)/.*#\2#p')"
 
 HITS=()
 hit() { HITS+=("$1"); }
@@ -77,7 +79,7 @@ if [ "$IS_TEST" -eq 1 ]; then
   has 'Strictness\.LENIENT' && hit "LENIENT 대신 쓰지 않는 stub을 지운다 (testing.md 3번)"
   has 'standaloneSetup\(' && hit "standaloneSetup 대신 @WebMvcTest(controllers = …) (testing.md 6번)"
 
-  ENTITIES="$(grep -rl '^@Entity' "$PROJECT_DIR/src/main/java" 2>/dev/null | xargs -n1 basename 2>/dev/null | sed 's/\.java$//' | paste -sd '|' -)"
+  ENTITIES="$(grep -rl '^@Entity' "$PROJECT_DIR/$SERVICE/src/main/java" 2>/dev/null | xargs -n1 basename 2>/dev/null | sed 's/\.java$//' | paste -sd '|' -)"
   if [ -n "$ENTITIES" ] && has "mock\((${ENTITIES})\.class\)"; then
     hit "엔티티를 mock하지 않는다. fixture로 진짜 객체를 만든다 (testing.md 5번)"$'\n'"$(show "mock\((${ENTITIES})\.class\)")"
   fi

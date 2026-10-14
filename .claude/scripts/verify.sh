@@ -8,7 +8,9 @@
 # 실패해도 다음 단계를 계속 돌린다. 어디가 깨졌는지 한 번에 보기 위해서다.
 
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel)" || exit 1
+# 서비스마다 독립 Gradle 프로젝트. 지금 Java 서비스는 모놀리식 하나뿐이다
+SERVICE_DIR="monolith"
+cd "$(git rev-parse --show-toplevel)/$SERVICE_DIR" || exit 1
 
 FAST=0
 [ "${1:-}" = "--fast" ] && FAST=1
@@ -28,7 +30,7 @@ run_step() {
     RESULTS+=("통과  ${name} ($((end - start))s)")
   else
     end=$(date +%s)
-    RESULTS+=("실패  ${name} ($((end - start))s) → ${log}")
+    RESULTS+=("실패  ${name} ($((end - start))s) → ${SERVICE_DIR}/${log}")
     FAILED=1
   fi
 }
@@ -40,7 +42,7 @@ if [ "$FAST" -eq 0 ]; then
   run_step test ./gradlew test --console=plain
 fi
 
-printf '\n검증 결과\n'
+printf '\n검증 결과 (%s)\n' "$SERVICE_DIR"
 for r in "${RESULTS[@]}"; do printf '  %s\n' "$r"; done
 
 if [ "$FAST" -eq 0 ] && ls build/test-results/test/*.xml > /dev/null 2>&1; then
