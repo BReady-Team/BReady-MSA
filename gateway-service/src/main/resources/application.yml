@@ -1,6 +1,15 @@
 spring:
   application:
     name: gateway-service
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: monolith
+              uri: ${MONOLITH_URI:http://localhost:8080}
+              predicates:
+                - Path=/**
 
 server:
   port: ${SERVER_PORT:8000}
