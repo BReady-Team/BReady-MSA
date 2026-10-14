@@ -26,7 +26,7 @@
 | 0 | 안전망: 외부 키 없이 로컬 기동, Testcontainers 통합 테스트 | 완료 | [학습일지](docs/LEARNING_JOURNEY.md) |
 | 1 | 경계 지도: 바운디드 컨텍스트 6개와 떼어낼 순서 확정 | 완료 | [설계서](docs/design/1-boundary-map.md) · [ADR-0001](docs/adr/0001-bounded-contexts-and-extraction-order.md) |
 | 2 | 모듈러 모놀리스: JPA 연관을 ID 참조로, 컨텍스트 사이는 공개 API로만 | 완료 | [설계서](docs/design/2-modular-monolith.md) · [ADR-0002](docs/adr/0002-public-api-package-per-module.md) |
-| 3 | Strangler facade: Gateway를 앞에 세우고 모든 요청을 모놀리식으로 | 마무리 중 | [설계서](docs/design/3-strangler-facade.md) |
+| 3 | Strangler facade: Gateway를 앞에 세우고 모든 요청을 모놀리식으로 | 완료 | [설계서](docs/design/3-strangler-facade.md) · [ADR-0003](docs/adr/0003-strangler-facade-gateway.md) |
 | 4 | 첫 추출: Place Catalog (공유 DB → 스키마 분리 → DB 분리) | 예정 | |
 | 5 | 다음 추출(Recommendation, Stats) + 필요해진 곳에만 Kafka·Outbox·서킷브레이커 | 예정 | |
 | 6 | 인증 분리, 관측성 | 예정 | |
