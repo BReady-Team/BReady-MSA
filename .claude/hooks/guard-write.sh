@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse(Write|Edit|MultiEdit|NotebookEdit) — 보호 대상 파일과 시크릿이 담긴 쓰기를 막는다.
 #
-# deny : 시크릿 파일, 옛 팀 배포 자산, 시크릿처럼 보이는 값이 담긴 내용
+# deny : 시크릿 파일, 시크릿처럼 보이는 값이 담긴 내용
 # ask  : 빌드·하네스·인프라 설정, 이해 게이트 상태 → 영향이 커서 사용자가 보고 승인한다
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -21,10 +21,6 @@ case "$REL" in
   # 시크릿 파일: 절대 쓰지 않는다 (.env.example 은 아래 내용 검사만)
   .env|.env.local|.env.dev|.env.prod|*/.env|*.pem|*.key|*.p12|*.jks|*id_rsa*)
     deny "시크릿 파일은 수정하지 않는다. 필요한 키 이름과 형식만 사용자에게 안내하고, 값은 사용자가 직접 넣는다." ;;
-
-  # 옛 팀 배포 자산: 두고 쓰기 차단
-  deploy/*|nginx/*|docker-compose-blue.yml|docker-compose-green.yml|docker-compose-prod.yml|.coderabbit.yaml|*/src/main/resources/application-cd.yml)
-    deny "옛 팀 배포·운영 자산이다(두고 쓰기 차단). Strangler facade(3단계)에서 로컬 구성을 새로 만들 때 함께 정리한다." ;;
 
   # 이해 게이트 상태: 통과 판정은 사용자 승인
   docs/private/roadmap.md)

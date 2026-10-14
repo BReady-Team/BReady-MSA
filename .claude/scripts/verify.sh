@@ -16,9 +16,20 @@ FAST=0
 
 # gradlew가 있는 최상위 디렉터리가 서비스다
 SERVICES=()
-for wrapper in */gradlew; do
-  [ -x "$wrapper" ] && SERVICES+=("$(dirname "$wrapper")")
+MISSING=()
+for dir in */; do
+  dir="${dir%/}"
+  if [ -x "$dir/gradlew" ]; then
+    SERVICES+=("$dir")
+  elif [ -f "$dir/build.gradle" ] || [ -d "$dir/src" ]; then
+    MISSING+=("$dir")
+  fi
 done
+# 빌드 파일·src는 있는데 gradlew가 없으면 조용히 빠지지 않게 실패
+if [ ${#MISSING[@]} -gt 0 ]; then
+  printf 'gradlew가 없어 검증할 수 없는 서비스: %s\n' "${MISSING[*]}"
+  exit 1
+fi
 if [ ${#SERVICES[@]} -eq 0 ]; then
   printf '검증할 서비스가 없다(gradlew가 있는 디렉터리 0개). 레포 구조를 확인하라.\n'
   exit 1

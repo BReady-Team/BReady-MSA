@@ -1,6 +1,6 @@
 # 3단계 Strangler facade
 
-> 진행 중 (2026-10-14 시작). 이 단계의 결정은 단계가 끝날 때 ADR-0003으로 남긴다.
+> 2026-10-14. 이 단계의 결정은 [ADR-0003](../adr/0003-strangler-facade-gateway.md)에 모았다.
 
 ## 이 단계의 목표
 
@@ -9,8 +9,8 @@
 | 조각 | 내용 | PR | 상태 |
 |---|---|---|---|
 | 3-1 | 모놀리식을 `monolith/`로 이동(동작 변경 없음), 하네스 경로 수정 | PR1 `feat/gateway-routing` (#10) | 완료 |
-| 3-2 | `gateway-service` + 전체 경로를 모놀리식으로 라우팅 + 전후 비교 검증 + CORS를 Gateway로 | PR2 `feat/gateway-service` | 구현·검증 완료 |
-| 3-3 | 로컬 compose에 Gateway 추가, 옛 배포 자산 정리 | PR3 `chore/local-compose` | 대기 |
+| 3-2 | `gateway-service` + 전체 경로를 모놀리식으로 라우팅 + 전후 비교 검증 + CORS를 Gateway로 | PR2 `feat/gateway-service` (#12) | 완료 |
+| 3-3 | compose `app` 프로필, CI, 옛 배포 자산 삭제, CodeRabbit·README 정리, ADR-0003 | PR3 `chore/local-compose` | 구현·검증 완료 |
 
 ## 왜 지금
 
@@ -35,6 +35,10 @@
 | 3-2 검증 | 가짜 모놀리식(WireMock) 자동 테스트 / 실제 기동 diff / 둘 다 | **둘 다** | 자동 테스트가 계약을 고정하고, 실제 기동 diff는 증거로 한 번 남긴다 |
 | 3-2 X-Forwarded 헤더 | 끈 채로 / `trusted-proxies`로 켬 / `PreserveHostHeader` | **끈 채로**(Gateway 4.3 기본값) | 모놀리식에 Host로 URL을 만들거나 클라이언트 IP를 쓰는 코드가 0건이고, Gateway 앞에 다른 프록시가 없다. 켜지는 순간 테스트가 깨지게 고정해 두었다 |
 | 3-2 하네스 | verify는 전부·Stop은 고친 서비스만 / 둘 다 전부 / 목록 직접 | **verify는 전부, Stop은 고친 서비스만** | `gradlew`가 있는 디렉터리를 서비스로 본다. 서비스가 늘어도 고칠 곳이 없고, 고친 서비스를 검사하지 않고 통과하는 일이 없다 |
+| 3-3 로컬 실행 | 인프라만 compose / `app` 프로필로 앱까지 / 전부 기본으로 | **`app` 프로필** | `up`이면 인프라만(IDE 디버깅), `--profile app up`이면 전체. 모놀리식은 호스트에 포트를 열지 않아 Gateway가 유일한 입구가 된다. Dockerfile은 멀티 스테이지로 이미지 안에서 빌드 |
+| 3-3 옛 배포 자산 | 삭제 / `legacy/`로 이동 / 그대로 | **삭제** | 팀 리소스(ghcr 이미지, EC2 네트워크)를 가리켜 이 레포에서는 실행할 수 없다. 보존은 git 히스토리와 원본 레포가 한다. `.coderabbit.yaml`은 지금 쓰는 리뷰 도구라 남기고 경로와 기준을 고쳤다 |
+| 3-3 CI | 서비스 목록 직접 적기 / `gradlew` 있는 디렉터리 자동 탐색 | **자동 탐색** | 새 서비스를 목록에 빠뜨려 조용히 검사에서 빠지는 일이 없다. 검증 스크립트·Stop 훅과 같은 규칙 |
+| 3-3 README | 새로 쓰고 원본은 `docs/`로 / 기존 위에 섹션 추가 | **새로 쓰고 원본 보존** | 이 레포의 결과물은 전환 과정이다. 이동 커밋과 새 README 커밋을 나눠 원본의 히스토리가 rename으로 이어지게 했다 |
 | PR 분할 | 1개 / 3개 | **3개** | PR1은 "파일만 옮겼다", PR2는 "끼워도 응답이 같다", PR3는 정리와 기록. 이동과 새 기능이 섞이면 수백 줄의 이동 diff 속에서 진짜 변경을 찾을 수 없다 |
 
 ## 흐름 (before → after)
@@ -80,6 +84,20 @@ Client ──► :8000 Gateway ──(라우트: /** → http://localhost:8080)�
 | `.claude/hooks/stop-verify-gate.sh` | 고친 Java가 속한 서비스만 검사. ArchUnit은 `architecture` 테스트가 있는 서비스만. `gradlew`가 없는 곳의 Java는 막지 않고 알림 |
 | `.claude/hooks/test-hooks.sh`, `.claude/README.md` | 위 동작의 케이스 2개, 설명 |
 
+### 3-3 로컬 compose · CI · 정리
+
+| 파일 | 변경 |
+|---|---|
+| `monolith/Dockerfile`, `gateway-service/Dockerfile`, 각 `.dockerignore` | 멀티 스테이지(JDK에서 `bootJar`, JRE로 실행), Gradle 캐시 마운트 |
+| `docker-compose-local.yml` | `app` 프로필에 `monolith`(포트 비공개, `DB_URL`·`REDIS_HOST`를 서비스 이름으로)와 `gateway`(`MONOLITH_URI=http://monolith:8080`, 8000 공개). 쓰지 않는 `version` 줄 제거 |
+| `.github/workflows/ci.yml` | job 1이 `gradlew`가 있는 디렉터리로 서비스를 찾아 JSON으로 내보내고, job 2가 matrix로 서비스마다 `./gradlew build`. `build.gradle`·`src/`는 있는데 `gradlew`가 없으면 실패. 실패하면 테스트 리포트 업로드 |
+| `.claude/scripts/verify.sh` | CI와 같은 조건으로 `gradlew` 없는 서비스 디렉터리를 실패로 |
+| `deploy/`, `nginx/`, `docker-compose-{blue,green,prod,infra}.yml`, `monolith/.../application-cd.yml` | 삭제 |
+| `CLAUDE.md`, `.claude/hooks/guard-bash.sh`, `guard-write.sh`, `test-hooks.sh`, `.claude/README.md` | 옛 배포 자산을 지키던 규칙과 케이스 제거 |
+| `.coderabbit.yaml` | 리뷰 경로를 `**/src/**` 등 서비스 구조로, 리뷰 기준을 `.claude/rules/*.md`(code_guidelines)로. 규칙과 부딪히던 지침 삭제 |
+| `README.md` → `docs/bready-original-README.md`, 새 `README.md` | 원본 이동(rename), MSA 전환 레포 소개 |
+| `docs/adr/0003-strangler-facade-gateway.md` | 3단계 결정 모음 |
+
 ## 검증 증거
 
 ### 3-1
@@ -97,6 +115,18 @@ Client ──► :8000 Gateway ──(라우트: /** → http://localhost:8080)�
 - 첫 비교에서 허용된 Origin(`http://localhost:5173`)의 preflight가 `:8080`은 200, `:8000`은 403이었다. CORS를 Gateway로 옮긴 뒤 `:8000` preflight는 200 + `Access-Control-Allow-Origin: http://localhost:5173`, 실제 요청은 그 헤더가 한 줄이다.
 - 훅 회귀 테스트 165개 통과. Stop 훅은 gateway의 포맷 위반·컴파일 오류와 monolith의 경계 위반(plan이 `PlaceRepository` 필드를 가짐)을 각각 막았다. 이 조각 전에는 gateway Java를 검사하지 않고 통과시켰다.
 
+### 3-3
+
+- `docker compose --profile app config --services`: 프로필 없이는 mysql·redis·prometheus·grafana, `app`이면 monolith·gateway까지.
+- 이미지 빌드 77초(첫 빌드). 기동: MySQL·Redis가 healthy가 된 뒤 monolith 시작, Gateway 경유 첫 응답(401)까지 6초.
+- 포트: `bready-gateway 0.0.0.0:8000->8000`, `bready-monolith 8080/tcp`. 호스트에서 `curl localhost:8080`은 연결 실패.
+- 3-2의 비교 요청 12종을 컨테이너 Gateway(`:8000`)로 다시 보냈다. 3-2에서 `bootRun`으로 띄운 Gateway의 응답과 12종 모두 같다. 허용 Origin preflight는 200 + `Access-Control-Allow-Origin`.
+- 같은 Gateway 이미지를 `MONOLITH_URI` 없이 띄우면 500, 로그 `Connection refused: localhost/127.0.0.1:8080`. 컨테이너 안의 `localhost`는 자기 자신이다.
+- 옛 자산 삭제 후 `verify.sh`: gateway-service 8개, monolith 189개, 실패 0. 훅 회귀 테스트 158개 통과(지운 자산의 케이스 7개 제외).
+- CodeRabbit의 옛 경로 패턴 `src/**`, `Dockerfile`(루트)에 맞는 파일은 3-1 이후 0개였다. 새 패턴은 `monolith/src` 296개, `gateway-service/src` 5개를 잡는다.
+- CI의 서비스 찾기 단계를 워크플로우에서 그대로 뽑아 실행했다. 실제 레포: `["gateway-service","monolith"]`. `build.gradle`·`src/`는 있고 `gradlew`가 없는 `place-catalog-service`를 만든 가짜 레포: `::error::gradlew가 없어 빌드할 수 없는 서비스: place-catalog-service`, exit 1. `gradlew`를 넣으면 세 서비스가 목록에 들어간다. `verify.sh`도 같은 조건에서 실패한다.
+- GitHub Actions에서의 실제 실행 결과는 확인하지 못했다(PR에서 확인).
+
 ## 워크스루 요약
 
 ### 3-1
@@ -113,9 +143,18 @@ Client ──► :8000 Gateway ──(라우트: /** → http://localhost:8080)�
 - preflight는 라우트를 타지 않는다. WebFlux 핸들러 매핑이 preflight를 만나면 그 자리에서 CORS 설정으로 판정한다. 그래서 CORS를 모놀리식에 두는 설계는 Gateway 뒤에서 성립하지 않았다. 자동 테스트에 preflight 시나리오가 없어 실제 기동 비교에서 처음 드러났다.
 - 하네스는 `gradlew`가 있는 디렉터리를 서비스로 본다. 검사하지 못한 것은 출력으로 알린다. "건너뜀"과 "통과"가 화면에서 똑같으면 보호가 꺼진 것을 아무도 모른다.
 
+### 3-3
+
+- 컨테이너 안의 `localhost`는 자기 자신이다. 같은 compose 네트워크의 다른 컨테이너는 서비스 이름(`monolith`, `mysql`)과 내부 포트(3306)로 찾는다. 3-2에서 주소를 환경 변수로 뺀 것이 여기서 쓰였다.
+- `expose`는 compose 네트워크 안에만, `ports`는 호스트에도 연다. 모놀리식을 `expose`로만 두어 Gateway를 우회할 길을 구조로 막았다.
+- 서비스를 찾는 규칙(`gradlew`가 있는 최상위 디렉터리)이 검증 스크립트, Stop 훅, CI에서 같다. 처음에는 규칙만 같고 반응이 달랐다. Stop 훅은 `gradlew` 없는 곳의 Java를 알렸지만 CI는 그 디렉터리를 목록에 넣지 않고 초록을 냈다. `build.gradle`이나 `src/`가 있는데 `gradlew`가 없으면 CI와 검증 스크립트가 실패하도록 맞췄다.
+- 경로를 가정한 설정은 파일을 옮기면 에러 없이 꺼진다. 3-1에서 하네스가 그랬고, 리뷰 봇 설정도 같았다(맞는 파일 0개).
+
 ## 알려진 한계
 
 - 모놀리식이 죽으면 Gateway가 500을 Spring 기본 에러 형식으로 돌려준다(`Connection refused: localhost:8080`). 의미상 503이 맞고 `CommonResponse` 형식도 아니다. 타임아웃·서킷브레이커와 함께 5단계에서 다룬다.
 - 카카오·네이버 `redirect-uri` 기본값이 `http://localhost:8080/...`(`monolith/src/main/resources/application.yml`)이라 OAuth 콜백은 Gateway를 거치지 않는다. 인증은 6단계에서 다룬다.
 - 브라우저가 `:8080`을 직접 부르면 CORS 헤더가 없다. 프론트엔드는 Gateway(`:8000`)를 써야 한다.
 - 허용되지 않은 Origin의 거절 응답(403)은 Gateway가 만들어 본문과 보안 헤더(`X-Frame-Options` 등)가 없다. 전에는 모놀리식이 `Invalid CORS request`와 보안 헤더를 붙였다. 브라우저가 버리는 응답이라 결과는 같다.
+- `app` 모드에서는 Prometheus(`monitoring/prometheus.yml`)가 `host.docker.internal:8080`을 긁는데 모놀리식이 호스트에 포트를 열지 않아 수집되지 않는다. 개발 모드(`bootRun`)에서만 수집된다. 관측성 단계에서 compose 네트워크 안의 주소로 바꾼다.
+- 첫 이미지 빌드가 약 1분 20초 걸린다(의존성 다운로드). 이후는 Gradle 캐시 마운트로 줄어든다.
