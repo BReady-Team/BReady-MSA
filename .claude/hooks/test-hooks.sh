@@ -270,6 +270,13 @@ out="$(echo '{}' | CLAUDE_SKIP_VERIFY_GATE=1 "$HOOKS/stop-verify-gate.sh")"
 check "stop: 끄기 변수면 통과" "" "$out"
 out="$(echo '{}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/stop-verify-gate.sh")"
 check "stop: gradlew 없는 곳이면 통과" "" "$out"
+NOWRAP="$(mktemp -d)"
+git -C "$NOWRAP" init -q
+mkdir -p "$NOWRAP/new-service/src" && touch "$NOWRAP/new-service/src/A.java"
+out="$(echo '{}' | CLAUDE_PROJECT_DIR="$NOWRAP" "$HOOKS/stop-verify-gate.sh")"
+contains "stop: gradlew 없는 서비스의 Java는 알린다" "$out" "검사하지 못한 Java 가 있다: new-service" yes
+contains "stop: gradlew 없는 서비스는 막지 않는다" "$out" '"decision"' no
+rm -rf "$NOWRAP"
 
 printf '\n훅 회귀 테스트: 통과 %d / 실패 %d\n' "$PASS" "$FAIL"
 if [ "$FAIL" -gt 0 ]; then

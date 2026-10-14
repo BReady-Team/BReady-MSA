@@ -52,7 +52,7 @@ CLAUDE.md  →  rules/*.md (작업별)  →  skills/* (절차)  →  실제 코�
 | PreToolUse(Bash) | `guard-bash.sh` | git commit/push/pull/merge·원격 설정·이력 파괴 deny, gh·ghcr·운영 도메인·ssh·aws·옛 배포 자산 deny, 볼륨 삭제·파괴적 SQL deny, 시크릿 출력 deny. 작업 트리를 바꾸는 git 조작은 ask |
 | PreToolUse(Write\|Edit) | `guard-write.sh` | 시크릿 파일·옛 팀 배포 자산 deny, 시크릿처럼 보이는 값 deny. CLAUDE.md·하네스·빌드·인프라·게이트 상태·ArchUnit 기준선은 ask |
 | PostToolUse(Write\|Edit) | `post-edit-lint.sh` | 이번에 새로 쓴 Java 코드만 검사해 위반을 알림 (막지 않음) |
-| Stop | `stop-verify-gate.sh` | Java 변경이 있으면 Spotless·컴파일·아키텍처 테스트. 실패면 끝내지 못함. 같은 상태는 캐시로 건너뜀 |
+| Stop | `stop-verify-gate.sh` | Java를 고친 서비스만 Spotless·컴파일·아키텍처 테스트(있는 서비스만). 실패면 끝내지 못함. gradlew 없는 곳의 Java는 알림. 같은 상태는 캐시로 건너뜀 |
 
 ### 훅을 만들며 지킨 것
 - **fail-open이되 조용하지 않게.** jq가 없거나 gradle이 환경 문제로 못 돌면 통과시키되 알린다. 훅이 고장 나 모든 작업을 막으면 결국 훅을 끄게 된다.
@@ -95,7 +95,7 @@ CLAUDE.md  →  rules/*.md (작업별)  →  skills/* (절차)  →  실제 코�
 
 ```bash
 .claude/hooks/test-hooks.sh                 # 훅 회귀 테스트. 훅을 고쳤으면 반드시
-.claude/scripts/verify.sh                   # 포맷 → 컴파일 → 전체 테스트 (--fast: 테스트 생략)
+.claude/scripts/verify.sh                   # gradlew 있는 서비스마다 포맷 → 컴파일 → 전체 테스트 (--fast: 테스트 생략)
 (cd monolith && ./gradlew test --tests 'com.bready.server.architecture.*')
 
 # 훅 단독 실행 (stdin으로 훅 JSON)
