@@ -61,6 +61,9 @@ deny|git branch -D feature/x
 deny|git stash drop
 deny|git filter-branch --tree-filter x
 deny|rm -rf src
+deny|rm -rf monolith
+deny|rm -rf monolith/src
+deny|rm -rf ./gateway-service/
 deny|rm -rf .git
 deny|rm -r docs/
 deny|gh pr create --fill
@@ -91,7 +94,7 @@ deny|env | grep KEY
 ask|git add docs/architecture/context-map.md
 ask|git checkout -b feature/harness
 ask|git switch develop
-ask|git restore src/main/java/A.java
+ask|git restore monolith/src/main/java/A.java
 ask|git stash
 ask|git branch feature/x
 ask|git update-index --chmod=+x gradlew
@@ -112,7 +115,8 @@ allow|grep -rn "git push" .claude/rules
 allow|./gradlew test
 allow|./gradlew compileJava --console=plain
 allow|rm -rf build
-allow|rm src/main/java/com/bready/server/place/service/PlaceService.java
+allow|rm -rf monolith/build
+allow|rm monolith/src/main/java/com/bready/server/place/service/PlaceService.java
 allow|docker compose -f docker-compose-local.yml ps
 allow|docker compose -f docker-compose-local.yml down
 allow|docker compose logs --tail=50 app
@@ -134,18 +138,23 @@ done <<< "$BASH_CASES"
 # guard-write.sh   형식: 기대결과|파일경로(레포 기준)|내용
 WRITE_CASES=$(cat <<'EOF'
 deny|.env|OPENAI_API_KEY=x
-deny|src/main/resources/keys/server.pem|x
+deny|monolith/src/main/resources/keys/server.pem|x
 deny|deploy/deploy-blue-green.sh|echo
 deny|nginx/bready.conf|server {}
 deny|docker-compose-prod.yml|services: {}
 deny|.coderabbit.yaml|language: ko
-deny|src/main/resources/application-cd.yml|x: y
-deny|src/main/java/com/bready/server/global/config/s3/S3Config.java|String key = "AKIAABCDEFGHIJKLMNOP";
-deny|src/main/resources/application-local.yml|spring.ai.openai.api-key: sk-proj-abcdefghijklmnopqrstuvwxyz123456
-deny|src/main/resources/application-local.yml|  password: mySuperSecret123
+deny|monolith/src/main/resources/application-cd.yml|x: y
+deny|monolith/src/main/java/com/bready/server/global/config/s3/S3Config.java|String key = "AKIAABCDEFGHIJKLMNOP";
+deny|monolith/src/main/resources/application-local.yml|spring.ai.openai.api-key: sk-proj-abcdefghijklmnopqrstuvwxyz123456
+deny|monolith/src/main/resources/application-local.yml|  password: mySuperSecret123
 deny|docker-compose-local.yml|      MYSQL_ROOT_PASSWORD: realpassword123
 deny|.env.example|JWT_SECRET=thisIsARealLookingSecretValue
-ask|build.gradle|testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
+ask|monolith/build.gradle|testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
+ask|gateway-service/build.gradle|plugins {}
+ask|settings.gradle|include 'gateway-service'
+ask|monolith/gradle/wrapper/gradle-wrapper.properties|distributionUrl=x
+ask|monolith/Dockerfile|FROM eclipse-temurin:21
+ask|gateway-service/src/test/resources/archunit_store/stored.rules|x=y
 ask|.claude/settings.json|{}
 ask|.claude/hooks/guard-bash.sh|# x
 ask|docs/private/roadmap.md|직전 게이트: PASSED
@@ -154,14 +163,14 @@ allow|docs/private/gates.md|## H2
 allow|docs/LEARNING_JOURNEY.md|## 2026-10-09
 ask|docker-compose-local.yml|services: {}
 ask|.github/workflows/ci.yml|name: ci
-ask|src/test/resources/archunit_store/stored.rules|x=y
-ask|src/test/resources/archunit.properties|freeze.refreeze=true
-allow|src/main/java/com/bready/server/plan/service/PlanService.java|public class PlanService {}
+ask|monolith/src/test/resources/archunit_store/stored.rules|x=y
+ask|monolith/src/test/resources/archunit.properties|freeze.refreeze=true
+allow|monolith/src/main/java/com/bready/server/plan/service/PlanService.java|public class PlanService {}
 allow|docs/architecture/context-map.md|# 경계 지도
-allow|src/main/resources/application-local.yml|  password: ${DB_PASSWORD:local}
-allow|src/test/resources/application-test.yml|  secret: ${JWT_SECRET:test-jwt-secret-minimum-32-bytes-required}
+allow|monolith/src/main/resources/application-local.yml|  password: ${DB_PASSWORD:local}
+allow|monolith/src/test/resources/application-test.yml|  secret: ${JWT_SECRET:test-jwt-secret-minimum-32-bytes-required}
 allow|.env.example|OPENAI_API_KEY=
-allow|src/test/resources/application-test.yml|    password:
+allow|monolith/src/test/resources/application-test.yml|    password:
 EOF
 )
 
@@ -172,9 +181,9 @@ while IFS='|' read -r expected path content; do
 done <<< "$WRITE_CASES"
 
 # Edit(new_string) / MultiEdit(edits[]) 경로도 내용 검사를 타는지
-out="$(jq -n --arg f "$PWD/src/main/java/A.java" '{tool_input:{file_path:$f, old_string:"a", new_string:"String k = \"AKIAABCDEFGHIJKLMNOP\";"}}' | "$HOOKS/guard-write.sh")"
+out="$(jq -n --arg f "$PWD/monolith/src/main/java/A.java" '{tool_input:{file_path:$f, old_string:"a", new_string:"String k = \"AKIAABCDEFGHIJKLMNOP\";"}}' | "$HOOKS/guard-write.sh")"
 check "edit: new_string 시크릿" deny "$(decision_of "$out")"
-out="$(jq -n --arg f "$PWD/src/main/java/A.java" '{tool_input:{file_path:$f, edits:[{old_string:"a", new_string:"ok"},{old_string:"b", new_string:"-----BEGIN RSA PRIVATE KEY-----"}]}}' | "$HOOKS/guard-write.sh")"
+out="$(jq -n --arg f "$PWD/monolith/src/main/java/A.java" '{tool_input:{file_path:$f, edits:[{old_string:"a", new_string:"ok"},{old_string:"b", new_string:"-----BEGIN RSA PRIVATE KEY-----"}]}}' | "$HOOKS/guard-write.sh")"
 check "multiedit: edits[] 시크릿" deny "$(decision_of "$out")"
 
 # session-context.sh / prompt-router.sh
@@ -232,9 +241,9 @@ lint() {
   jq -n --arg f "$PWD/$1" --arg c "$2" '{tool_input:{file_path:$f, content:$c}}' \
     | "$HOOKS/post-edit-lint.sh" | jq -r '.hookSpecificOutput.additionalContext // empty' 2>/dev/null
 }
-E=src/main/java/com/bready/server/plan/domain/Plan.java
-S=src/main/java/com/bready/server/trigger/service/TriggerService.java
-T=src/test/java/com/bready/server/plan/service/PlanServiceTest.java
+E=monolith/src/main/java/com/bready/server/plan/domain/Plan.java
+S=monolith/src/main/java/com/bready/server/trigger/service/TriggerService.java
+T=monolith/src/test/java/com/bready/server/plan/service/PlanServiceTest.java
 
 contains "lint: 와일드카드 import" "$(lint $S 'import java.util.*;')" "와일드카드" yes
 contains "lint: static 와일드카드는 허용" "$(lint $T 'import static org.assertj.core.api.Assertions.*;')" "와일드카드" no

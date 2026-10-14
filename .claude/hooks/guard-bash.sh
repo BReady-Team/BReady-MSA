@@ -72,7 +72,7 @@ match "${GIT}branch[[:space:]]+[^-[:space:]]|${GIT}branch[[:space:]]+-(d|m|M|c|C
   ask "브랜치 생성·이름 변경·삭제는 사용자 담당이다. 정말 여기서 실행할까?"
 
 # rm -r 로 레포 핵심 디렉터리 "전체"를 지우는 것 (build/ 같은 산출물, 개별 파일 삭제는 허용)
-match "${CMDPOS}rm[[:space:]]+(-[a-zA-Z]*[rR][a-zA-Z]*[[:space:]]+)+(\./)?(/|~|\\\$HOME|\.git|\.claude|src|docs|gradle|db|deploy|nginx|monitoring|performance-test)/?([[:space:]]|$)" &&
+match "${CMDPOS}rm[[:space:]]+(-[a-zA-Z]*[rR][a-zA-Z]*[[:space:]]+)+(\./)?(/|~|\\\$HOME|\.git|\.claude|docs|deploy|nginx|monitoring|performance-test|monolith|[a-z0-9-]+-service|([a-z0-9-]+/)?(src|gradle|db))/?([[:space:]]|$)" &&
   deny "금지: 레포 핵심 디렉터리 전체 삭제(rm -r). 지울 대상을 구체적으로 지정하고 사용자 확인을 받아라."
 
 # 3. 원본 레포·팀 리소스 — 어떤 형태로도 닿지 않는다

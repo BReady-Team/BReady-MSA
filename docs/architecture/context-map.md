@@ -321,7 +321,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 
 ## 11. 경계 위반 기준선 (ArchUnit)
 
-위 분석을 테스트로 고정했다(`src/test/java/com/bready/server/architecture/`). 아래 위반은 기준선(`src/test/resources/archunit_store/`)에 기록되어 통과하고, **기준선에 없는 새 위반은 빌드가 실패한다.** 위반을 고치면 테스트가 기준선에서 그 줄을 지운다. 이 표의 숫자가 줄어드는 것이 MSA 전환의 진척도다.
+위 분석을 테스트로 고정했다(`monolith/src/test/java/com/bready/server/architecture/`). 아래 위반은 기준선(`monolith/src/test/resources/archunit_store/`)에 기록되어 통과하고, **기준선에 없는 새 위반은 빌드가 실패한다.** 위반을 고치면 테스트가 기준선에서 그 줄을 지운다. 이 표의 숫자가 줄어드는 것이 MSA 전환의 진척도다.
 
 숫자는 위반 "건수"다. 같은 클래스 쌍이라도 필드·생성자·메서드 호출마다 한 건씩 센다.
 

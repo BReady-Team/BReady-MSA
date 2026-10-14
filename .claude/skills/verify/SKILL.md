@@ -13,8 +13,8 @@ description: 조각의 검증 단계에서 포맷·컴파일·테스트를 한 �
 .claude/scripts/verify.sh --fast   # 포맷 → 컴파일 (구현 중간 확인용)
 ```
 - 출력의 "검증 결과" 블록을 그대로 붙인다.
-- 실패한 단계는 `build/verify/{단계}.log`에서 원인 줄을 찾아 함께 보여준다.
-- 포맷 실패는 `./gradlew spotlessApply`로 고친다. 손으로 맞추지 않는다.
+- 실패한 단계는 `monolith/build/verify/{단계}.log`에서 원인 줄을 찾아 함께 보여준다.
+- 포맷 실패는 `monolith`에서 `./gradlew spotlessApply`로 고친다. 손으로 맞추지 않는다.
 
 ## 2. 기준선과 비교
 - 이번 조각 전의 테스트 결과(전체·실패 수)와 비교한다. **원래 실패하던 테스트와 새로 실패한 테스트를 구분**한다.

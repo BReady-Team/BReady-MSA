@@ -12,7 +12,7 @@ model: inherit
 
 - `.claude/rules/msa-boundary.md` — 위반 유형 V1~V6, 래칫 운영
 - `docs/architecture/context-map.md` — 현재 경계 지도(3~6번 위반 목록, 11번 기준선 수치)
-- 범위가 정해졌으면 해당 모듈 패키지: `src/main/java/com/bready/server/{module}/`
+- 범위가 정해졌으면 해당 모듈 패키지: `monolith/src/main/java/com/bready/server/{module}/`
 
 ## 범위
 
@@ -21,7 +21,7 @@ model: inherit
 
 ## 찾는 것
 
-ArchUnit(`src/test/java/com/bready/server/architecture/`)이 이미 잡는 V1(남의 Repository)·V2(남의 Entity 타입)·V5(남의 이벤트 생성)·V6(global → 모듈)은 **기준선 수치만 확인**하고, 시간은 아래에 쓴다.
+ArchUnit(`monolith/src/test/java/com/bready/server/architecture/`)이 이미 잡는 V1(남의 Repository)·V2(남의 Entity 타입)·V5(남의 이벤트 생성)·V6(global → 모듈)은 **기준선 수치만 확인**하고, 시간은 아래에 쓴다.
 
 1. **V3 — 다른 모듈 테이블 JOIN**
    - `@Query`의 JPQL에서 다른 모듈 엔티티로 이어지는 경로(`join t.plan p`, `pc.category.plan`)

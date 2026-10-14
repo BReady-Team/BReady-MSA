@@ -85,12 +85,15 @@ H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → 
 
 ## 8. 빌드 · 실행 · 테스트
 
+서비스마다 독립 Gradle 프로젝트다(`monolith/`, 이후 `*-service/`). 루트에는 빌드가 없다. `./gradlew`는 그 서비스 디렉터리에서 실행한다.
+
 ```bash
-.claude/scripts/verify.sh            # 포맷 → 컴파일 → 전체 테스트 (--fast: 테스트 생략)
+.claude/scripts/verify.sh            # 포맷 → 컴파일 → 전체 테스트 (--fast: 테스트 생략). 레포 루트에서
+cd monolith
 ./gradlew spotlessApply              # 포맷 맞추기. 손으로 맞추지 않는다 (palantir-java-format)
 ./gradlew test                       # 전체 테스트
-./gradlew bootRun                    # 키 없이 기동(더미 기본값). 먼저 docker compose -f docker-compose-local.yml up -d mysql redis
-.claude/hooks/test-hooks.sh          # 훅을 고쳤으면 반드시
+./gradlew bootRun                    # 키 없이 기동(더미 기본값). 먼저 루트에서 docker compose -f docker-compose-local.yml up -d mysql redis
+.claude/hooks/test-hooks.sh          # 훅을 고쳤으면 반드시. 레포 루트에서
 ```
 - Java를 고친 채 끝내려 하면 Stop 훅이 포맷·컴파일을 검사하고, 깨져 있으면 끝내지 못하게 막는다.
 - Java 21, Spring Boot 3.5.7, Gradle 9.2.1, MySQL 8.0, Redis 7.2. 베이스 패키지 `com.bready.server`.
@@ -98,7 +101,7 @@ H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → 
 
 ## 9. 알려진 함정
 
-- Docker 29 + Testcontainers: `Could not find a valid Docker environment` / HTTP 400 → `build.gradle` test 태스크에 `systemProperty 'api.version', '1.44'`.
+- Docker 29 + Testcontainers: `Could not find a valid Docker environment` / HTTP 400 → 서비스의 `build.gradle` test 태스크에 `systemProperty 'api.version', '1.44'`.
 - Kafka Testcontainer는 `ConfluentKafkaContainer("confluentinc/cp-kafka:7.8.0")` (apache/kafka 이미지는 advertised.listeners 에러).
 - record의 `toString()`은 모든 필드를 출력한다. 비밀번호·토큰을 담는 record는 `toString()`을 재정의하고, 로그에 DTO를 통째로 넣지 않는다.
 
@@ -108,7 +111,7 @@ H 하네스 → **0** 안전망(키 없이 로컬 기동 + 통합테스트) → 
 |---|---|
 | `.claude/settings.json` | 권한(allow/ask/deny) + 훅 등록 |
 | `.claude/hooks/` | `guard-bash`·`guard-write`(차단), `session-context`(세션 시작 주입), `prompt-router`(게이트 리마인더 + 규칙 파일 라우팅), `post-edit-lint`(새로 쓴 코드의 규칙 위반 알림), `stop-verify-gate`(끝내기 전 포맷·컴파일·아키텍처 테스트), `test-hooks.sh`(회귀) |
-| `src/test/.../architecture/` | ArchUnit 레이어·코딩·모듈 경계 규칙. 옛 위반은 기준선(`archunit_store`), 새 위반은 빌드 실패 |
+| `monolith/src/test/.../architecture/` | ArchUnit 레이어·코딩·모듈 경계 규칙. 옛 위반은 기준선(`archunit_store`), 새 위반은 빌드 실패 |
 | `.claude/skills/` | 조각 진행: `/piece-start` `/piece-close` `/gate-review` `/adr` `/trouble` `/verify` `/git-handoff` · 코드: `/new-api` `/domain-model` `/write-test` `/refactor-legacy` |
 | `.claude/scripts/` | `verify.sh` |
 | `.claude/agents/` | `boundary-auditor`(기계가 못 보는 경계 위반), `convention-reviewer`(변경분 리뷰). 둘 다 읽기 전용 |

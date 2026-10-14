@@ -40,6 +40,7 @@ description: 테스트를 작성하거나 기존 테스트를 고칠 때 사용�
   ```
 
 ## 6. 실행과 보고
+- `./gradlew`는 서비스 디렉터리(`monolith`)에서 실행한다.
 - 해당 테스트 클래스만 먼저: `./gradlew test --tests '…PlanServiceTest'`.
 - 그 다음 전체 `./gradlew test`. 결과(통과/실패 수)를 붙인다.
 
