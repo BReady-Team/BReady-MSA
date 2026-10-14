@@ -19,7 +19,7 @@ model: inherit
 2. 기계 검사부터 돌려 결과를 확인한다. 기계가 잡은 것을 다시 쓰지 않는다.
    ```bash
    .claude/scripts/verify.sh --fast          # 포맷·컴파일
-   ./gradlew test --tests 'com.bready.server.architecture.*'   # 구조 규칙(새 위반만 실패)
+   (cd monolith && ./gradlew test --tests 'com.bready.server.architecture.*')   # 구조 규칙(새 위반만 실패)
    ```
 
 ## 반드시 보는 것 (기계가 못 잡는 것, 중요한 순서)

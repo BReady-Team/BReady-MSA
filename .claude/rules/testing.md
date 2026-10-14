@@ -63,7 +63,7 @@ class PlanServiceTest {
 
 - **엔티티는 mock하지 않고 진짜 객체를 fixture로 만든다.** mock 엔티티는 규칙(불변식·소유권)을 우회해서 "실제로는 불가능한 상태"를 테스트하게 만든다. [린트]
   - BReady 현황: 서비스 테스트에서 `mock(Plan.class)` 같은 엔티티 mock이 많다(`AuthServiceTest` 14회, `PlaceCandidateServiceTest` 12회, `SwitchServiceTest` 10회).
-- 위치: `src/test/java/com/bready/server/{module}/fixture/{Entity}Fixture.java`.
+- 위치: `{서비스}/src/test/java/com/bready/server/{module}/fixture/{Entity}Fixture.java`.
 - 정적 메서드만. `defaultXxx()`/상황 이름 메서드(`activePlan(ownerId)`, `deletedPlan()`)를 둔다.
 - ID가 필요하면 `ReflectionTestUtils.setField(entity, "id", 1L)`를 fixture 안에서만 쓴다.
 - 요청 DTO(record)는 생성자 그대로 fixture에서 만든다.
@@ -103,7 +103,7 @@ class PlanControllerTest {
 
 - 리포지토리 슬라이스와 통합 테스트는 **MySQL 8.0 컨테이너**로 돌린다. H2는 native query·락·MySQL 문법을 검증하지 못한다.
 - 컨테이너는 테스트 전체에서 한 번만 띄운다(공통 베이스 클래스 + `static` 컨테이너 + `@ServiceConnection`).
-- 함정: Docker 29에서는 `build.gradle` test 태스크에 `systemProperty 'api.version', '1.44'` (CLAUDE.md 9번).
+- 함정: Docker 29에서는 서비스의 `build.gradle` test 태스크에 `systemProperty 'api.version', '1.44'` (CLAUDE.md 9번).
 - 통합 테스트는 `support/IntegrationTestSupport`를 상속
 - Redis는 `RedisConfig`가 host·port를 직접 읽어서 `@ServiceConnection` 대신 `@DynamicPropertySource`로 연결
 
