@@ -72,7 +72,7 @@ match "${GIT}branch[[:space:]]+[^-[:space:]]|${GIT}branch[[:space:]]+-(d|m|M|c|C
   ask "브랜치 생성·이름 변경·삭제는 사용자 담당이다. 정말 여기서 실행할까?"
 
 # rm -r 로 레포 핵심 디렉터리 "전체"를 지우는 것 (build/ 같은 산출물, 개별 파일 삭제는 허용)
-match "${CMDPOS}rm[[:space:]]+(-[a-zA-Z]*[rR][a-zA-Z]*[[:space:]]+)+(\./)?(/|~|\\\$HOME|\.git|\.claude|docs|deploy|nginx|monitoring|performance-test|monolith|[a-z0-9-]+-service|([a-z0-9-]+/)?(src|gradle|db))/?([[:space:]]|$)" &&
+match "${CMDPOS}rm[[:space:]]+(-[a-zA-Z]*[rR][a-zA-Z]*[[:space:]]+)+(\./)?(/|~|\\\$HOME|\.git|\.claude|docs|monitoring|performance-test|monolith|[a-z0-9-]+-service|([a-z0-9-]+/)?(src|gradle|db))/?([[:space:]]|$)" &&
   deny "금지: 레포 핵심 디렉터리 전체 삭제(rm -r). 지울 대상을 구체적으로 지정하고 사용자 확인을 받아라."
 
 # 3. 원본 레포·팀 리소스 — 어떤 형태로도 닿지 않는다
@@ -93,12 +93,6 @@ match "${CMDPOS}(ssh|scp|rsync|sftp)([[:space:]]|$)" &&
 
 match "${CMDPOS}aws([[:space:]]|$)" &&
   deny "AWS CLI 금지. 클라우드 리소스(팀 S3·EC2)는 이 프로젝트 범위 밖이다."
-
-match "(deploy-blue-green|rollback-blue-green)\.sh|(^|[[:space:]/])deploy/[^[:space:]]+\.sh" &&
-  deny "옛 블루그린 배포 스크립트는 실행하지 않는다."
-
-match "docker-compose-(blue|green|prod)\.ya?ml" &&
-  deny "옛 운영/블루그린 compose 는 실행하지 않는다. 로컬은 docker-compose-local.yml(이후 새 구성) 사용."
 
 # 4. 로컬 컨테이너·볼륨 파괴
 match "${CMDPOS}(docker[[:space:]]+compose|docker-compose)[^;|&]*[[:space:]]down[^;|&]*(-v([[:space:]]|$)|--volumes)" &&

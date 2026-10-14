@@ -75,8 +75,6 @@ deny|curl https://bready.site/api/v1/plans
 deny|ssh ubuntu@1.2.3.4
 deny|scp app.jar ec2:/home
 deny|aws s3 ls
-deny|./deploy/deploy-blue-green.sh
-deny|docker compose -f docker-compose-prod.yml up -d
 deny|docker compose -f docker-compose-local.yml down -v
 deny|docker volume rm breadymsa_mysql-data
 deny|docker system prune -af
@@ -139,11 +137,6 @@ done <<< "$BASH_CASES"
 WRITE_CASES=$(cat <<'EOF'
 deny|.env|OPENAI_API_KEY=x
 deny|monolith/src/main/resources/keys/server.pem|x
-deny|deploy/deploy-blue-green.sh|echo
-deny|nginx/bready.conf|server {}
-deny|docker-compose-prod.yml|services: {}
-deny|.coderabbit.yaml|language: ko
-deny|monolith/src/main/resources/application-cd.yml|x: y
 deny|monolith/src/main/java/com/bready/server/global/config/s3/S3Config.java|String key = "AKIAABCDEFGHIJKLMNOP";
 deny|monolith/src/main/resources/application-local.yml|spring.ai.openai.api-key: sk-proj-abcdefghijklmnopqrstuvwxyz123456
 deny|monolith/src/main/resources/application-local.yml|  password: mySuperSecret123

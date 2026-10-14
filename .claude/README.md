@@ -49,8 +49,8 @@ CLAUDE.md  →  rules/*.md (작업별)  →  skills/* (절차)  →  실제 코�
 |---|---|---|
 | SessionStart | `session-context.sh` | 브랜치·미커밋 수, 로드맵 상태(현재 조각·게이트), 최근 학습일지, 미해결 게이트 주입. upstream push URL·`docs/private` ignore·JDK 이상 경고 |
 | UserPromptSubmit | `prompt-router.sh` | 게이트가 열려 있으면 리마인더, 커밋 요청이면 `/git-handoff` 안내, 키워드별 규칙 파일 경로(최대 3개) |
-| PreToolUse(Bash) | `guard-bash.sh` | git commit/push/pull/merge·원격 설정·이력 파괴 deny, gh·ghcr·운영 도메인·ssh·aws·옛 배포 자산 deny, 볼륨 삭제·파괴적 SQL deny, 시크릿 출력 deny. 작업 트리를 바꾸는 git 조작은 ask |
-| PreToolUse(Write\|Edit) | `guard-write.sh` | 시크릿 파일·옛 팀 배포 자산 deny, 시크릿처럼 보이는 값 deny. CLAUDE.md·하네스·빌드·인프라·게이트 상태·ArchUnit 기준선은 ask |
+| PreToolUse(Bash) | `guard-bash.sh` | git commit/push/pull/merge·원격 설정·이력 파괴 deny, gh·ghcr·운영 도메인·ssh·aws deny, 볼륨 삭제·파괴적 SQL deny, 시크릿 출력 deny. 작업 트리를 바꾸는 git 조작은 ask |
+| PreToolUse(Write\|Edit) | `guard-write.sh` | 시크릿 파일 deny, 시크릿처럼 보이는 값 deny. CLAUDE.md·하네스·빌드·인프라·게이트 상태·ArchUnit 기준선은 ask |
 | PostToolUse(Write\|Edit) | `post-edit-lint.sh` | 이번에 새로 쓴 Java 코드만 검사해 위반을 알림 (막지 않음) |
 | Stop | `stop-verify-gate.sh` | Java를 고친 서비스만 Spotless·컴파일·아키텍처 테스트(있는 서비스만). 실패면 끝내지 못함. gradlew 없는 곳의 Java는 알림. 같은 상태는 캐시로 건너뜀 |
 
