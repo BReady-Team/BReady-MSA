@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   mysql:
     image: mysql:8.0
@@ -34,6 +32,34 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+
+  # 모놀리식은 호스트에 포트를 열지 않고, 클라이언트는 Gateway(8000)로만 들어온다
+  monolith:
+    profiles: ["app"]
+    build: ./monolith
+    container_name: bready-monolith
+    expose:
+      - "8080"
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-bready}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-bready-local}
+      REDIS_HOST: redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  gateway:
+    profiles: ["app"]
+    build: ./gateway-service
+    container_name: bready-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      MONOLITH_URI: http://monolith:8080
+    depends_on:
+      - monolith
 
   prometheus:
     image: prom/prometheus:v2.52.0
