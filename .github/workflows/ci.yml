@@ -23,9 +23,20 @@ jobs:
         id: find
         run: |
           services=()
-          for wrapper in */gradlew; do
-            [ -x "$wrapper" ] && services+=("$(dirname "$wrapper")")
+          missing=()
+          for dir in */; do
+            dir="${dir%/}"
+            if [ -x "$dir/gradlew" ]; then
+              services+=("$dir")
+            elif [ -f "$dir/build.gradle" ] || [ -d "$dir/src" ]; then
+              missing+=("$dir")
+            fi
           done
+          # 빌드 파일·src는 있는데 gradlew가 없으면 조용히 빠지지 않게 실패
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::gradlew가 없어 빌드할 수 없는 서비스: ${missing[*]}"
+            exit 1
+          fi
           if [ ${#services[@]} -eq 0 ]; then
             echo "::error::검증할 서비스가 없다"
             exit 1
