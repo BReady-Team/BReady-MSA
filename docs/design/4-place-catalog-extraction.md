@@ -66,9 +66,9 @@ Catalog는 호스트에 포트를 열지 않고 Gateway 라우트도 없다. 모
 | 위치 | 내용 |
 |---|---|
 | `place-catalog-service/` | 독립 Gradle 프로젝트(web, validation, actuator). 공통 코드(`global/`)는 모놀리식에서 필요한 것만 다시 썼다: `CommonResponse` record, `ApplicationException.from`, `GlobalExceptionHandler` |
-| Catalog `place/` | `PlaceSearchInternalController`(`GET /internal/v1/places/search`, 결과 없으면 200 + 빈 목록), `PlaceSearchService`, `KakaoPlaceClient`(RestClient, 주소는 `kakao.base-url`), `PlaceCategoryType.searchQuery`, `PlaceErrorCase`(4103~4105, 번호 유지) |
+| Catalog `place/` | `PlaceSearchInternalController`(`GET /internal/v1/places/search`, 결과 없으면 200 + 빈 목록), `PlaceSearchService`, `KakaoPlaceClient`(RestClient, 주소는 `kakao.base-url`), `PlaceCategoryType.searchQuery`, `PlaceErrorCase`(4103~4105 번호 유지, 카카오 오류·파싱 실패는 502, 카카오 연결 불가 503 `5032`) |
 | Catalog `architecture/ArchitectureTest` | 레이어·코딩 규칙 12개. 기준선 없이 위반 0건 |
-| 모놀리식 `place/external/` | `PlaceCatalogHttpClient`(`@HttpExchange`), `PlaceCatalogClientConfig`(이 클라이언트에만 타임아웃 2초/7초), `PlaceSearchHttpAdapter`(`PlaceSearchApi` 구현, 오류 전달·503 번역), `RelayedErrorCase` |
+| 모놀리식 `place/external/` | `PlaceCatalogHttpClient`(`@HttpExchange`), `PlaceCatalogClientConfig`(이 클라이언트에만 타임아웃 연결 2초/읽기 8초), `PlaceSearchHttpAdapter`(`PlaceSearchApi` 구현, 오류 전달·503 번역), `RelayedErrorCase` |
 | 모놀리식 삭제 | `PlaceSearchService`, `KakaoPlaceClient`, `KakaoPlaceDocument`, `place/dto/PlaceSearchResponse`, 에러 코드 4100·4103~4105 |
 | `docker-compose-local.yml` | `place-catalog` 컨테이너(`app` 프로필, 호스트 포트 없음), 모놀리식 `PLACE_CATALOG_URI` |
 | `.claude/hooks/stop-verify-gate.sh` | architecture 테스트가 없는 서비스는 구조 검사를 건너뛰었다고 알린다 |
@@ -92,6 +92,8 @@ Catalog는 호스트에 포트를 열지 않고 Gateway 라우트도 없다. 모
 | Gateway로 `/internal/v1/places/search` | 404 (Gateway는 모놀리식으로만 보낸다) |
 | 호스트에서 `:8081` 직접 | 연결 거부 (포트를 열지 않음) |
 | Catalog 정지 후 검색 | 503 `5031`, 2.03초(연결 타임아웃 2초) |
+| 카카오가 6초 걸림 (리뷰 반영 후) | 503 `5032`, 5.18초. Catalog가 5초에 끊고 모놀리식(8초)이 그대로 전달 |
+| 카카오가 HTML을 줌 (리뷰 반영 후) | 502 `4105` |
 | Catalog 정지 후 플랜 목록 | 200 (무관한 기능은 영향 없음) |
 | Catalog 재시작 후 검색 | 200 |
 
@@ -102,9 +104,9 @@ Catalog는 호스트에 포트를 열지 않고 Gateway 라우트도 없다. 모
 - 부르는 쪽(검색 컨트롤러, 추천)은 `PlaceSearchApi`만 안다. 구현이 메서드 호출(`PlaceSearchService`)에서 HTTP 어댑터로 바뀌었고 부르는 쪽 코드는 그대로다.
 - 네트워크가 끼면서 생긴 실패 세 가지를 어댑터가 맡는다: 상대가 없음(503 `5031`), 오래 걸림(타임아웃), 상대의 오류 응답(본문을 읽어 상태·코드·문구를 그대로 전달).
 - "없음 → 404"는 외부 입구인 모놀리식 컨트롤러의 판단이라 남겼다. Catalog 내부 API는 빈 목록을 돌려주고 추천은 그 빈 목록을 그대로 쓴다.
-- 모놀리식이 Catalog를 부르는 읽기 타임아웃(7초)이 Catalog의 카카오 타임아웃(5초)보다 길다. 짧으면 카카오 오류 응답이 도착하기 전에 모놀리식이 503을 낸다.
+- 타임아웃은 합으로 본다. Catalog의 카카오 호출은 최악 7초(연결 2 + 읽기 5), 모놀리식이 Catalog를 기다리는 시간은 8초다. 거꾸로면 카카오 오류가 도착하기 전에 모놀리식이 `5031`(Catalog 연결 불가)을 내서 원인이 다르게 보고된다. 처음에는 연결 타임아웃(5초)을 합산하지 않아 최악 10초 > 7초였고, 리뷰를 보다 찾았다.
+- 오류 분류(닿지 못함 → 503, 상대가 이상한 답 → 502)는 지금 한다. 재시도·차단·대체 응답 같은 장애 대응은 5단계 서킷브레이커에서 한다.
 
 ## 알려진 한계
 
-- 4-1: Catalog에서 카카오 타임아웃이 나면 지금도 500이다(모놀리식 시절과 같다). 503으로 바꾸고 재시도·차단을 정하는 것은 5단계 서킷브레이커에서 한다.
 - 4-1: 모놀리식 기준선의 Place·User 에러 코드 중복(4104·4105)은 사라졌지만, Catalog가 돌려주는 4104·4105를 모놀리식이 그대로 전달하므로 클라이언트가 받는 응답에서는 여전히 겹친다. 에러 코드 형식 전환(7단계, ADR 필요) 때 함께 푼다.
