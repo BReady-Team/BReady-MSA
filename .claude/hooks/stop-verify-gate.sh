@@ -23,20 +23,31 @@ cd "$PROJECT_DIR" 2>/dev/null || exit 0
 CHANGED_JAVA="$(git status --porcelain --untracked-files=all 2>/dev/null | awk '{print $NF}' | grep -E '\.java$')"
 [ -z "$CHANGED_JAVA" ] && exit 0
 
+has_architecture_tests() {
+  [ -n "$(find "$1/src/test/java" -type d -name architecture 2>/dev/null)" ]
+}
+
 SERVICES=()
 UNCHECKED=()
+NO_ARCHITECTURE=()
 for dir in $(printf '%s\n' "$CHANGED_JAVA" | cut -d/ -f1 | sort -u); do
   if [ -x "$dir/gradlew" ]; then
     SERVICES+=("$dir")
+    has_architecture_tests "$dir" || NO_ARCHITECTURE+=("$dir")
   else
     UNCHECKED+=("$dir")
   fi
 done
 
-notify_unchecked() {
-  [ ${#UNCHECKED[@]} -eq 0 ] && return
-  jq -n --arg d "${UNCHECKED[*]}" \
-    '{systemMessage: ("[알림] gradlew 가 없어 포맷·컴파일을 검사하지 못한 Java 가 있다: " + $d + ". 서비스라면 Gradle wrapper 를 추가하라.")}'
+# 건너뛴 검사를 말한다. 출력이 없으면 "통과"와 "검사 안 함"이 화면에서 같아진다
+notify_skipped() {
+  local messages=()
+  [ ${#UNCHECKED[@]} -gt 0 ] && messages+=("gradlew 가 없어 포맷·컴파일을 검사하지 못한 Java 가 있다: ${UNCHECKED[*]}. 서비스라면 Gradle wrapper 를 추가하라.")
+  [ ${#NO_ARCHITECTURE[@]} -gt 0 ] && messages+=("architecture 테스트가 없어 구조 규칙(ArchUnit)을 검사하지 않았다: ${NO_ARCHITECTURE[*]}. 도메인 코드가 있는 서비스라면 ArchUnit 을 추가하라.")
+  [ ${#messages[@]} -eq 0 ] && return
+  local text="[알림] ${messages[0]}"
+  [ ${#messages[@]} -gt 1 ] && text+=" / ${messages[1]}"
+  jq -n --arg m "$text" '{systemMessage: $m}'
 }
 
 block() {
@@ -50,15 +61,15 @@ FINGERPRINT="$(printf '%s\n' "$CHANGED_JAVA" | while IFS= read -r f; do
   [ -f "$f" ] && stat -f '%N %m %z' "$f" 2>/dev/null || stat -c '%n %Y %s' "$f" 2>/dev/null || echo "$f deleted"
 done | shasum | cut -d' ' -f1)"
 if [ "$FINGERPRINT" = "$(cat "$CACHE_DIR/verify-gate-ok" 2>/dev/null)" ]; then
-  notify_unchecked
+  notify_skipped
   exit 0
 fi
 
 check_service() {
   local service="$1" out status
   local tasks=(spotlessCheck compileJava compileTestJava)
-  # 구조 규칙(ArchUnit)은 도메인이 있는 서비스에만 있다
-  if [ -n "$(find "$service/src/test/java" -type d -name architecture 2>/dev/null)" ]; then
+  # 구조 규칙(ArchUnit)은 도메인이 있는 서비스에만 있다. 없으면 notify_skipped 가 알린다
+  if has_architecture_tests "$service"; then
     tasks+=(test --tests '*.architecture.*')
   fi
 
@@ -106,5 +117,5 @@ for service in ${SERVICES[@]+"${SERVICES[@]}"}; do
 done
 
 printf '%s' "$FINGERPRINT" > "$CACHE_DIR/verify-gate-ok"
-notify_unchecked
+notify_skipped
 exit 0

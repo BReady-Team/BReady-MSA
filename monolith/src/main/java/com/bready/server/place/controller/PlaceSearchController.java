@@ -15,9 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.global.response.CommonResponse;
 import com.bready.server.place.api.PlaceCategoryType;
-import com.bready.server.place.dto.PlaceSearchResponse;
+import com.bready.server.place.api.PlaceSearchApi;
+import com.bready.server.place.api.PlaceSearchResult;
 import com.bready.server.place.exception.PlaceErrorCase;
-import com.bready.server.place.service.PlaceSearchService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -34,7 +34,7 @@ import lombok.RequiredArgsConstructor;
 @Validated
 public class PlaceSearchController {
 
-    private final PlaceSearchService placeSearchService;
+    private final PlaceSearchApi placeSearchApi;
 
     @GetMapping("/search")
     @Operation(
@@ -55,9 +55,17 @@ public class PlaceSearchController {
         @ApiResponse(
                 responseCode = "404",
                 description = "검색 결과 없음",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "502",
+                description = "카카오 장소 검색 오류 (4103, 4104, 4105)",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "503",
+                description = "장소 서비스(5031) 또는 카카오(5032)에 연결할 수 없음",
                 content = @Content(schema = @Schema(implementation = CommonResponse.class)))
     })
-    public CommonResponse<List<PlaceSearchResponse>> searchPlaces(
+    public CommonResponse<List<PlaceSearchResult>> searchPlaces(
             @Parameter(
                             name = "category",
                             description = "BReady 장소 카테고리",
@@ -91,7 +99,7 @@ public class PlaceSearchController {
             throw ApplicationException.from(PlaceErrorCase.LOCATION_REQUIRED);
         }
 
-        List<PlaceSearchResponse> results = placeSearchService.search(category, keyword, latitude, longitude, radius);
+        List<PlaceSearchResult> results = placeSearchApi.searchPlaces(category, keyword, latitude, longitude, radius);
 
         // 결과 없으면 에러 처리
         if (results.isEmpty()) {

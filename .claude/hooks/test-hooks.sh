@@ -203,7 +203,7 @@ contains "session: 실제 레포는 private ignore 경고 없음" "$(context_of 
 
 write_state OPEN
 out="$(echo '{"prompt":"다음 가자"}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/prompt-router.sh")"
-contains "router: OPEN + 다음 → 붙잡기" "$(context_of "$out")" "한 번은 붙잡아라" yes
+contains "router: OPEN + 다음 → 설명 후 SKIPPED" "$(context_of "$out")" "붙잡지 마라" yes
 out="$(echo '{"prompt":"트리거는 계획과 같이 바뀌니까 같은 서비스에 둬야 해"}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/prompt-router.sh")"
 contains "router: OPEN + 답변 → gate-review" "$(context_of "$out")" "/gate-review" yes
 
@@ -270,6 +270,18 @@ out="$(echo '{}' | CLAUDE_PROJECT_DIR="$NOWRAP" "$HOOKS/stop-verify-gate.sh")"
 contains "stop: gradlew 없는 서비스의 Java는 알린다" "$out" "검사하지 못한 Java 가 있다: new-service" yes
 contains "stop: gradlew 없는 서비스는 막지 않는다" "$out" '"decision"' no
 rm -rf "$NOWRAP"
+# gradlew 는 있지만 architecture 테스트가 없는 서비스: 가짜 gradlew 로 검사는 통과시키고 알림만 본다
+NOARCH="$(mktemp -d)"
+git -C "$NOARCH" init -q
+mkdir -p "$NOARCH/new-service/src/main/java" && touch "$NOARCH/new-service/src/main/java/A.java"
+printf '#!/bin/sh\nexit 0\n' > "$NOARCH/new-service/gradlew" && chmod +x "$NOARCH/new-service/gradlew"
+out="$(echo '{}' | CLAUDE_PROJECT_DIR="$NOARCH" "$HOOKS/stop-verify-gate.sh")"
+contains "stop: ArchUnit 없는 서비스는 알린다" "$out" "구조 규칙(ArchUnit)을 검사하지 않았다: new-service" yes
+contains "stop: ArchUnit 없는 서비스는 막지 않는다" "$out" '"decision"' no
+mkdir -p "$NOARCH/new-service/src/test/java/architecture"
+out="$(echo '{}' | CLAUDE_PROJECT_DIR="$NOARCH" "$HOOKS/stop-verify-gate.sh")"
+contains "stop: ArchUnit 있는 서비스는 알리지 않는다" "$out" "구조 규칙(ArchUnit)을 검사하지 않았다" no
+rm -rf "$NOARCH"
 
 printf '\n훅 회귀 테스트: 통과 %d / 실패 %d\n' "$PASS" "$FAIL"
 if [ "$FAIL" -gt 0 ]; then
