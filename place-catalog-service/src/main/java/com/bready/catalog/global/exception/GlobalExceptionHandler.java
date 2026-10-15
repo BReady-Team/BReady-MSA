@@ -2,6 +2,7 @@ package com.bready.catalog.global.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
@@ -27,7 +28,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(errorCase.getHttpStatusCode()).body(CommonResponse.error(errorCase));
     }
 
-    // 쿼리 파라미터를 record로 받아서 누락,형식,범위 오류가 모두 BindException으로
+    // 쿼리 파라미터·요청 본문의 누락,형식,범위 오류가 모두 BindException으로 (@RequestBody의 MethodArgumentNotValidException 포함)
     @ExceptionHandler(BindException.class)
     public ResponseEntity<CommonResponse<Void>> handleBindException(BindException e) {
         String message = e.getBindingResult().getAllErrors().stream()
@@ -36,6 +37,13 @@ public class GlobalExceptionHandler {
                 .orElse(DEFAULT_VALIDATION_MESSAGE);
         log.warn("[BindException] {}", message);
         return ResponseEntity.badRequest().body(CommonResponse.error(4001, message));
+    }
+
+    // 본문이 JSON이 아니거나 타입이 맞지 않음
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<CommonResponse<Void>> handleNotReadable(HttpMessageNotReadableException e) {
+        log.warn("[HttpMessageNotReadable] {}", e.getMessage());
+        return ResponseEntity.badRequest().body(CommonResponse.error(4001, DEFAULT_VALIDATION_MESSAGE));
     }
 
     // 타입 변환 실패는 스프링 내부 메시지라 응답에 내보내지 않음
