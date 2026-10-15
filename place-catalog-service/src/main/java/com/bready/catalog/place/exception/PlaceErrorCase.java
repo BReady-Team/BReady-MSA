@@ -13,7 +13,8 @@ import lombok.RequiredArgsConstructor;
 public enum PlaceErrorCase implements ErrorCase {
     KAKAO_CLIENT_ERROR(HttpStatus.BAD_GATEWAY, 4103, "카카오 장소 검색 요청이 잘못되었습니다."),
     KAKAO_SERVER_ERROR(HttpStatus.BAD_GATEWAY, 4104, "카카오 장소 서비스에 장애가 발생했습니다."),
-    KAKAO_RESPONSE_PARSE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, 4105, "카카오 장소 응답 파싱에 실패했습니다.");
+    KAKAO_RESPONSE_PARSE_FAILED(HttpStatus.BAD_GATEWAY, 4105, "카카오 장소 응답 파싱에 실패했습니다."),
+    KAKAO_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, 5032, "카카오 장소 서비스에 연결할 수 없습니다.");
 
     private final HttpStatus httpStatus;
     private final Integer errorCode;

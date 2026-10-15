@@ -58,11 +58,11 @@ public class PlaceSearchController {
                 content = @Content(schema = @Schema(implementation = CommonResponse.class))),
         @ApiResponse(
                 responseCode = "502",
-                description = "카카오 장소 검색 오류 (4103, 4104)",
+                description = "카카오 장소 검색 오류 (4103, 4104, 4105)",
                 content = @Content(schema = @Schema(implementation = CommonResponse.class))),
         @ApiResponse(
                 responseCode = "503",
-                description = "장소 서비스에 연결할 수 없음 (5031)",
+                description = "장소 서비스(5031) 또는 카카오(5032)에 연결할 수 없음",
                 content = @Content(schema = @Schema(implementation = CommonResponse.class)))
     })
     public CommonResponse<List<PlaceSearchResult>> searchPlaces(

@@ -1,5 +1,6 @@
 package com.bready.catalog.place.external;
 
+import java.net.SocketTimeoutException;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -23,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
@@ -112,6 +114,17 @@ class KakaoPlaceClientTest {
                 .isInstanceOf(ApplicationException.class)
                 .extracting("errorCase")
                 .isEqualTo(PlaceErrorCase.KAKAO_RESPONSE_PARSE_FAILED);
+    }
+
+    @Test
+    @DisplayName("실패 - 카카오에 연결하지 못하면(연결 실패·타임아웃) KAKAO_UNAVAILABLE")
+    void searchByKeyword_unavailable() {
+        server.expect(method(HttpMethod.GET)).andRespond(withException(new SocketTimeoutException("Read timed out")));
+
+        assertThatThrownBy(() -> kakaoPlaceClient.searchByKeyword(condition()))
+                .isInstanceOf(ApplicationException.class)
+                .extracting("errorCase")
+                .isEqualTo(PlaceErrorCase.KAKAO_UNAVAILABLE);
     }
 
     private KakaoKeywordSearchCondition condition() {

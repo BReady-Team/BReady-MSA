@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriBuilder;
 
@@ -36,21 +37,33 @@ public class KakaoPlaceClient {
     }
 
     public List<KakaoKeywordSearchResponse.Document> searchByKeyword(KakaoKeywordSearchCondition condition) {
-        String body = restClient
-                .get()
-                .uri(uriBuilder -> buildKeywordSearchUri(uriBuilder, condition))
-                .retrieve()
-                .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
-                    log.warn("카카오 장소 검색 4xx status={}", response.getStatusCode().value());
-                    throw ApplicationException.from(PlaceErrorCase.KAKAO_CLIENT_ERROR);
-                })
-                .onStatus(HttpStatusCode::is5xxServerError, (request, response) -> {
-                    log.error(
-                            "카카오 장소 검색 5xx status={}", response.getStatusCode().value());
-                    throw ApplicationException.from(PlaceErrorCase.KAKAO_SERVER_ERROR);
-                })
-                .body(String.class);
-        return parse(body).documents();
+        return parse(requestKeywordSearch(condition)).documents();
+    }
+
+    // 카카오가 답한 오류는 502, 연결 실패·타임아웃은 503
+    private String requestKeywordSearch(KakaoKeywordSearchCondition condition) {
+        try {
+            return restClient
+                    .get()
+                    .uri(uriBuilder -> buildKeywordSearchUri(uriBuilder, condition))
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+                        log.warn(
+                                "카카오 장소 검색 4xx status={}",
+                                response.getStatusCode().value());
+                        throw ApplicationException.from(PlaceErrorCase.KAKAO_CLIENT_ERROR);
+                    })
+                    .onStatus(HttpStatusCode::is5xxServerError, (request, response) -> {
+                        log.error(
+                                "카카오 장소 검색 5xx status={}",
+                                response.getStatusCode().value());
+                        throw ApplicationException.from(PlaceErrorCase.KAKAO_SERVER_ERROR);
+                    })
+                    .body(String.class);
+        } catch (ResourceAccessException e) {
+            log.warn("카카오 장소 검색 연결 실패 message={}", e.getMessage());
+            throw ApplicationException.from(PlaceErrorCase.KAKAO_UNAVAILABLE, e);
+        }
     }
 
     private URI buildKeywordSearchUri(UriBuilder uriBuilder, KakaoKeywordSearchCondition condition) {
