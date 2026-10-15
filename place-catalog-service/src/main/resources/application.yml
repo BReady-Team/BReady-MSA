@@ -1,6 +1,14 @@
 spring:
   application:
     name: place-catalog-service
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3307/bready?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:bready-local}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
   http:
     client:
       connect-timeout: 2s
