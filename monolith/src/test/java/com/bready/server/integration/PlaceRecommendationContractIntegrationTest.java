@@ -1,5 +1,8 @@
 package com.bready.server.integration;
 
+import java.math.BigDecimal;
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,7 +11,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.bready.server.place.external.KakaoPlaceClient;
+import com.bready.server.place.api.PlaceSearchResult;
+import com.bready.server.place.external.PlaceCatalogHttpClient;
+import com.bready.server.place.external.PlaceCatalogResponse;
 import com.bready.server.support.IntegrationTestSupport;
 import com.bready.server.support.PlanningSteps;
 
@@ -25,20 +30,32 @@ class PlaceRecommendationContractIntegrationTest extends IntegrationTestSupport 
 
     private static final int PLAN_ACCESS_DENIED = 4002;
 
-    private static final String KAKAO_TWO_PLACES =
-            """
-            {"documents": [
-              {"id": "1", "place_name": "지금 대표 카페", "address_name": "서울 성동구", "road_address_name": "", "x": "127.0557", "y": "37.5445"},
-              {"id": "2", "place_name": "새 카페", "address_name": "서울 성동구 성수동", "road_address_name": "서울 성동구 성수이로 1", "x": "127.0560", "y": "37.5450"}
-            ]}
-            """;
+    // 카카오 응답을 장소로 바꾸는 규칙(kakao- 접두어, 도로명 주소 우선)은 place-catalog-service가 검증
+    private static final PlaceCatalogResponse<List<PlaceSearchResult>> CATALOG_TWO_PLACES = new PlaceCatalogResponse<>(
+            null,
+            "success",
+            List.of(
+                    new PlaceSearchResult(
+                            "kakao-1",
+                            "지금 대표 카페",
+                            "서울 성동구",
+                            new BigDecimal("37.5445"),
+                            new BigDecimal("127.0557"),
+                            true),
+                    new PlaceSearchResult(
+                            "kakao-2",
+                            "새 카페",
+                            "서울 성동구 성수이로 1",
+                            new BigDecimal("37.5450"),
+                            new BigDecimal("127.0560"),
+                            true)));
 
-    private static final String KAKAO_NO_PLACES = """
-            {"documents": []}
-            """;
+    private static final PlaceCatalogResponse<List<PlaceSearchResult>> CATALOG_NO_PLACES =
+            new PlaceCatalogResponse<>(null, "success", List.of());
 
+    // 경계는 Catalog HTTP 호출
     @MockitoBean
-    private KakaoPlaceClient kakaoPlaceClient;
+    private PlaceCatalogHttpClient placeCatalogHttpClient;
 
     private PlanningSteps steps;
     private String token;
@@ -57,7 +74,8 @@ class PlaceRecommendationContractIntegrationTest extends IntegrationTestSupport 
     @Test
     @DisplayName("성공 - 대표 후보 주변을 검색하고, 지금 대표인 장소는 빼고 추천한다")
     void recommendPlaces_success() throws Exception {
-        given(kakaoPlaceClient.search(any(), any(), any(), any(), any())).willReturn(KAKAO_TWO_PLACES);
+        given(placeCatalogHttpClient.searchPlaces(any(), any(), any(), any(), any()))
+                .willReturn(CATALOG_TWO_PLACES);
 
         recommend(token)
                 .andExpect(status().isOk())
@@ -76,7 +94,8 @@ class PlaceRecommendationContractIntegrationTest extends IntegrationTestSupport 
     @Test
     @DisplayName("성공 - 주변에 검색되는 장소가 없으면 에러가 아니라 빈 목록을 돌려준다")
     void recommendPlaces_noSearchResult() throws Exception {
-        given(kakaoPlaceClient.search(any(), any(), any(), any(), any())).willReturn(KAKAO_NO_PLACES);
+        given(placeCatalogHttpClient.searchPlaces(any(), any(), any(), any(), any()))
+                .willReturn(CATALOG_NO_PLACES);
 
         recommend(token)
                 .andExpect(status().isOk())

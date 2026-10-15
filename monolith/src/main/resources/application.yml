@@ -36,8 +36,11 @@ jwt:
   access-exp: 1800000
   refresh-exp: 1209600000
 
-kakao:
-  rest-api-key: ${KAKAO_REST_API_KEY:local-dummy-kakao-rest-api-key}
+# 카카오 장소 검색은 place-catalog-service가 한다
+place-catalog:
+  base-url: ${PLACE_CATALOG_URI:http://localhost:8081}
+  connect-timeout: 2s
+  read-timeout: 7s
 
 oauth:
   kakao:

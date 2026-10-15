@@ -11,7 +11,6 @@ com.bready.server.auth.dto.RefreshRequest is not a record
 com.bready.server.auth.dto.SignupRequest is not a record
 com.bready.server.auth.dto.SignupResponse is not a record
 com.bready.server.auth.dto.TokenResponse is not a record
-com.bready.server.place.dto.kakao.KakaoPlaceDocument is not a record and not named *Request/*Response
 com.bready.server.plan.dto.PageInfo is not a record and not named *Request/*Response
 com.bready.server.plan.dto.PlanCategoryCreateRequest is not a record
 com.bready.server.plan.dto.PlanCategoryCreateResponse is not a record
