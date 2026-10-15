@@ -203,7 +203,7 @@ contains "session: 실제 레포는 private ignore 경고 없음" "$(context_of 
 
 write_state OPEN
 out="$(echo '{"prompt":"다음 가자"}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/prompt-router.sh")"
-contains "router: OPEN + 다음 → 붙잡기" "$(context_of "$out")" "한 번은 붙잡아라" yes
+contains "router: OPEN + 다음 → 설명 후 SKIPPED" "$(context_of "$out")" "붙잡지 마라" yes
 out="$(echo '{"prompt":"트리거는 계획과 같이 바뀌니까 같은 서비스에 둬야 해"}' | CLAUDE_PROJECT_DIR="$FAKE" "$HOOKS/prompt-router.sh")"
 contains "router: OPEN + 답변 → gate-review" "$(context_of "$out")" "/gate-review" yes
 
