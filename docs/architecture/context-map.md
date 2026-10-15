@@ -389,14 +389,14 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 
 | 규칙 | 2026-10-08 |
 |---|---|
-| `new ApplicationException(...)` (from 사용) | 88 (2026-10-12: 80, 2026-10-13: 71) |
-| DTO가 `*Request`/`*Response` record가 아님 | 41 |
+| `new ApplicationException(...)` (from 사용) | 88 (2026-10-12: 80, 2026-10-13: 71, 2026-10-15: 70) |
+| DTO가 `*Request`/`*Response` record가 아님 | 41 (2026-10-15: 40) |
 | 컨트롤러가 `{Domain}Api`를 구현하지 않음 | 17 (2026-10-12: 16) |
 | `@Transactional` 서비스의 클래스 readOnly 선언 없음 | 14 (2026-10-13: 12) |
 | domain·service의 `LocalDateTime.now()` (Clock 미사용) | 11 |
 | domain의 `IllegalArgumentException`·`IllegalStateException` | 10 |
 | global이 도메인 모듈에 의존 (C3) | 8 (2026-10-13: 6, 전부 인증) |
-| ErrorCase 코드 중복 | 8 |
+| ErrorCase 코드 중복 | 8 (2026-10-15: 4. 카카오 검색 4104·4105가 Catalog로 나감) |
 | 엔티티 public 기본 생성자 | 6 |
 | 필드 주입(`@Value` 필드 포함) | 5 |
 | 다른 모듈의 이벤트 클래스 생성 (C2) | 2 (2026-10-13: 0) |
@@ -411,6 +411,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|---|
 | 2026-10-08 | v0 | 최초 작성 (코드 수정 없이 분석) |
 | 2026-10-08 | v0.1 | 경계 위반 기준선(ArchUnit) 추가 |
+| 2026-10-15 | v1.10 | 4-1 카카오 장소 검색을 place-catalog-service로 이동. 모놀리식은 `PlaceSearchApi`를 HTTP 어댑터로 구현. 코딩 규칙 기준선 71→70, 41→40, 8→4 |
 | 2026-10-13 | v1.9 | 공통 예외 핸들러의 도메인 의존 제거. global → 도메인 8 → 6 (남은 것은 인증, 6단계) |
 | 2026-10-13 | v1.8 | Recommendation이 Planning·Place Catalog를 공개 API로만 쓰게 변경. Recommendation 65 → 0, Catalog `api` 밖 사용 17 → 0. 컨텍스트 사이의 Repository·Entity 직접 사용이 0이 됐다 |
 | 2026-10-13 | v1.7 | Stats가 Planning을 공개 API(`plan.api`, `trigger.api`)로만 쓰게 변경, 이벤트를 `trigger.api.event`로 이동. Stats 63 → 0, C2 해결, 합계 65 |

@@ -76,7 +76,7 @@ DTO는 record이므로 Lombok이 필요 없다(`dto.md` 1번).
 - 와일드카드 import 금지(`import java.util.*`). 예외: 테스트의 static import(`import static org.assertj.core.api.Assertions.*`).
   - import 순서와 안 쓰는 import 제거는 Spotless가 한다. 와일드카드를 펼쳐 주지는 않으므로 옛 코드(41개 파일)는 건드릴 때 정리한다.
 - 코드 중간에 정규화된 이름을 쓰지 않는다.
-  - 나쁜 예: `.block(java.time.Duration.ofSeconds(10))` (`place/external/KakaoPlaceClient.java:69`)
+  - 나쁜 예: `.block(java.time.Duration.ofSeconds(5))` (`auth/client/NaverOAuthClient.java:42`)
 - `var`는 오른쪽에서 타입이 바로 보일 때만(`var plan = Plan.create(...)`).
 
 ## 8. 상수와 리터럴
