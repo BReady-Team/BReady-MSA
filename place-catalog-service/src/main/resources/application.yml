@@ -3,7 +3,7 @@ spring:
     name: place-catalog-service
   http:
     client:
-      connect-timeout: 5s
+      connect-timeout: 2s
       read-timeout: 5s
 
 server:
