@@ -44,11 +44,23 @@ services:
       DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-bready}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
       DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-bready-local}
       REDIS_HOST: redis
+      PLACE_CATALOG_URI: http://place-catalog:8081
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
+      place-catalog:
+        condition: service_started
+
+  place-catalog:
+    profiles: ["app"]
+    build: ./place-catalog-service
+    container_name: bready-place-catalog
+    expose:
+      - "8081"
+    environment:
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-local-dummy-kakao-rest-api-key}
 
   gateway:
     profiles: ["app"]
