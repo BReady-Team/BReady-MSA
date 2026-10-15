@@ -52,7 +52,7 @@ CLAUDE.md  →  rules/*.md (작업별)  →  skills/* (절차)  →  실제 코�
 | PreToolUse(Bash) | `guard-bash.sh` | git commit/push/pull/merge·원격 설정·이력 파괴 deny, gh·ghcr·운영 도메인·ssh·aws deny, 볼륨 삭제·파괴적 SQL deny, 시크릿 출력 deny. 작업 트리를 바꾸는 git 조작은 ask |
 | PreToolUse(Write\|Edit) | `guard-write.sh` | 시크릿 파일 deny, 시크릿처럼 보이는 값 deny. CLAUDE.md·하네스·빌드·인프라·게이트 상태·ArchUnit 기준선은 ask |
 | PostToolUse(Write\|Edit) | `post-edit-lint.sh` | 이번에 새로 쓴 Java 코드만 검사해 위반을 알림 (막지 않음) |
-| Stop | `stop-verify-gate.sh` | Java를 고친 서비스만 Spotless·컴파일·아키텍처 테스트(있는 서비스만). 실패면 끝내지 못함. gradlew 없는 곳의 Java는 알림. 같은 상태는 캐시로 건너뜀 |
+| Stop | `stop-verify-gate.sh` | Java를 고친 서비스만 Spotless·컴파일·아키텍처 테스트(있는 서비스만). 실패면 끝내지 못함. gradlew 없는 곳의 Java, architecture 테스트 없는 서비스는 건너뛴 사실을 알림. 같은 상태는 캐시로 건너뜀 |
 
 ### 훅을 만들며 지킨 것
 - **fail-open이되 조용하지 않게.** jq가 없거나 gradle이 환경 문제로 못 돌면 통과시키되 알린다. 훅이 고장 나 모든 작업을 막으면 결국 훅을 끄게 된다.
@@ -85,6 +85,7 @@ CLAUDE.md  →  rules/*.md (작업별)  →  skills/* (절차)  →  실제 코�
 ## ArchUnit 기준선
 
 - 테스트: `monolith/src/test/java/com/bready/server/architecture/` (레이어 · 코딩 규칙 · 모듈 경계)
+- 떼어낸 서비스(`place-catalog-service`)는 옛 위반이 없어 기준선 없이 위반 0건을 요구한다(`architecture/ArchitectureTest`). 아직 대상이 없는 규칙은 `archRule.failOnEmptyShould=false`로 통과시키고, 대상이 생기면 바로 검사된다.
 - 기준선: `monolith/src/test/resources/archunit_store/`. 기록된 옛 위반은 통과, 새 위반은 실패. 위반을 고치면 테스트가 기준선에서 지운다.
 - 기준선은 **규칙 설명 문자열**이 키다. `because(...)`를 바꾸면 새 규칙이 된다.
 - 새 규칙 추가: `archunit.properties`의 `freeze.store.allowNewRules`를 잠깐 `true` → 실행 → `false`. 만들어진 기준선의 건수를 확인한다. 기준선을 손으로 고쳐 새 위반을 인정하지 않는다.
