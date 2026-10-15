@@ -1,9 +1,17 @@
 spring:
   application:
     name: place-catalog-service
+  http:
+    client:
+      connect-timeout: 5s
+      read-timeout: 5s
 
 server:
   port: ${SERVER_PORT:8081}
+
+kakao:
+  base-url: ${KAKAO_BASE_URL:https://dapi.kakao.com}
+  rest-api-key: ${KAKAO_REST_API_KEY:local-dummy-kakao-rest-api-key}
 
 management:
   endpoints:
