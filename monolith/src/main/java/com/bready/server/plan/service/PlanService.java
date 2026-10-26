@@ -3,7 +3,6 @@ package com.bready.server.plan.service;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -14,10 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.api.PlaceCatalogApi;
-import com.bready.server.place.api.PlaceInfo;
 import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlaceCandidate;
+import com.bready.server.plan.domain.PlaceSnapshot;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.dto.*;
@@ -40,7 +38,6 @@ public class PlanService {
     private final PlanCategoryRepository planCategoryRepository;
     private final CategoryStateRepository categoryStateRepository;
     private final UserApi userApi;
-    private final PlaceCatalogApi placeCatalogApi;
 
     @Transactional
     public PlanCreateResponse createPlan(Long userId, PlanCreateRequest request) {
@@ -111,27 +108,14 @@ public class PlanService {
                 .filter(cs -> cs.getCurrentCandidateId() != null)
                 .collect(Collectors.toMap(cs -> cs.getCategory().getId(), CategoryState::getCurrentCandidateId));
 
-        Map<Long, PlaceInfo> placesById = findPlacesOf(categories);
-
         List<PlanDetailCategoryDto> categoryDtos = categories.stream()
-                .map(category -> buildCategoryDto(category, representativeMap.get(category.getId()), placesById))
+                .map(category -> buildCategoryDto(category, representativeMap.get(category.getId())))
                 .toList();
 
         return PlanDetailResponse.builder()
                 .plan(planDto)
                 .categories(categoryDtos)
                 .build();
-    }
-
-    private Map<Long, PlaceInfo> findPlacesOf(List<PlanCategory> categories) {
-        List<Long> placeIds = categories.stream()
-                .flatMap(category -> category.getCandidates().stream())
-                .map(PlaceCandidate::getPlaceId)
-                .distinct()
-                .toList();
-
-        return placeCatalogApi.getPlaces(placeIds).stream()
-                .collect(Collectors.toMap(PlaceInfo::id, Function.identity()));
     }
 
     private PlanDto buildPlanDto(Plan plan) {
@@ -154,11 +138,10 @@ public class PlanService {
                 .build();
     }
 
-    private PlanDetailCategoryDto buildCategoryDto(
-            PlanCategory category, Long representativeId, Map<Long, PlaceInfo> placesById) {
+    private PlanDetailCategoryDto buildCategoryDto(PlanCategory category, Long representativeId) {
         List<PlanDetailCandidateDto> candidateDtos = category.getCandidates().stream()
                 .sorted((a, b) -> Long.compare(b.getId(), a.getId()))
-                .map(candidate -> buildCandidateDto(candidate, representativeId, placesById))
+                .map(candidate -> buildCandidateDto(candidate, representativeId))
                 .toList();
 
         return PlanDetailCategoryDto.builder()
@@ -170,13 +153,8 @@ public class PlanService {
                 .build();
     }
 
-    private PlanDetailCandidateDto buildCandidateDto(
-            PlaceCandidate candidate, Long representativeId, Map<Long, PlaceInfo> placesById) {
-        PlaceInfo place = placesById.get(candidate.getPlaceId());
-        if (place == null) {
-            // TODO: Catalog가 서비스로 나가면 "응답 없음"도 여기로 온다. 그때 장소 없이 보여 줄지 정한다
-            throw new IllegalStateException("후보의 장소를 찾을 수 없습니다. candidateId=" + candidate.getId());
-        }
+    private PlanDetailCandidateDto buildCandidateDto(PlaceCandidate candidate, Long representativeId) {
+        PlaceSnapshot place = candidate.getPlaceSnapshot();
 
         boolean isRepresentative = representativeId != null && representativeId.equals(candidate.getId());
 
@@ -184,7 +162,7 @@ public class PlanService {
                 .candidateId(candidate.getId())
                 .isRepresentative(isRepresentative)
                 .place(PlanDetailPlaceDto.builder()
-                        .id(place.id())
+                        .id(candidate.getPlaceId())
                         .externalId(place.externalId())
                         .name(place.name())
                         .address(place.address())
