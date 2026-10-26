@@ -8,6 +8,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -15,9 +16,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.place.api.PlaceCatalogApi;
+import com.bready.server.place.api.PlaceCategoryType;
 import com.bready.server.place.api.PlaceInfo;
 import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlaceCandidate;
+import com.bready.server.plan.domain.PlaceSnapshot;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.dto.PlaceCandidateCreateRequest;
@@ -31,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -94,6 +98,27 @@ class PlaceCandidateServiceTest {
         assertThat(response.place().id()).isEqualTo(PLACE_ID);
         assertThat(response.place().name()).isEqualTo("성수 카페");
         verify(placeCandidateRepository).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("성공 - 저장하는 후보에 Catalog가 돌려준 장소를 복사한다")
+    void createCandidate_copiesPlaceSnapshot() {
+        PlaceCandidateCreateRequest request = new PlaceCandidateCreateRequest(
+                1L, 10L, "kakao-123", "성수 카페", "서울 성동구", BigDecimal.valueOf(37.5), BigDecimal.valueOf(127.0), true);
+        PlanCategory category = PlanCategory.create(ownedPlan(), PlaceCategoryType.CAFE, 1);
+        given(planCategoryRepository.findByIdAndPlan_IdAndDeletedAtIsNull(10L, 1L))
+                .willReturn(Optional.of(category));
+        given(placeCatalogApi.register(any())).willReturn(registeredPlace());
+        given(placeCandidateRepository.saveAndFlush(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+        placeCandidateService.createCandidate(USER_ID, request);
+
+        ArgumentCaptor<PlaceCandidate> saved = ArgumentCaptor.forClass(PlaceCandidate.class);
+        then(placeCandidateRepository).should().saveAndFlush(saved.capture());
+        assertThat(saved.getValue().getPlaceId()).isEqualTo(PLACE_ID);
+        assertThat(saved.getValue().getPlaceSnapshot())
+                .isEqualTo(new PlaceSnapshot(
+                        "kakao-123", "성수 카페", "서울 성동구", BigDecimal.valueOf(37.5), BigDecimal.valueOf(127.0), true));
     }
 
     @Test
