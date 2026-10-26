@@ -394,7 +394,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 | 컨트롤러가 `{Domain}Api`를 구현하지 않음 | 17 (2026-10-12: 16) |
 | `@Transactional` 서비스의 클래스 readOnly 선언 없음 | 14 (2026-10-13: 12) |
 | domain·service의 `LocalDateTime.now()` (Clock 미사용) | 11 |
-| domain의 `IllegalArgumentException`·`IllegalStateException` | 10 |
+| domain의 `IllegalArgumentException`·`IllegalStateException` | 10 (2026-10-26: 8) |
 | global이 도메인 모듈에 의존 (C3) | 8 (2026-10-13: 6, 전부 인증) |
 | ErrorCase 코드 중복 | 8 (2026-10-15: 4. 카카오 검색 4104·4105가 Catalog로 나감) |
 | 엔티티 public 기본 생성자 | 6 |

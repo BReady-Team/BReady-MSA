@@ -43,7 +43,7 @@ public class Plan extends BaseEntity {
 
 - 필수값·형식 불변식은 `create` 안에서 검증하고 **`ApplicationException.from(XxxErrorCase)`**로 던진다.
 - `IllegalArgumentException`·`IllegalStateException`을 도메인 규칙에 쓰지 않는다. 핸들러가 500으로 바꿔 버린다. [린트]
-  - BReady 현황: `Trigger.create`(`trigger/domain/Trigger.java:48`), `Place.create`, `PlaceCandidate.create`, `User.createSocial`.
+  - BReady 현황: `Trigger.create`(`trigger/domain/Trigger.java:48`), `Place.create`, `User.createSocial`.
 - 요청 형식 검증(`@NotBlank` 등)은 DTO 몫이다(`dto.md` 3번). 엔티티는 **어디서 생성돼도** 깨지면 안 되는 규칙만 검증한다.
 
 ## 3. 상태 변경은 의도를 드러내는 메서드로 [빌드]
