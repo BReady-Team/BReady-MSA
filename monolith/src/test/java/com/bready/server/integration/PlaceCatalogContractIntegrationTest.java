@@ -3,7 +3,9 @@ package com.bready.server.integration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
 
 import com.bready.server.support.IntegrationTestSupport;
@@ -20,6 +22,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // Planning이 장소 정보를 얻는 방법을 바꿔도 응답 JSON은 그대로여야 하는것을 검증
 @DisplayName("장소 정보 응답 계약 통합 테스트 - 후보 등록과 플랜 상세")
 class PlaceCatalogContractIntegrationTest extends IntegrationTestSupport {
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private PlanningSteps steps;
     private String token;
@@ -118,6 +123,25 @@ class PlaceCatalogContractIntegrationTest extends IntegrationTestSupport {
                         jsonPath("$.data.categories[0].candidates[1].place.id").value(placeId(first)))
                 .andExpect(jsonPath("$.data.categories[0].candidates[1].place.externalId")
                         .value("kakao-1"));
+    }
+
+    @Test
+    @DisplayName("성공 - Catalog의 장소 행이 없어도 플랜 상세는 후보의 스냅샷으로 장소 정보를 돌려준다")
+    void getPlanDetail_readsSnapshotWithoutCatalog() throws Exception {
+        long planId = steps.createPlan(token);
+        long categoryId = steps.createCategory(token, planId);
+        MvcResult created = steps.createCandidateResult(token, planId, categoryId, "kakao-1");
+        jdbcTemplate.update("delete from places");
+
+        mockMvc.perform(get("/api/v1/plans/{planId}", planId).header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.data.categories[0].candidates[0].place.id").value(placeId(created)))
+                .andExpect(jsonPath("$.data.categories[0].candidates[0].place.externalId")
+                        .value("kakao-1"))
+                .andExpect(jsonPath("$.data.categories[0].candidates[0].place.latitude")
+                        .value(37.5445));
     }
 
     @Test
