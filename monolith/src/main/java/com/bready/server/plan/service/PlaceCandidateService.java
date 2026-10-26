@@ -14,6 +14,7 @@ import com.bready.server.place.api.PlaceRegisterRequest;
 import com.bready.server.plan.domain.CategorySelectionLog;
 import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlaceCandidate;
+import com.bready.server.plan.domain.PlaceSnapshot;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.dto.PlaceCandidateCreateRequest;
 import com.bready.server.plan.dto.PlaceCandidateCreateResponse;
@@ -59,7 +60,8 @@ public class PlaceCandidateService {
         // PlaceCandidate 저장 -> 동시성 중복은 DB 유니크로 차단
         PlaceCandidate saved;
         try {
-            saved = placeCandidateRepository.saveAndFlush(PlaceCandidate.create(category, place.id()));
+            saved = placeCandidateRepository.saveAndFlush(
+                    PlaceCandidate.create(category, place.id(), toSnapshot(place)));
         } catch (DataIntegrityViolationException e) {
             throw ApplicationException.from(PlaceCandidateErrorCase.DUPLICATE_PLACE_CANDIDATE);
         }
@@ -161,6 +163,16 @@ public class PlaceCandidateService {
                 .candidateId(candidateId)
                 .deletedAt(candidate.getDeletedAt())
                 .build();
+    }
+
+    private PlaceSnapshot toSnapshot(PlaceInfo place) {
+        return new PlaceSnapshot(
+                place.externalId(),
+                place.name(),
+                place.address(),
+                place.latitude(),
+                place.longitude(),
+                place.isIndoor());
     }
 
     private void saveSelectionLog(Long categoryId, Long candidateId) {

@@ -1,6 +1,16 @@
 package com.bready.server.plan.domain;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import org.hibernate.annotations.SQLRestriction;
 
@@ -36,16 +46,15 @@ public class PlaceCandidate extends BaseEntity {
     @Column(name = "place_id", nullable = false)
     private Long placeId;
 
-    public static PlaceCandidate create(PlanCategory category, Long placeId) {
-        if (category == null) {
-            throw new IllegalArgumentException("category는 필수입니다.");
-        }
-        if (placeId == null) {
-            throw new IllegalArgumentException("placeId는 필수입니다.");
-        }
+    // 플랜 상세·추천이 Catalog를 부르지 않고 읽는다
+    @Embedded
+    private PlaceSnapshot placeSnapshot;
+
+    public static PlaceCandidate create(PlanCategory category, Long placeId, PlaceSnapshot placeSnapshot) {
         PlaceCandidate candidate = new PlaceCandidate();
         candidate.category = category;
         candidate.placeId = placeId;
+        candidate.placeSnapshot = placeSnapshot;
         return candidate;
     }
 }
