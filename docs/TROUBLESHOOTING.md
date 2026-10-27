@@ -414,3 +414,20 @@ java.lang.NullPointerException: Cannot invoke "PlaceRegisterRequest.externalId()
 **배운 것**: `given(mock.method())`와 `willXxx().given(mock).method()`는 같은 일을 하는 두 문법이 아니다. 앞의 것은 메서드를 호출한다.
 
 ---
+
+---
+
+## T-013
+
+**증상** 
+```
+CannotAcquireLockException: Deadlock found when trying to get lock
+  [insert into category_states (category_id,current_candidate_id,updated_at) values (?,?,?)]
+```
+같은 카테고리에 첫 후보 두 개가 동시에 들어오면 한 요청이 500이었다.
+
+**원인**: 두 요청이 모두 `category_states`에서 없는 행을 `FOR UPDATE`로 조회했다. 없는 행에는 갭 락이 잡히고 갭 락끼리는 서로 막지 않아서 둘 다 "상태 없음"을 보고 insert로 갔다. 각자 상대의 갭에 insert하려다 교착에 빠졌다. 데드락은 `DataIntegrityViolationException`이 아니라 기존 `catch` 복구 코드에 걸리지 않았다(걸렸더라도 리포지토리 트랜잭션이 바깥 트랜잭션을 롤백 전용으로 만들어 커밋에서 실패한다).
+
+**해결**: 저장 트랜잭션의 첫 재확인을 카테고리 행 잠금(`findAliveByIdAndPlanIdForUpdate`)으로 바꿨다. 같은 카테고리의 후보 추가가 줄을 서고, 뒤 요청은 앞 요청이 만든 상태를 본다. 쓸모없는 `catch`는 지웠다. 리뷰가 제안한 "후보 insert 뒤에 카테고리 잠금"은 `updateCategoryType`(카테고리 → 후보)과 락 순서가 엇갈려 쓰지 않았다.
+
+**배운 것**: 없는 행에 거는 `FOR UPDATE`는 아무것도 줄 세우지 못한다. 줄을 세우려면 반드시 존재하는 행(부모)을 잠근다.

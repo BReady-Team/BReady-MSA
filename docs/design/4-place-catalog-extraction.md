@@ -113,6 +113,7 @@ after (4-2)
 | ④-다 | 모놀리식 삭제 | `Place`, `PlaceRepository`, `PlaceFixture`, 에러 코드 4108·4109. 모놀리식 `place` 패키지에는 `api`·`external`·`controller`·`exception`만 남았다 |
 | ④-다 | Catalog `application.yml` | `ddl-auto: validate` → `update`(4-3에서 Flyway로) |
 | ⑤ | `docker-compose-local.yml` | `place-catalog`에 `DB_URL`·`DB_PASSWORD`와 MySQL 대기(`depends_on`) 추가. 4-1 때는 DB를 쓰지 않아서 빠져 있었다 |
+| 리뷰 반영 | `PlaceCandidateTransactionHandler.create` | 재확인을 카테고리 행 잠금(`findAliveByIdAndPlanIdForUpdate`)으로 바꿔 같은 카테고리의 후보 추가를 줄 세웠다. 첫 후보 두 개가 동시에 들어오면 둘 다 대표 상태가 없다고 보고 insert하다 데드락으로 한쪽이 500이 되던 문제(T-013). 동작하지 않던 `catch` 복구 코드 삭제. 락 순서는 카테고리 → 후보 → 상태로 `updateCategoryType`과 같다 |
 
 ## 검증 증거
 
@@ -149,6 +150,7 @@ after (4-2)
 | `PlaceRecommendationContractIntegrationTest.recommendPlaces_readsSnapshotWithoutCatalog` | 500 `IllegalStateException` | 추천의 기준 위치가 스냅샷 좌표(37.5445, 127.0557)이고, Catalog에는 주변 검색만 한다 |
 | `CandidateCreationTransactionIntegrationTest` | register 순간 트랜잭션 열림 | 장소 등록 동안 DB 커넥션을 쥐지 않는다 |
 | `PlaceCatalogContractIntegrationTest.createCandidate_catalogUnavailable` | 200 (HTTP를 타지 않음) | 등록이 HTTP로 바뀌었고, Catalog에 닿지 못하면 503 `5031`이며 후보가 생기지 않는다 |
+| `FirstCandidateRaceIntegrationTest` (리뷰 반영) | 500 데드락 | 첫 후보 동시 추가에도 둘 다 200, 대표 상태 1개, 먼저 온 후보가 대표 |
 
 - 새 환경 재현(빈 MySQL 컨테이너): Catalog `validate`는 `Schema-validation: missing table [places]`로 기동 실패 → `update`로 바꾼 뒤 기동, `places`와 유니크 키 생성, 같은 외부 ID 두 번 등록 시 같은 id.
 - 실제 기동(`--profile app`, 카카오 키는 더미), Gateway `:8000` 경유. 요청·응답 원문은 PR에 첨부했다.

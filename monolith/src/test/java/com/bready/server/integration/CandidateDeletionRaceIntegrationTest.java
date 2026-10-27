@@ -1,9 +1,5 @@
 package com.bready.server.integration;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.Statement;
 import java.time.Duration;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -22,12 +18,12 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.bready.server.support.IntegrationTestSupport;
+import com.bready.server.support.MySqlLockWaits;
 import com.bready.server.support.PlanningSteps;
 
 import com.jayway.jsonpath.JsonPath;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 // 후보 삭제가 대표 후보를 바꾸는 요청(전환, 대표 지정)과 겹칠 때, 삭제된 후보가 대표로 남지 않는지 검증
 @DisplayName("동시성 통합 테스트 - 후보 삭제와 대표 변경이 겹칠 때")
@@ -128,18 +124,7 @@ class CandidateDeletionRaceIntegrationTest extends IntegrationTestSupport {
     }
 
     private void awaitLockWaiters(int expected) {
-        await().atMost(TIMEOUT)
-                .untilAsserted(() -> assertThat(countLockWaiters()).isEqualTo(expected));
-    }
-
-    private int countLockWaiters() throws Exception {
-        try (Connection connection = DriverManager.getConnection(MYSQL.getJdbcUrl(), "root", MYSQL.getPassword());
-                Statement statement = connection.createStatement();
-                ResultSet resultSet = statement.executeQuery("select count(distinct requesting_engine_transaction_id)"
-                        + " from performance_schema.data_lock_waits")) {
-            resultSet.next();
-            return resultSet.getInt(1);
-        }
+        MySqlLockWaits.awaitWaiters(MYSQL, expected, TIMEOUT);
     }
 
     private long currentRepresentativeId(long categoryId) {
