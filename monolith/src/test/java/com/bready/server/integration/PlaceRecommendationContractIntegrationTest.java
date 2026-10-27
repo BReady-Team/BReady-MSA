@@ -10,12 +10,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.bready.server.place.api.PlaceCategoryType;
 import com.bready.server.place.api.PlaceSearchResult;
-import com.bready.server.place.external.PlaceCatalogHttpClient;
 import com.bready.server.place.external.PlaceCatalogResponse;
 import com.bready.server.support.IntegrationTestSupport;
 import com.bready.server.support.PlanningSteps;
@@ -57,10 +55,6 @@ class PlaceRecommendationContractIntegrationTest extends IntegrationTestSupport 
 
     private static final PlaceCatalogResponse<List<PlaceSearchResult>> CATALOG_NO_PLACES =
             new PlaceCatalogResponse<>(null, "success", List.of());
-
-    // 경계는 Catalog HTTP 호출
-    @MockitoBean
-    private PlaceCatalogHttpClient placeCatalogHttpClient;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
