@@ -17,7 +17,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.bready.server.global.exception.ApplicationException;
-import com.bready.server.place.api.PlaceCatalogApi;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.dto.*;
 import com.bready.server.plan.exception.PlanErrorCase;
@@ -47,9 +46,6 @@ class PlanServiceTest {
 
     @Mock
     private UserApi userApi;
-
-    @Mock
-    private PlaceCatalogApi placeCatalogApi;
 
     @InjectMocks
     private PlanService planService;

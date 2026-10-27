@@ -3,8 +3,11 @@ package com.bready.server.integration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.web.client.ResourceAccessException;
 
 import com.bready.server.support.IntegrationTestSupport;
 import com.bready.server.support.PlanningSteps;
@@ -12,6 +15,10 @@ import com.bready.server.support.PlanningSteps;
 import com.jayway.jsonpath.JsonPath;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.clearInvocations;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -20,6 +27,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // Planning이 장소 정보를 얻는 방법을 바꿔도 응답 JSON은 그대로여야 하는것을 검증
 @DisplayName("장소 정보 응답 계약 통합 테스트 - 후보 등록과 플랜 상세")
 class PlaceCatalogContractIntegrationTest extends IntegrationTestSupport {
+
+    private static final int PLACE_CATALOG_UNAVAILABLE = 5031;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private PlanningSteps steps;
     private String token;
@@ -50,18 +62,21 @@ class PlaceCatalogContractIntegrationTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("성공 - 같은 장소를 다른 플랜에 등록하면 장소는 새로 만들지 않고 같은 id를 돌려준다")
-    void createCandidate_reusesPlace() throws Exception {
-        long firstPlanId = steps.createPlan(token);
-        long firstCategoryId = steps.createCategory(token, firstPlanId);
-        long secondPlanId = steps.createPlan(token);
-        long secondCategoryId = steps.createCategory(token, secondPlanId);
+    @DisplayName("실패 - Catalog에 연결하지 못하면 503 PLACE_CATALOG_UNAVAILABLE이고 후보도 생기지 않는다")
+    void createCandidate_catalogUnavailable() throws Exception {
+        long planId = steps.createPlan(token);
+        long categoryId = steps.createCategory(token, planId);
+        willThrow(new ResourceAccessException("Connection refused"))
+                .given(placeCatalogHttpClient)
+                .registerPlace(any());
 
-        MvcResult first = steps.createCandidateResult(token, firstPlanId, firstCategoryId, "kakao-1");
-        MvcResult second = steps.createCandidateResult(token, secondPlanId, secondCategoryId, "kakao-1");
+        MvcResult result = steps.createCandidateResult(token, planId, categoryId, "kakao-1");
 
-        assertThat(second.getResponse().getStatus()).isEqualTo(200);
-        assertThat(placeId(second)).isEqualTo(placeId(first));
+        assertThat(result.getResponse().getStatus()).isEqualTo(503);
+        assertThat(JsonPath.<Integer>read(result.getResponse().getContentAsString(), "$.errorCode"))
+                .isEqualTo(PLACE_CATALOG_UNAVAILABLE);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from place_candidates", Long.class))
+                .isZero();
     }
 
     @Test
@@ -118,6 +133,27 @@ class PlaceCatalogContractIntegrationTest extends IntegrationTestSupport {
                         jsonPath("$.data.categories[0].candidates[1].place.id").value(placeId(first)))
                 .andExpect(jsonPath("$.data.categories[0].candidates[1].place.externalId")
                         .value("kakao-1"));
+    }
+
+    @Test
+    @DisplayName("성공 - 플랜 상세는 Catalog를 부르지 않고 후보의 스냅샷으로 장소 정보를 돌려준다")
+    void getPlanDetail_readsSnapshotWithoutCatalog() throws Exception {
+        long planId = steps.createPlan(token);
+        long categoryId = steps.createCategory(token, planId);
+        MvcResult created = steps.createCandidateResult(token, planId, categoryId, "kakao-1");
+        clearInvocations(placeCatalogHttpClient);
+
+        mockMvc.perform(get("/api/v1/plans/{planId}", planId).header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.data.categories[0].candidates[0].place.id").value(placeId(created)))
+                .andExpect(jsonPath("$.data.categories[0].candidates[0].place.externalId")
+                        .value("kakao-1"))
+                .andExpect(jsonPath("$.data.categories[0].candidates[0].place.latitude")
+                        .value(37.5445));
+
+        then(placeCatalogHttpClient).shouldHaveNoInteractions();
     }
 
     @Test

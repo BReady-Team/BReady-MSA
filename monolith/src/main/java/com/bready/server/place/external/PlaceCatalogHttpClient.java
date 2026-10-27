@@ -2,11 +2,15 @@ package com.bready.server.place.external;
 
 import java.util.List;
 
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.service.annotation.GetExchange;
 import org.springframework.web.service.annotation.HttpExchange;
+import org.springframework.web.service.annotation.PostExchange;
 
 import com.bready.server.place.api.PlaceCategoryType;
+import com.bready.server.place.api.PlaceInfo;
+import com.bready.server.place.api.PlaceRegisterRequest;
 import com.bready.server.place.api.PlaceSearchResult;
 
 // place-catalog-service의 내부 API
@@ -20,4 +24,7 @@ public interface PlaceCatalogHttpClient {
             @RequestParam(required = false) Double latitude,
             @RequestParam(required = false) Double longitude,
             @RequestParam(required = false) Integer radius);
+
+    @PostExchange
+    PlaceCatalogResponse<PlaceInfo> registerPlace(@RequestBody PlaceRegisterRequest request);
 }

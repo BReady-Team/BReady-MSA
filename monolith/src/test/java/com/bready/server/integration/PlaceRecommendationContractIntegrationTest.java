@@ -8,17 +8,19 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.bready.server.place.api.PlaceCategoryType;
 import com.bready.server.place.api.PlaceSearchResult;
-import com.bready.server.place.external.PlaceCatalogHttpClient;
 import com.bready.server.place.external.PlaceCatalogResponse;
 import com.bready.server.support.IntegrationTestSupport;
 import com.bready.server.support.PlanningSteps;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.clearInvocations;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -53,10 +55,6 @@ class PlaceRecommendationContractIntegrationTest extends IntegrationTestSupport 
     private static final PlaceCatalogResponse<List<PlaceSearchResult>> CATALOG_NO_PLACES =
             new PlaceCatalogResponse<>(null, "success", List.of());
 
-    // 경계는 Catalog HTTP 호출
-    @MockitoBean
-    private PlaceCatalogHttpClient placeCatalogHttpClient;
-
     private PlanningSteps steps;
     private String token;
     private long triggerId;
@@ -89,6 +87,24 @@ class PlaceRecommendationContractIntegrationTest extends IntegrationTestSupport 
                 .andExpect(jsonPath("$.data.items[0].isIndoor").value(true))
                 .andExpect(jsonPath("$.data.items[0].distanceMeters").isNumber())
                 .andExpect(jsonPath("$.data.items[0].reason").value("혼잡을 피하기 위해 주변 대체 후보를 추천합니다."));
+    }
+
+    @Test
+    @DisplayName("성공 - 기준 위치는 대표 후보의 스냅샷에서 얻고, Catalog에는 주변 검색만 요청한다")
+    void recommendPlaces_readsSnapshotWithoutCatalog() throws Exception {
+        clearInvocations(placeCatalogHttpClient);
+        given(placeCatalogHttpClient.searchPlaces(any(), any(), any(), any(), any()))
+                .willReturn(CATALOG_TWO_PLACES);
+
+        recommend(token)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].externalId").value("kakao-2"));
+
+        then(placeCatalogHttpClient)
+                .should()
+                .searchPlaces(eq(PlaceCategoryType.CAFE), any(), eq(37.5445), eq(127.0557), any());
+        then(placeCatalogHttpClient).shouldHaveNoMoreInteractions();
     }
 
     @Test

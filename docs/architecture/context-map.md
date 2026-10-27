@@ -197,7 +197,7 @@ MSA로 쪼개면 **이 목록이 곧 "분산 트랜잭션 문제가 생길 자�
 | # | 메서드 | 한 트랜잭션 안에서 건드리는 것 | 잠금 | 난이도 |
 |---|---|---|---|---|
 | T1 | `SwitchService.executeSwitch` | trigger(`decisions` 조회, `switch_logs` INSERT) + place(`place_candidates` 2건 검증) + plan(`category_states` **비관적 락 후 UPDATE**) + after-commit 이벤트(stats) | `PESSIMISTIC_WRITE` on `category_states` | ★★★ |
-| T2 | `PlaceCandidateService.createCandidate` | plan(`plan_categories` 검증) → place(`places` **REQUIRES_NEW** 별도 커밋) → place(`place_candidates` INSERT) → plan(`category_states` 락·UPSERT, `category_selection_logs` INSERT) | `PESSIMISTIC_WRITE` | ★★★ |
+| T2 | `PlaceCandidateService.createCandidate` | plan(`plan_categories` 검증) → place(`places` **REQUIRES_NEW** 별도 커밋) → place(`place_candidates` INSERT) → plan(`category_states` 락·UPSERT, `category_selection_logs` INSERT). **2026-10-27**: 장소 등록을 place-catalog-service HTTP 호출로 바꾸고 트랜잭션 밖으로 뺐다. 남은 것은 Planning 안의 한 트랜잭션(검증 → 후보 저장 → 대표 보장 → 선택 로그) | `PESSIMISTIC_WRITE` | ★★★ → 해결 |
 | T3 | `PlanCategoryService.updateCategoryType` | plan(`plans` 락, `plan_categories` 락·UPDATE) + place(`place_candidates` 락·soft delete 일괄) + plan(`category_states` 리셋) | 락 3종 | ★★★ |
 | T4 | `TriggerService.createTrigger` | plan(`plan_categories`, `category_states`) + place(후보 생존 확인) + trigger(`triggers` INSERT) + after-commit 이벤트(stats) | – | ★★ |
 | T5 | `PlaceCandidateService.setRepresentative` / `deleteCandidate` | place(`place_candidates`) + plan(`category_states` 락, `category_selection_logs`) | `PESSIMISTIC_WRITE` | ★★ |
@@ -394,7 +394,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 | 컨트롤러가 `{Domain}Api`를 구현하지 않음 | 17 (2026-10-12: 16) |
 | `@Transactional` 서비스의 클래스 readOnly 선언 없음 | 14 (2026-10-13: 12) |
 | domain·service의 `LocalDateTime.now()` (Clock 미사용) | 11 |
-| domain의 `IllegalArgumentException`·`IllegalStateException` | 10 |
+| domain의 `IllegalArgumentException`·`IllegalStateException` | 10 (2026-10-26: 8, 2026-10-27: 5. 모놀리식 `Place` 삭제) |
 | global이 도메인 모듈에 의존 (C3) | 8 (2026-10-13: 6, 전부 인증) |
 | ErrorCase 코드 중복 | 8 (2026-10-15: 4. 카카오 검색 4104·4105가 Catalog로 나감) |
 | 엔티티 public 기본 생성자 | 6 |

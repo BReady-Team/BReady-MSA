@@ -1,27 +1,35 @@
-package com.bready.server.place.domain;
+package com.bready.catalog.place.domain;
 
 import java.math.BigDecimal;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
-import com.bready.server.global.entity.BaseEntity;
+import com.bready.catalog.global.entity.BaseEntity;
+import com.bready.catalog.global.exception.ApplicationException;
+import com.bready.catalog.place.exception.PlaceErrorCase;
 
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(
         name = "places",
         uniqueConstraints = @UniqueConstraint(name = "uk_places_external_id", columnNames = "external_id"))
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Place extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 카카오 외부 API 장소 ID
+    // 카카오 장소 ID에 kakao- 를 붙인 값
     @Column(name = "external_id", nullable = false, unique = true)
     private String externalId;
 
@@ -46,14 +54,8 @@ public class Place extends BaseEntity {
             BigDecimal latitude,
             BigDecimal longitude,
             Boolean isIndoor) {
-        if (externalId == null || externalId.isBlank()) {
-            throw new IllegalArgumentException("externalId는 필수입니다.");
-        }
-        if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("name은 필수입니다.");
-        }
-        if (latitude == null || longitude == null) {
-            throw new IllegalArgumentException("latitude와 longitude는 필수입니다.");
+        if (isBlank(externalId) || isBlank(name) || latitude == null || longitude == null) {
+            throw ApplicationException.from(PlaceErrorCase.INVALID_PLACE);
         }
         Place place = new Place();
         place.externalId = externalId;
@@ -63,5 +65,9 @@ public class Place extends BaseEntity {
         place.longitude = longitude;
         place.isIndoor = isIndoor;
         return place;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

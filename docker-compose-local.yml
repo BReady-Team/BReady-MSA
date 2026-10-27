@@ -60,7 +60,12 @@ services:
     expose:
       - "8081"
     environment:
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-bready}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-bready-local}
       KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-local-dummy-kakao-rest-api-key}
+    depends_on:
+      mysql:
+        condition: service_healthy
 
   gateway:
     profiles: ["app"]

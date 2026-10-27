@@ -44,7 +44,7 @@ throw ApplicationException.from(PlanErrorCase.PLAN_NOT_FOUND);
 - `new ApplicationException(...)` 대신 `ApplicationException.from(...)`만 쓴다.
   - BReady 현황: `new` 89회, `from` 36회.
 - 원인 예외를 보존해야 하면(외부 연동 실패 등) `ApplicationException.from(errorCase, cause)`.
-- 다른 서비스가 돌려준 오류는 그 상태·코드·문구를 `RelayedErrorCase`로 그대로 전달한다(`place/external/PlaceSearchHttpAdapter`). 닿지 못하면 자기 모듈의 503 ErrorCase로 번역한다.
+- 다른 서비스가 돌려준 오류는 그 상태·코드·문구를 `RelayedErrorCase`로 그대로 전달한다(`place/external/CatalogErrorTranslator`). 닿지 못하면 자기 모듈의 503 ErrorCase로 번역한다.
 - 도메인 규칙 위반에 `IllegalArgumentException`·`IllegalStateException`·`RuntimeException`을 던지지 않는다(`entity.md` 2번).
 
 ## 4. HTTP 상태 고르는 법

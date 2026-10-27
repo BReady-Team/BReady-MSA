@@ -380,3 +380,37 @@ ERROR ... i.n.r.d.DnsServerAddressStreamProviders : Unable to load io.netty.reso
 **해결**: 두었다. 로컬에서 `localhost`만 부르고 라우팅은 정상이다. 없애려면 `runtimeOnly 'io.netty:netty-resolver-dns-native-macos::osx-aarch_64'`를 추가하면 되지만, 의존성을 최소로 두기로 해서 넣지 않았다.
 
 **배운 것**: ERROR 레벨이라도 동작에 영향이 없는 로그가 있다. 레벨이 아니라 내용(무엇을 대신 했는가)을 읽는다.
+
+---
+
+## T-011
+
+**증상** (4-2, 장소 등록을 Catalog로 옮기며 실제 MySQL로 동시 등록을 재현)
+```
+org.hibernate.AssertionFailure: Entry for instance of 'com.bready.catalog.place.domain.Place' has a null identifier
+(this can happen if the session is flushed after an exception occurs)
+```
+
+**원인**: 모놀리식 `PlaceCatalogService.register`와 같은 구조였다. 한 트랜잭션 안에서 "조회 → 없으면 `saveAndFlush` → 중복 키로 실패하면 다시 조회"를 한다. 저장이 실패해도 그 `Place`는 영속성 컨텍스트에 남고, 재조회 직전의 자동 flush가 그 객체를 또 쓰려다 터진다. 이 경로는 리포지토리를 mock한 단위 테스트로만 확인돼 있어서 드러나지 않았다.
+
+**해결**: Catalog의 `PlaceRegisterService`에 트랜잭션을 걸지 않았다. 조회·저장·재조회가 각각 리포지토리 트랜잭션으로 돌아서, 실패한 저장은 그것만 롤백되고 재조회는 새 트랜잭션에서 상대가 커밋한 행을 본다. 다른 트랜잭션이 INSERT 하고 커밋하기 전에 등록을 시작시켜 유니크 인덱스에서 기다리게 만든 뒤 커밋하는 테스트(`PlaceRegisterRaceIntegrationTest`)로 실패 → 통과를 확인했다. 모놀리식 쪽 코드는 4-2 ④에서 지운다.
+
+**배운 것**: "저장 실패 → 다시 조회"는 한 트랜잭션 안에서 성립하지 않는다(영속성 컨텍스트에 실패한 엔티티가 남고, REPEATABLE READ 스냅샷도 처음 조회 시점에 고정된다). 동시성 경로는 mock이 아니라 실제 DB에서, 순서를 강제해서 재현해야 한다.
+
+---
+
+## T-012
+
+**증상** 
+```
+java.lang.NullPointerException: Cannot invoke "PlaceRegisterRequest.externalId()" because "request" is null
+```
+기대한 실패(503)가 아니라 stub을 거는 줄에서 터졌다.
+
+**원인**: 통합 테스트 베이스가 `registerPlace`에 가짜 응답(answer)을 미리 걸어 두었다. `given(mock.registerPlace(any()))`는 괄호 안의 메서드를 실제로 한 번 호출하므로, 그 answer가 `any()`가 넘긴 `null`로 실행됐다.
+
+**해결**: 이미 answer가 걸린 mock을 다시 설정할 때는 `willThrow(...).given(mock).registerPlace(any())`를 쓴다. 이 형태는 메서드를 호출하지 않고 설정만 한다.
+
+**배운 것**: `given(mock.method())`와 `willXxx().given(mock).method()`는 같은 일을 하는 두 문법이 아니다. 앞의 것은 메서드를 호출한다.
+
+---

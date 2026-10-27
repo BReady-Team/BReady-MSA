@@ -7,12 +7,16 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Enumerated;
 
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bready.catalog.global.exception.ApplicationException;
 import com.bready.catalog.global.exception.ErrorCase;
 
+import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
@@ -24,6 +28,9 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.GeneralCodingRules;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.constructors;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 @AnalyzeClasses(packages = ArchitectureTest.BASE_PACKAGE, importOptions = ImportOption.DoNotIncludeTests.class)
@@ -102,6 +109,55 @@ class ArchitectureTest {
             .orShould()
             .callMethod(LocalDate.class, "now")
             .because("현재 시각은 Clock에서 얻고 엔티티는 파라미터로 받는다");
+
+    @ArchTest
+    static final ArchRule entities_should_not_have_public_no_arg_constructor = constructors()
+            .that()
+            .areDeclaredInClassesThat()
+            .areAnnotatedWith(Entity.class)
+            .and()
+            .haveRawParameterTypes(new Class<?>[0])
+            .should()
+            .notBePublic()
+            .because("엔티티는 @NoArgsConstructor(access = PROTECTED) + 정적 팩토리로만 만든다");
+
+    @ArchTest
+    static final ArchRule entities_should_not_have_public_setters = methods()
+            .that()
+            .areDeclaredInClassesThat()
+            .areAnnotatedWith(Entity.class)
+            .and()
+            .haveNameMatching("set[A-Z].*")
+            .should()
+            .notBePublic()
+            .because("상태 변경은 의도를 드러내는 메서드로 한다");
+
+    @ArchTest
+    static final ArchRule entity_enums_should_be_mapped_as_string = fields().that()
+            .areDeclaredInClassesThat()
+            .areAnnotatedWith(Entity.class)
+            .and()
+            .haveRawType(DescribedPredicate.describe("enum", JavaClass::isEnum))
+            .should()
+            .beAnnotatedWith(Enumerated.class)
+            .because("ORDINAL은 enum 순서가 바뀌면 데이터가 깨진다");
+
+    @ArchTest
+    static final ArchRule transactional_should_not_be_on_private_methods = methods()
+            .that()
+            .areAnnotatedWith(Transactional.class)
+            .should()
+            .notBePrivate()
+            .because("프록시를 거치지 않는 private 메서드에서는 @Transactional이 무시된다");
+
+    @ArchTest
+    static final ArchRule repositories_should_be_used_only_by_services = classes()
+            .that()
+            .resideInAPackage("..repository..")
+            .should()
+            .onlyBeAccessed()
+            .byAnyPackage("..service..", "..repository..")
+            .because("리포지토리는 자기 모듈의 서비스에서만 쓴다");
 
     @ArchTest
     static final ArchRule dto_should_be_request_or_response_records = classes()
