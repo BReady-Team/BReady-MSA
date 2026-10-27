@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlaceCandidate;
+import com.bready.server.plan.domain.PlaceSnapshot;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.exception.PlaceCandidateErrorCase;
@@ -15,6 +16,7 @@ import com.bready.server.plan.repository.CategoryStateRepository;
 import com.bready.server.plan.repository.PlaceCandidateRepository;
 import com.bready.server.plan.repository.PlanCategoryRepository;
 import com.bready.server.trigger.api.CategoryInfo;
+import com.bready.server.trigger.api.RepresentativePlace;
 import com.bready.server.trigger.api.TriggerContext;
 import com.bready.server.trigger.api.TriggerContextApi;
 import com.bready.server.trigger.domain.Trigger;
@@ -56,7 +58,7 @@ public class TriggerContextService implements TriggerContextApi {
     }
 
     @Override
-    public Long getRepresentativePlaceId(Long categoryId) {
+    public RepresentativePlace getRepresentativePlace(Long categoryId) {
         Long representativeCandidateId = categoryStateRepository
                 .findByCategory_Id(categoryId)
                 .map(CategoryState::getCurrentCandidateId)
@@ -64,11 +66,17 @@ public class TriggerContextService implements TriggerContextApi {
 
         return placeCandidateRepository
                 .findAliveById(representativeCandidateId)
-                .map(PlaceCandidate::getPlaceId)
+                .map(PlaceCandidate::getPlaceSnapshot)
+                .map(this::toRepresentativePlace)
                 .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND));
     }
 
     private CategoryInfo toInfo(PlanCategory category) {
         return new CategoryInfo(category.getId(), category.getCategoryType(), category.getSequence());
+    }
+
+    private RepresentativePlace toRepresentativePlace(PlaceSnapshot snapshot) {
+        return new RepresentativePlace(
+                snapshot.externalId(), snapshot.address(), snapshot.latitude(), snapshot.longitude());
     }
 }

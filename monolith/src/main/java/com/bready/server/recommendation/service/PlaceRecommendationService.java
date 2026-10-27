@@ -5,14 +5,13 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.bready.server.place.api.PlaceCatalogApi;
-import com.bready.server.place.api.PlaceInfo;
 import com.bready.server.recommendation.cache.PlaceRecommendationCacheService;
 import com.bready.server.recommendation.dto.PlaceRecommendationQuery;
 import com.bready.server.recommendation.dto.PlaceRecommendationRequest;
 import com.bready.server.recommendation.dto.PlaceRecommendationResponse;
 import com.bready.server.recommendation.port.PlaceRecommendationPort;
 import com.bready.server.trigger.api.CategoryInfo;
+import com.bready.server.trigger.api.RepresentativePlace;
 import com.bready.server.trigger.api.TriggerContext;
 import com.bready.server.trigger.api.TriggerContextApi;
 import com.bready.server.trigger.api.TriggerType;
@@ -30,7 +29,6 @@ public class PlaceRecommendationService {
     private static final int DEFAULT_RADIUS = 2000;
 
     private final TriggerContextApi triggerContextApi;
-    private final PlaceCatalogApi placeCatalogApi;
     private final PlaceRecommendationPort placeRecommendationPort;
     private final PlaceRecommendationCacheService placeRecommendationCacheService;
 
@@ -118,12 +116,8 @@ public class PlaceRecommendationService {
             }
         }
 
-        // 기존 대표장소 기반 trigger -> 대표 후보가 가리키는 장소는 Planning에, 그 장소의 좌표와 주소는 Place Catalog에
-        Long placeId = triggerContextApi.getRepresentativePlaceId(categoryId);
-
-        PlaceInfo place = placeCatalogApi.getPlaces(List.of(placeId)).stream()
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("대표 후보의 장소를 찾을 수 없습니다. placeId=" + placeId));
+        // 대표 후보의 장소 스냅샷 기준
+        RepresentativePlace place = triggerContextApi.getRepresentativePlace(categoryId);
 
         Coordinate coordinate =
                 new Coordinate(place.latitude().doubleValue(), place.longitude().doubleValue());
