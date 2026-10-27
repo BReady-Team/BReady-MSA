@@ -197,7 +197,7 @@ MSA로 쪼개면 **이 목록이 곧 "분산 트랜잭션 문제가 생길 자�
 | # | 메서드 | 한 트랜잭션 안에서 건드리는 것 | 잠금 | 난이도 |
 |---|---|---|---|---|
 | T1 | `SwitchService.executeSwitch` | trigger(`decisions` 조회, `switch_logs` INSERT) + place(`place_candidates` 2건 검증) + plan(`category_states` **비관적 락 후 UPDATE**) + after-commit 이벤트(stats) | `PESSIMISTIC_WRITE` on `category_states` | ★★★ |
-| T2 | `PlaceCandidateService.createCandidate` | plan(`plan_categories` 검증) → place(`places` **REQUIRES_NEW** 별도 커밋) → place(`place_candidates` INSERT) → plan(`category_states` 락·UPSERT, `category_selection_logs` INSERT) | `PESSIMISTIC_WRITE` | ★★★ |
+| T2 | `PlaceCandidateService.createCandidate` | plan(`plan_categories` 검증) → place(`places` **REQUIRES_NEW** 별도 커밋) → place(`place_candidates` INSERT) → plan(`category_states` 락·UPSERT, `category_selection_logs` INSERT). **2026-10-27**: 장소 등록을 place-catalog-service HTTP 호출로 바꾸고 트랜잭션 밖으로 뺐다. 남은 것은 Planning 안의 한 트랜잭션(검증 → 후보 저장 → 대표 보장 → 선택 로그) | `PESSIMISTIC_WRITE` | ★★★ → 해결 |
 | T3 | `PlanCategoryService.updateCategoryType` | plan(`plans` 락, `plan_categories` 락·UPDATE) + place(`place_candidates` 락·soft delete 일괄) + plan(`category_states` 리셋) | 락 3종 | ★★★ |
 | T4 | `TriggerService.createTrigger` | plan(`plan_categories`, `category_states`) + place(후보 생존 확인) + trigger(`triggers` INSERT) + after-commit 이벤트(stats) | – | ★★ |
 | T5 | `PlaceCandidateService.setRepresentative` / `deleteCandidate` | place(`place_candidates`) + plan(`category_states` 락, `category_selection_logs`) | `PESSIMISTIC_WRITE` | ★★ |
