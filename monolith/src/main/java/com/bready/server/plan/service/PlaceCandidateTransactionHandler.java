@@ -44,7 +44,8 @@ public class PlaceCandidateTransactionHandler {
     // Catalog를 기다리는 사이 카테고리가 지워졌을 수 있어 다시 확인
     @Transactional
     public PlaceCandidateCreateResponse create(Long userId, PlaceCandidateCreateRequest request, PlaceInfo place) {
-        PlanCategory category = getOwnedCategory(userId, request);
+        // 카테고리 행을 잠가 같은 카테고리의 후보 추가를 줄 세운다 -> 첫 후보 동시 추가 시 대표 상태 중복 생성 방지
+        PlanCategory category = getOwnedCategoryForUpdate(userId, request);
 
         // PlaceCandidate 저장 -> 동시성 중복은 DB 유니크로 차단
         PlaceCandidate saved;
@@ -63,14 +64,8 @@ public class PlaceCandidateTransactionHandler {
         boolean changed = false;
 
         if (state == null) {
-            try {
-                categoryStateRepository.saveAndFlush(CategoryState.create(category, saved.getId()));
-                changed = true;
-            } catch (DataIntegrityViolationException e) {
-                state = categoryStateRepository
-                        .findByCategory_IdForUpdate(category.getId())
-                        .orElse(null);
-            }
+            categoryStateRepository.save(CategoryState.create(category, saved.getId()));
+            changed = true;
         } else if (state.getCurrentCandidateId() == null) {
             state.changeRepresentative(saved.getId());
             changed = true;
@@ -91,6 +86,14 @@ public class PlaceCandidateTransactionHandler {
     private PlanCategory getOwnedCategory(Long userId, PlaceCandidateCreateRequest request) {
         PlanCategory category = planCategoryRepository
                 .findByIdAndPlan_IdAndDeletedAtIsNull(request.categoryId(), request.planId())
+                .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.INVALID_PLAN_OR_CATEGORY));
+        category.getPlan().validateOwner(userId);
+        return category;
+    }
+
+    private PlanCategory getOwnedCategoryForUpdate(Long userId, PlaceCandidateCreateRequest request) {
+        PlanCategory category = planCategoryRepository
+                .findAliveByIdAndPlanIdForUpdate(request.categoryId(), request.planId())
                 .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.INVALID_PLAN_OR_CATEGORY));
         category.getPlan().validateOwner(userId);
         return category;

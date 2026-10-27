@@ -113,7 +113,7 @@ class PlaceCandidateTransactionHandlerTest {
         // then
         assertThat(response.candidateId()).isEqualTo(CANDIDATE_ID);
         assertThat(response.place().id()).isEqualTo(PlaceCandidateFixture.PLACE_ID);
-        then(categoryStateRepository).should().saveAndFlush(any());
+        then(categoryStateRepository).should().save(any());
         ArgumentCaptor<CategorySelectionLog> log = ArgumentCaptor.forClass(CategorySelectionLog.class);
         then(categorySelectionLogRepository).should().save(log.capture());
         assertThat(log.getValue().getCandidateId()).isEqualTo(CANDIDATE_ID);
@@ -165,7 +165,7 @@ class PlaceCandidateTransactionHandlerTest {
     @DisplayName("실패 - Catalog를 기다리는 사이 카테고리가 지워졌으면 INVALID_PLAN_OR_CATEGORY")
     void create_categoryDeletedWhileRegistering() {
         // given
-        given(planCategoryRepository.findByIdAndPlan_IdAndDeletedAtIsNull(CATEGORY_ID, PLAN_ID))
+        given(planCategoryRepository.findAliveByIdAndPlanIdForUpdate(CATEGORY_ID, PLAN_ID))
                 .willReturn(Optional.empty());
 
         // when, then
@@ -178,7 +178,7 @@ class PlaceCandidateTransactionHandlerTest {
     }
 
     private void givenOwnedCategory() {
-        given(planCategoryRepository.findByIdAndPlan_IdAndDeletedAtIsNull(CATEGORY_ID, PLAN_ID))
+        given(planCategoryRepository.findAliveByIdAndPlanIdForUpdate(CATEGORY_ID, PLAN_ID))
                 .willReturn(Optional.of(PlaceCandidateFixture.cafeCategoryOwnedBy(OWNER_ID)));
     }
 }
