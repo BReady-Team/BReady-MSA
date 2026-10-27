@@ -1,8 +1,5 @@
 package com.bready.server.place.service;
 
-import java.util.Collection;
-import java.util.List;
-
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -47,14 +44,6 @@ public class PlaceCatalogService implements PlaceCatalogApi {
                     .map(this::toInfo)
                     .orElseThrow(() -> ApplicationException.from(PlaceErrorCase.PLACE_SAVE_FAILED));
         }
-    }
-
-    @Override
-    public List<PlaceInfo> getPlaces(Collection<Long> placeIds) {
-        if (placeIds.isEmpty()) {
-            return List.of();
-        }
-        return placeRepository.findAllById(placeIds).stream().map(this::toInfo).toList();
     }
 
     private PlaceInfo toInfo(Place place) {

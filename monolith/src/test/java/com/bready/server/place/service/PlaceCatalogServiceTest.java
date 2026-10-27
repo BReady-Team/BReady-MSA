@@ -1,6 +1,5 @@
 package com.bready.server.place.service;
 
-import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
@@ -89,25 +88,5 @@ class PlaceCatalogServiceTest {
                 .isInstanceOf(ApplicationException.class)
                 .extracting("errorCase")
                 .isEqualTo(PlaceErrorCase.PLACE_SAVE_FAILED);
-    }
-
-    @Test
-    @DisplayName("성공 - ID 목록으로 장소 정보를 한 번에 조회한다")
-    void getPlaces_success() {
-        given(placeRepository.findAllById(List.of(PLACE_ID))).willReturn(List.of(PlaceFixture.savedPlace(PLACE_ID)));
-
-        List<PlaceInfo> places = placeCatalogService.getPlaces(List.of(PLACE_ID));
-
-        assertThat(places).extracting(PlaceInfo::id).containsExactly(PLACE_ID);
-        assertThat(places).extracting(PlaceInfo::name).containsExactly(PlaceFixture.NAME);
-    }
-
-    @Test
-    @DisplayName("성공 - ID 목록이 비어 있으면 DB를 조회하지 않고 빈 목록을 돌려준다")
-    void getPlaces_emptyIds() {
-        List<PlaceInfo> places = placeCatalogService.getPlaces(List.of());
-
-        assertThat(places).isEmpty();
-        then(placeRepository).shouldHaveNoInteractions();
     }
 }
