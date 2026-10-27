@@ -23,7 +23,7 @@
 - 다른 컨텍스트는 `api` 패키지의 타입만 import한다. 인터페이스를 주입받고 구현 클래스를 주입받지 않는다. [빌드]
 - `api` 패키지는 자기 모듈의 엔티티·리포지토리·서비스를 import하지 않는다. 그래서 엔티티 → 값 record 변환은 `from(Entity)`가 아니라 구현 서비스가 한다. 서비스로 떼어낼 때 이 패키지가 그대로 계약이 된다.
 - 공개 API를 연 컨텍스트: Place Catalog(`place.api`), Identity(`user.api`), Planning(`plan.api`, `trigger.api`). 아직 없는 컨텍스트(Recommendation, Stats)를 새로 부를 일이 생기면 먼저 공개 API를 열고 ArchUnit의 `apiOnly(...)` 목록에 추가한다(`architecture/ModuleBoundaryTest`).
-- 조회 API는 쓰는 쪽이 한 번에 필요한 것을 묶어 내준다(`TriggerContextApi.getTriggerContext`, `PlaceCatalogApi.getPlaces(ids)`). 리포지토리 메서드를 하나씩 본뜨면 서비스로 떼었을 때 호출 횟수만큼 네트워크 왕복이 된다.
+- 조회 API는 쓰는 쪽이 한 번에 필요한 것을 묶어 내준다(`TriggerContextApi.getTriggerContext`). 리포지토리 메서드를 하나씩 본뜨면 서비스로 떼었을 때 호출 횟수만큼 네트워크 왕복이 된다.
 - 다른 컨텍스트의 ErrorCase를 import해서 던지지 않는다. 그 에러는 그 컨텍스트의 공개 API가 던지게 한다.
 
 ## 3. 위반 유형
