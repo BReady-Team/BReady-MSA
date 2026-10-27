@@ -2,7 +2,6 @@ package com.bready.server.plan.service;
 
 import java.time.LocalDateTime;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,18 +13,15 @@ import com.bready.server.place.api.PlaceRegisterRequest;
 import com.bready.server.plan.domain.CategorySelectionLog;
 import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlaceCandidate;
-import com.bready.server.plan.domain.PlaceSnapshot;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.dto.PlaceCandidateCreateRequest;
 import com.bready.server.plan.dto.PlaceCandidateCreateResponse;
 import com.bready.server.plan.dto.PlaceCandidateDeleteResponse;
 import com.bready.server.plan.dto.PlaceCandidateRepresentativeResponse;
-import com.bready.server.plan.dto.PlaceSummaryResponse;
 import com.bready.server.plan.exception.PlaceCandidateErrorCase;
 import com.bready.server.plan.repository.CategorySelectionLogRepository;
 import com.bready.server.plan.repository.CategoryStateRepository;
 import com.bready.server.plan.repository.PlaceCandidateRepository;
-import com.bready.server.plan.repository.PlanCategoryRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,22 +29,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PlaceCandidateService {
 
-    private final PlanCategoryRepository planCategoryRepository;
     private final PlaceCandidateRepository placeCandidateRepository;
     private final PlaceCatalogApi placeCatalogApi;
+    private final PlaceCandidateTransactionHandler placeCandidateTransactionHandler;
     private final CategoryStateRepository categoryStateRepository;
     private final CategorySelectionLogRepository categorySelectionLogRepository;
 
-    @Transactional
+    // 트랜잭션 없음: Catalog에 장소를 등록하는 동안 DB 커넥션을 쥐지 않는다
     public PlaceCandidateCreateResponse createCandidate(Long userId, PlaceCandidateCreateRequest request) {
+        placeCandidateTransactionHandler.validateCreatable(userId, request);
 
-        // planId + categoryId 매칭 검증
-        PlanCategory category = planCategoryRepository
-                .findByIdAndPlan_IdAndDeletedAtIsNull(request.categoryId(), request.planId())
-                .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.INVALID_PLAN_OR_CATEGORY));
-        category.getPlan().validateOwner(userId);
-
-        // 장소는 Place Catalog가 별도 트랜잭션으로 먼저 커밋(중복이면 재사용)
+        // 장소가 먼저 커밋된다(중복이면 재사용). 뒤 단계가 실패하면 쓰이지 않는 장소만 남는다
         PlaceInfo place = placeCatalogApi.register(new PlaceRegisterRequest(
                 request.externalId(),
                 request.name(),
@@ -57,45 +48,7 @@ public class PlaceCandidateService {
                 request.longitude(),
                 request.isIndoor()));
 
-        // PlaceCandidate 저장 -> 동시성 중복은 DB 유니크로 차단
-        PlaceCandidate saved;
-        try {
-            saved = placeCandidateRepository.saveAndFlush(
-                    PlaceCandidate.create(category, place.id(), toSnapshot(place)));
-        } catch (DataIntegrityViolationException e) {
-            throw ApplicationException.from(PlaceCandidateErrorCase.DUPLICATE_PLACE_CANDIDATE);
-        }
-
-        // 대표 장소 로직 - 카테고리에서 후보가 있다면 대표 장소 보장
-        CategoryState state = categoryStateRepository
-                .findByCategory_IdForUpdate(category.getId())
-                .orElse(null);
-
-        boolean changed = false;
-
-        if (state == null) {
-            try {
-                categoryStateRepository.saveAndFlush(CategoryState.create(category, saved.getId()));
-                changed = true;
-            } catch (DataIntegrityViolationException e) {
-                state = categoryStateRepository
-                        .findByCategory_IdForUpdate(category.getId())
-                        .orElse(null);
-            }
-        } else if (state.getCurrentCandidateId() == null) {
-            state.changeRepresentative(saved.getId());
-            changed = true;
-        }
-
-        if (changed) {
-            saveSelectionLog(category.getId(), saved.getId());
-        }
-
-        return PlaceCandidateCreateResponse.builder()
-                .candidateId(saved.getId())
-                .place(PlaceSummaryResponse.from(place))
-                .createdAt(saved.getCreatedAt())
-                .build();
+        return placeCandidateTransactionHandler.create(userId, request, place);
     }
 
     // executeSwitch와 같은 이유로 READ_COMMITTED -> 락을 얻은 뒤의 조회가 최신 커밋을 봐야함
@@ -163,16 +116,6 @@ public class PlaceCandidateService {
                 .candidateId(candidateId)
                 .deletedAt(candidate.getDeletedAt())
                 .build();
-    }
-
-    private PlaceSnapshot toSnapshot(PlaceInfo place) {
-        return new PlaceSnapshot(
-                place.externalId(),
-                place.name(),
-                place.address(),
-                place.latitude(),
-                place.longitude(),
-                place.isIndoor());
     }
 
     private void saveSelectionLog(Long categoryId, Long candidateId) {
