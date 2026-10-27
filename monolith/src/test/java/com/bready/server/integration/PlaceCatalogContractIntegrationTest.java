@@ -16,7 +16,9 @@ import com.jayway.jsonpath.JsonPath;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.clearInvocations;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -134,12 +136,12 @@ class PlaceCatalogContractIntegrationTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("성공 - Catalog의 장소 행이 없어도 플랜 상세는 후보의 스냅샷으로 장소 정보를 돌려준다")
+    @DisplayName("성공 - 플랜 상세는 Catalog를 부르지 않고 후보의 스냅샷으로 장소 정보를 돌려준다")
     void getPlanDetail_readsSnapshotWithoutCatalog() throws Exception {
         long planId = steps.createPlan(token);
         long categoryId = steps.createCategory(token, planId);
         MvcResult created = steps.createCandidateResult(token, planId, categoryId, "kakao-1");
-        jdbcTemplate.update("delete from places");
+        clearInvocations(placeCatalogHttpClient);
 
         mockMvc.perform(get("/api/v1/plans/{planId}", planId).header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andDo(print())
@@ -150,6 +152,8 @@ class PlaceCatalogContractIntegrationTest extends IntegrationTestSupport {
                         .value("kakao-1"))
                 .andExpect(jsonPath("$.data.categories[0].candidates[0].place.latitude")
                         .value(37.5445));
+
+        then(placeCatalogHttpClient).shouldHaveNoInteractions();
     }
 
     @Test

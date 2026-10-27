@@ -6,10 +6,8 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.bready.server.place.api.PlaceCategoryType;
@@ -22,6 +20,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.clearInvocations;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -55,9 +54,6 @@ class PlaceRecommendationContractIntegrationTest extends IntegrationTestSupport 
 
     private static final PlaceCatalogResponse<List<PlaceSearchResult>> CATALOG_NO_PLACES =
             new PlaceCatalogResponse<>(null, "success", List.of());
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
 
     private PlanningSteps steps;
     private String token;
@@ -94,9 +90,9 @@ class PlaceRecommendationContractIntegrationTest extends IntegrationTestSupport 
     }
 
     @Test
-    @DisplayName("성공 - Catalog의 장소 행이 없어도 대표 후보의 스냅샷 좌표 주변을 검색해 추천한다")
+    @DisplayName("성공 - 기준 위치는 대표 후보의 스냅샷에서 얻고, Catalog에는 주변 검색만 요청한다")
     void recommendPlaces_readsSnapshotWithoutCatalog() throws Exception {
-        jdbcTemplate.update("delete from places");
+        clearInvocations(placeCatalogHttpClient);
         given(placeCatalogHttpClient.searchPlaces(any(), any(), any(), any(), any()))
                 .willReturn(CATALOG_TWO_PLACES);
 
@@ -108,6 +104,7 @@ class PlaceRecommendationContractIntegrationTest extends IntegrationTestSupport 
         then(placeCatalogHttpClient)
                 .should()
                 .searchPlaces(eq(PlaceCategoryType.CAFE), any(), eq(37.5445), eq(127.0557), any());
+        then(placeCatalogHttpClient).shouldHaveNoMoreInteractions();
     }
 
     @Test

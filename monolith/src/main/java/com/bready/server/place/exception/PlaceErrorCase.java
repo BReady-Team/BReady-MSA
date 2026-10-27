@@ -12,8 +12,6 @@ import lombok.RequiredArgsConstructor;
 public enum PlaceErrorCase implements ErrorCase {
     LOCATION_REQUIRED(HttpStatus.BAD_REQUEST, 4101, "위도와 경도는 함께 전달되어야 합니다."),
     PLACE_NOT_FOUND(HttpStatus.NOT_FOUND, 4102, "조건에 맞는 장소를 찾을 수 없습니다."),
-    DUPLICATE_PLACE(HttpStatus.CONFLICT, 4108, "이미 등록된 장소입니다."),
-    PLACE_SAVE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, 4109, "장소 저장에 실패했습니다."),
     PLACE_CATALOG_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, 5031, "장소 서비스에 연결할 수 없습니다.");
 
     private final HttpStatus httpStatus;

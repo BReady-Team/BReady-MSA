@@ -7,7 +7,7 @@ spring:
     password: ${DB_PASSWORD:bready-local}
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update  #TODO: Flyway로 교체
     open-in-view: false
   http:
     client:
