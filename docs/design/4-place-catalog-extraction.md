@@ -10,7 +10,7 @@
 |---|---|---|---|
 | 4-1 | 장소 검색(DB 없음)을 `place-catalog-service`로. 모놀리식은 HTTP 어댑터로 부른다. 외부 입구는 모놀리식 그대로 | | 구현·검증 완료 |
 | 4-2 | 장소 저장(`register`)을 HTTP로, 후보에 장소 스냅샷을 두어 조회(`getPlaces`)를 없앤다. DB는 공유하되 `places`를 쓰는 쪽은 Catalog뿐 | | 구현·검증 완료 |
-| 4-3 | Catalog 전용 DB(`catalog-mysql`) 분리 + 데이터 이관 + Flyway 도입 | | 구현 중 |
+| 4-3 | Catalog 전용 DB(`catalog-mysql`) 분리 + 데이터 이관 + Flyway 도입 | | 구현·검증 완료 |
 | 4-4 | 모놀리식에 남은 place 코드 삭제 | | |
 
 ## 왜 지금
@@ -88,6 +88,30 @@ after (4-2)
 추천      triggerContextApi.getRepresentativePlace → 스냅샷 좌표   Catalog에는 주변 검색만
 ```
 
+```
+before (4-3)
+monolith ─HTTP─▶ place-catalog-service ─▶ bready-mysql/bready
+                                            ├ places            (ddl-auto: update가 만든 것, 안 쓰는 deleted_at 포함)
+                                            └ place_candidates ──FK──▶ places
+
+after (4-3)
+monolith ─HTTP─▶ place-catalog-service ─▶ catalog-mysql/catalog.places   (Flyway V1, ddl-auto: validate)
+monolith ──────▶ bready-mysql/bready.place_candidates                    (FK 없음, place_id는 숫자일 뿐)
+                                   └ places_legacy                       (백업, 4-4에서 삭제)
+
+Catalog 기동
+  1. Flyway: flyway_schema_history 확인 → 아직 안 돌린 V 파일 실행
+  2. Hibernate: 엔티티와 테이블이 맞는지 검사만(validate). 어긋나면 기동 실패
+
+전환 순서 (한 번, 앱을 멈추고)
+  1. 모놀리식·Catalog 중지 (places에 쓰는 쪽이 없게)
+  2. catalog-mysql 기동 → Catalog를 새 DB로 한 번 기동 (V1 → 빈 places)
+  3. 이관 스크립트: mysqldump → places_import → INSERT … SELECT(id 그대로) → 임시 테이블 삭제
+  4. 지문(행 내용 전체 md5) 원본 = 결과, AUTO_INCREMENT = 가장 큰 id + 1
+  5. 모놀리식 DB: FK 삭제 → places를 places_legacy로
+  6. 전체 기동
+```
+
 ## 구현 파일
 
 ### 4-1 장소 검색을 place-catalog-service로
@@ -119,6 +143,19 @@ after (4-2)
 | ④-다 | Catalog `application.yml` | `ddl-auto: validate` → `update`(4-3에서 Flyway로) |
 | ⑤ | `docker-compose-local.yml` | `place-catalog`에 `DB_URL`·`DB_PASSWORD`와 MySQL 대기(`depends_on`) 추가. 4-1 때는 DB를 쓰지 않아서 빠져 있었다 |
 | 리뷰 반영 | `PlaceCandidateTransactionHandler.create` | 재확인을 카테고리 행 잠금(`findAliveByIdAndPlanIdForUpdate`)으로 바꿔 같은 카테고리의 후보 추가를 줄 세웠다. 첫 후보 두 개가 동시에 들어오면 둘 다 대표 상태가 없다고 보고 insert하다 데드락으로 한쪽이 500이 되던 문제(T-013). 동작하지 않던 `catch` 복구 코드 삭제. 락 순서는 카테고리 → 후보 → 상태로 `updateCategoryType`과 같다 |
+
+### 4-3 Catalog 전용 DB 분리 + 데이터 이관 + Flyway
+
+| 묶음 | 위치 | 내용 |
+|---|---|---|
+| ① | Catalog `build.gradle` | `flyway-core`, `flyway-mysql`(MySQL 8 지원 모듈) |
+| ① | Catalog `db/migration/V1__create_places.sql` | 엔티티 기준 `places`. 기존 테이블과 타입을 맞추고 `deleted_at`은 뺐다 |
+| ① | Catalog `application.yml`, `application-test.yml` | `ddl-auto: validate`. 테스트도 `ddl-auto` 없이 Flyway로 테이블을 만든다 |
+| ② | `docker-compose-local.yml` | `catalog-mysql`(호스트 3308, 볼륨·비밀번호 변수 따로). `place-catalog`는 `catalog-mysql:3306/catalog`를 쓰고 그 DB만 기다린다 |
+| ② | Catalog `application.yml` | 호스트 기동 기본값 `localhost:3308/catalog` |
+| ② | `README.md`, `CLAUDE.md` | 개발 모드 기동에 `catalog-mysql`과 Catalog `bootRun` 추가 |
+| ③ | `place-catalog-service/db/import/2026-11-09-import-places-from-monolith.sh` | 일회성 이관. 실행 전 조건(앱 중지, V1 적용, 대상 비어 있음, 지운 행 없음) → 덤프 → 임시 테이블 → `INSERT … SELECT` → 지문 비교 → 다음 id 확인 |
+| ③ | `monolith/db/cleanup/2026-11-09-detach-places.sql` | FK 삭제, `places` → `places_legacy` |
 
 ## 검증 증거
 
@@ -166,6 +203,23 @@ after (4-2)
 | 플랜 상세 | 200, 첫 후보가 대표, 좌표는 스냅샷 | **200** (같은 응답) |
 | 추천 | 502 `4103` (카카오 오류를 Catalog가 번역, 모놀리식이 그대로 전달) | 503 `5031` |
 
+### 4-3
+
+- 테스트: Catalog 53개가 Flyway `V1` 위에서 통과(테스트도 `ddl-auto` 없이 Flyway로 테이블을 만든다).
+- `V1`을 일부러 틀리면(`latitude`를 `VARCHAR`로) `Schema-validation: wrong column type ... [latitude]`로 기동 실패. 되돌려서 확인.
+- 공유 DB(`bready`)에 Flyway를 붙이면 `Found non-empty schema(s) bready but no schema history table`로 거부. baseline이 필요한 상황이고, 새 빈 DB로 가서 피했다. 거부 뒤 `bready`에 남은 변경 없음.
+- 두 접속 경로: 호스트 `localhost:3308` → 기동, `V1` 적용. 컨테이너에서 `catalog-mysql:3306` 성공, `catalog-mysql:3308`·`localhost:3308` 실패. 두 번째 기동은 `Schema catalog is up to date`.
+- 이관 리허설(`bready`를 통째로 복사한 임시 컨테이너): Catalog가 켜져 있으면 중단, 성공 시 지문 `5 rows / md5 3a389a29…` 원본 = 결과, 두 번째 실행은 중단, 정리 SQL 두 번째 실행은 첫 줄에서 멈춤, 모놀리식 `ddl-auto: update`가 `places`·FK를 다시 만들지 않음.
+- 실제 로컬 DB 이관 후 `--profile app` 기동, Gateway `:8000` 경유:
+
+| 확인 | 결과 |
+|---|---|
+| 이관된 장소 | Catalog DB에 id `1,2,4,5,6`(빈 번호 3 그대로), 이름 그대로 |
+| 모놀리식 DB | `places` 없음, `places_legacy` 5행, `places`를 가리키는 FK 0 |
+| 처음 보는 장소로 후보 추가 | 200, Catalog가 id **7**로 새로 저장, 후보 `place_id = 7` |
+| 이관된 장소(`kakao-111`)로 후보 추가 | 200, Catalog가 새로 저장하지 않고 이관된 id **2**를 돌려줌(이름도 원래 값), 후보 `place_id = 2`, Catalog `MAX(id)` 7 그대로 |
+| 플랜 상세 | 200, 후보와 장소 정보(스냅샷) |
+
 ## 워크스루 요약
 
 ### 4-1
@@ -188,6 +242,11 @@ after (4-2)
 
 - 4-1: 모놀리식 기준선의 Place·User 에러 코드 중복(4104·4105)은 사라졌지만, Catalog가 돌려주는 4104·4105를 모놀리식이 그대로 전달하므로 클라이언트가 받는 응답에서는 여전히 겹친다. 에러 코드 형식 전환(7단계, ADR 필요) 때 함께 푼다.
 - 4-2: 모놀리식 `PlaceCatalogService.register`의 동시 등록 경로가 실제 DB에서 실패하던 문제(T-011)는 ④에서 그 코드를 지우면서 사라졌다. 남은 등록 경로는 Catalog의 고친 코드 하나다.
-- 4-2: Catalog의 `ddl-auto: update`는 임시다. 컬럼 삭제·이름 변경을 못 하고 변경 이력이 남지 않는다. 4-3에서 Flyway로 바꾼다.
-- 4-2: 로컬 DB에는 `place_candidates.place_id → places` 외래키가 남아 있다(예전 `@ManyToOne`이 만든 것). 지금은 Catalog가 장소를 먼저 커밋해서 걸리지 않지만, DB를 나누는 4-3에서 지운다.
+- 4-2: ~~Catalog의 `ddl-auto: update`는 임시다.~~ 4-3에서 Flyway `V1` + `validate`로 바꿨다.
+- 4-2: ~~로컬 DB에 `place_candidates.place_id → places` 외래키가 남아 있다.~~ 4-3에서 삭제했다.
 - 4-2: 장소 등록 후 후보 저장이 실패하면 쓰이지 않는 `places` 행이 남는다. 무해하다고 보고 정리하지 않는다.
+- 4-3: 외래키가 없으니 `place_candidates.place_id`가 Catalog에 실제로 있는 id인지 DB는 보장하지 않는다. 지금은 Catalog에 장소를 지우는 기능이 없고, 후보는 스냅샷을 들고 있어 화면은 Catalog 없이도 그려진다. Catalog가 장소를 지우거나 합치게 되면 그 사실을 모놀리식에 알릴 방법(이벤트)이 필요하다.
+- 4-3: 모놀리식 DB에 `places_legacy`(백업)가 남아 있다. 4-4에서 지운다. FK가 쓰던 `place_id` 인덱스(이름 `FK1gt3ynbaiix1ct00baajqtnug`)는 조회용 인덱스라 그대로 뒀다.
+- 4-3: 이관은 앱을 멈추고 하는 로컬 일회성 절차다. 운영처럼 멈출 수 없다면 같은 서버에서 스키마를 먼저 나누고 복제로 옮기는 단계가 필요하다. 새로 클론한 환경은 옮길 데이터가 없으니 스크립트를 실행하지 않는다(Catalog가 빈 DB에 `V1`을 만든다).
+- 4-3: Catalog는 `catalog-mysql`에 root로 붙는다. 서비스 전용 계정은 6단계 k8s 시크릿을 다룰 때 함께 본다.
+- 4-3: 모놀리식은 여전히 `ddl-auto: update`다. `ddl-auto`로 못 하는 변경이 반복되면 Flyway를 넣는다(그때는 기존 DB라 baseline이 필요하다).
