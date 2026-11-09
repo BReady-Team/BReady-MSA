@@ -10,7 +10,7 @@
 |---|---|---|---|
 | 4-1 | 장소 검색(DB 없음)을 `place-catalog-service`로. 모놀리식은 HTTP 어댑터로 부른다. 외부 입구는 모놀리식 그대로 | | 구현·검증 완료 |
 | 4-2 | 장소 저장(`register`)을 HTTP로, 후보에 장소 스냅샷을 두어 조회(`getPlaces`)를 없앤다. DB는 공유하되 `places`를 쓰는 쪽은 Catalog뿐 | | 구현·검증 완료 |
-| 4-3 | Catalog 전용 DB 분리 + 데이터 이관 | | |
+| 4-3 | Catalog 전용 DB(`catalog-mysql`) 분리 + 데이터 이관 + Flyway 도입 | | 구현 중 |
 | 4-4 | 모놀리식에 남은 place 코드 삭제 | | |
 
 ## 왜 지금
@@ -46,6 +46,11 @@ Place Catalog는 나가는 의존이 0이고 호출 방향이 모놀리식 → C
 | 4-2 ④ 진행 순서 | HTTP 어댑터 먼저 / 트랜잭션 분리 먼저 | **트랜잭션 분리 먼저** | 어댑터를 먼저 바꾸면 그 사이 커밋에서 HTTP가 `@Transactional` 안에 들어간다. 분리를 먼저 하면 동작이 바뀌지 않는 구조 변경이라 기존 통합 테스트가 그대로 안전망이 된다 |
 | 4-2 통합 테스트에서 Catalog 대신 | `PlaceCatalogHttpClient`를 가짜로 / `PlaceCatalogApi`를 mock / WireMock 같은 가짜 서버 | **HTTP 클라이언트를 가짜로**(`FakePlaceCatalog`) | 후보를 만드는 통합 테스트 7개가 모두 등록을 지나간다. 가장 바깥 경계만 바꿔 어댑터까지 통합 테스트가 지나가게 했다. "같은 외부 ID면 같은 id" 같은 Catalog 규칙은 Catalog 테스트가 지킨다. 직렬화·타임아웃은 어댑터 단위 테스트(`MockRestServiceServer`)와 실제 기동에서 본다 |
 | 4-2 `places` 스키마의 주인 | Catalog `ddl-auto: update` / Flyway 지금 도입 / compose MySQL 초기화 SQL | **Catalog `ddl-auto: update`(임시)** | 모놀리식 `Place`를 지우면 테이블을 만드는 쪽이 사라진다(Catalog는 `validate`). 데이터의 주인이 스키마도 만든다. 4-3에서 Flyway로 바꾸고 `validate`로 되돌린다 |
+| 4-3 Catalog DB 위치 | 별도 MySQL 컨테이너 / 같은 서버의 별도 스키마 + 전용 계정 / 스키마 분리 후 DB 분리 | **별도 MySQL 컨테이너 `catalog-mysql`** | 같은 서버면 함께 죽고, root로 붙는 모놀리식은 여전히 `places`를 JOIN할 수 있다. 다른 서버의 테이블은 SQL로 볼 수 없으니 JOIN이 구조적으로 불가능해진다. "스키마 → DB" 두 단계는 서버를 옮길 때 멈출 수 없는 운영 환경을 위한 경로라서, 잠깐 멈춰도 되는 로컬에서는 이관만 두 번이 된다. 대가는 컨테이너 하나만큼의 메모리 |
+| 4-3 Flyway를 붙이는 방법 | 새 빈 DB에 `V1`부터 / 기존 테이블을 통째로 옮기고 baseline | **새 빈 DB에 `V1`부터, baseline 없음** | baseline은 다시 만들 수 없는 기존 DB에 Flyway를 붙일 때 쓴다. DB를 새로 만드니 필요 없다. 테스트와 로컬이 같은 `V1`을 실행해 스키마의 출처가 하나가 된다. 덤프 구조를 그대로 옮기면 `ddl-auto: update`가 남긴 `deleted_at`(예전 모놀리식 `Place`의 컬럼, Catalog 엔티티에는 없음)도 따라온다 |
+| 4-3 데이터 이관 | 일회성 스크립트(덤프 → 임시 테이블 → `INSERT … SELECT`) / Flyway `V2` / 앱에서 `register`로 다시 등록 | **일회성 스크립트** | id를 보존해야 한다(`place_candidates.place_id`가 가리키고, 빈 번호가 있다). `V2`는 Catalog DB에만 붙어 있어 다른 서버의 테이블을 읽을 수 없고, 모든 새 DB(테스트 포함)에서 실행된다. `register`는 id를 새로 매긴다 |
+| 4-3 옛 `bready.places`와 외래키 | 바로 삭제 / 이름 바꿔 백업 | **FK는 삭제, 테이블은 `places_legacy`로 바꿔 두고 4-4에서 삭제** | 이관이 틀렸을 때 되돌릴 원본을 남긴다. 이름을 바꾸면 `places`를 읽는 코드가 남아 있을 때 옛 데이터를 조용히 읽지 않고 에러가 난다. 모놀리식에는 Flyway가 없으니 `monolith/db/`의 일회성 SQL로 |
+| 4-3 모놀리식 Flyway | 지금 도입(기존 테이블 baseline) / 나중에 | **나중에** | 모놀리식에 필요한 변경은 FK 삭제와 이름 변경 두 줄뿐이다. `ddl-auto`로 못 하는 변경이 반복될 때 다시 본다 |
 
 ## 흐름 (before → after)
 
