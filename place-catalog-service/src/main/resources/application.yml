@@ -2,9 +2,9 @@ spring:
   application:
     name: place-catalog-service
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3307/bready?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true}
+    url: ${DB_URL:jdbc:mysql://localhost:3308/catalog?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:bready-local}
+    password: ${DB_PASSWORD:catalog-local}
   jpa:
     hibernate:
       ddl-auto: validate

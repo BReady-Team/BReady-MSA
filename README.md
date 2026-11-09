@@ -79,8 +79,9 @@ curl -i localhost:8000/api/v1/plans          # 401: Gateway를 지나 모놀리�
 호스트에 열리는 앱 포트는 8000 하나로 모놀리식(8080)은 compose 네트워크 안에서만 열려 있어서, Gateway를 거치지 않고는 닿지 않습니다.
 
 ```bash
-docker compose -f docker-compose-local.yml up -d mysql redis
-cd monolith && ./gradlew bootRun              # :8080
+docker compose -f docker-compose-local.yml up -d mysql catalog-mysql redis
+cd monolith && ./gradlew bootRun              # :8080, DB localhost:3307
+cd place-catalog-service && ./gradlew bootRun # :8081, DB localhost:3308 (Flyway가 스키마 생성)
 cd gateway-service && ./gradlew bootRun       # :8000
 ```
 

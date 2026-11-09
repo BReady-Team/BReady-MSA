@@ -19,6 +19,27 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # place-catalog-service 전용 DB
+  catalog-mysql:
+    image: mysql:8.0
+    container_name: bready-catalog-mysql
+    ports:
+      - "3308:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${CATALOG_MYSQL_ROOT_PASSWORD:-catalog-local}
+      MYSQL_DATABASE: catalog
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - catalog-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   redis:
     image: redis:7.2
     container_name: bready-redis
@@ -60,11 +81,11 @@ services:
     expose:
       - "8081"
     environment:
-      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-bready}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
-      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-bready-local}
+      DB_URL: jdbc:mysql://catalog-mysql:3306/catalog?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
+      DB_PASSWORD: ${CATALOG_MYSQL_ROOT_PASSWORD:-catalog-local}
       KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-local-dummy-kakao-rest-api-key}
     depends_on:
-      mysql:
+      catalog-mysql:
         condition: service_healthy
 
   gateway:
@@ -100,5 +121,6 @@ services:
 
 volumes:
   mysql-data:
+  catalog-mysql-data:
   redis-data:
   grafana-data:
