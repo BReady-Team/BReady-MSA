@@ -3,7 +3,8 @@
 > **상태**: 확정 (2026-10-12). 결정과 근거는 [ADR-0001](../adr/0001-bounded-contexts-and-extraction-order.md)
 > **2026-10-12 이후**: 장소 후보(`PlaceCandidate`와 그 리포지토리·서비스·컨트롤러·DTO)를 `plan` 패키지로 옮겼다. 아래 1~6번은 분석 시점의 패키지 기준 기록이라 후보가 `place`에 있는 것으로 나온다. 
 > **2026-10-13 이후**: Planning은 Place Catalog와 Identity를 공개 API(`place.api`, `user.api`)로만 쓴다. `PlaceCandidate.place` 연관은 `placeId`가 됐고 플랜 상세는 `places`를 JOIN하지 않는다. 아래 3~6번의 해당 행에 표시했다.
-> **2026-11-09 이후**: `places`는 Place Catalog 전용 DB(`catalog-mysql`, 스키마는 Flyway)에 있다. 모놀리식 DB에는 백업 `places_legacy`만 남았다(4-4에서 삭제). 아래 2번의 `place` 행은 분석 시점 기록이다.
+> **2026-11-09 이후**: `places`는 Place Catalog 전용 DB(`catalog-mysql`, 스키마는 Flyway)에 있다. 아래 2번의 `place` 행은 분석 시점 기록이다.
+> **2026-11-12 이후**: 모놀리식 DB의 백업 `places_legacy`도 지웠다. 모놀리식의 `place` 패키지는 장소 기능이 아니라 **Catalog를 부르는 쪽**이다: 계약(`place.api`), 그 HTTP 구현(`place.external`), 로그인 확인 뒤 검색을 넘기는 외부 입구(`PlaceSearchController`, 6단계까지).
 > **분석 방법**: `com.bready.server.*` 전체 import 그래프 추출 → 엔티티 연관관계·JPQL/Native 쿼리·`@Transactional` 메서드 전수 확인
 > **이 문서의 용도**: 로드맵 1단계(경계 지도)의 출발점. 2단계(모듈러 모놀리스)에서 "무엇을 끊어야 하는지"의 체크리스트
 > 위반을 하나 끊을 때마다 이 문서의 해당 행을 갱신
@@ -16,7 +17,7 @@
 
 | 용어 | 뜻 | 코드에서 |
 |---|---|---|
-| **Place Catalog** (장소 카탈로그) | 장소 자체에 대한 정보 모음. 이름·주소·좌표처럼 누구의 플랜과도 무관한 공용 데이터와 카카오 장소 검색 | `place` 패키지, `places` 테이블 |
+| **Place Catalog** (장소 카탈로그) | 장소 자체에 대한 정보 모음. 이름·주소·좌표처럼 누구의 플랜과도 무관한 공용 데이터와 카카오 장소 검색 | `place-catalog-service`, Catalog DB의 `places` 테이블. 모놀리식 `place` 패키지는 이것을 부르는 쪽 |
 | **카테고리** (PlanCategory) | 플랜 안의 한 단계. 식사, 카페, 산책 같은 것. Place Catalog와는 다른 말이다 | `plan` 패키지, `plan_categories` 테이블 |
 | **장소 후보** (PlaceCandidate) | 어떤 카테고리에 올려 둔 장소. "이 플랜의 카페 후보 중 하나" | `plan` 패키지, `place_candidates` 테이블 |
 | **Planning** | 플랜, 카테고리, 장소 후보, 대표 후보 상태, 트리거·결정·전환 | `plan`, `trigger` 패키지 |
@@ -412,6 +413,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|---|
 | 2026-10-08 | v0 | 최초 작성 (코드 수정 없이 분석) |
 | 2026-10-08 | v0.1 | 경계 위반 기준선(ArchUnit) 추가 |
+| 2026-11-12 | v1.12 | 4-4 `places_legacy` 삭제(Catalog와 지문 비교 후). 모놀리식 `place` = Catalog 클라이언트로 정의. 기준선 변화 없음 |
 | 2026-11-09 | v1.11 | 4-3 `places`를 Catalog 전용 DB로 이관(id 보존), `place_candidates.place_id` 외래키 삭제. 경계 위반 기준선 변화 없음 |
 | 2026-10-15 | v1.10 | 4-1 카카오 장소 검색을 place-catalog-service로 이동. 모놀리식은 `PlaceSearchApi`를 HTTP 어댑터로 구현. 코딩 규칙 기준선 71→70, 41→40, 8→4 |
 | 2026-10-13 | v1.9 | 공통 예외 핸들러의 도메인 의존 제거. global → 도메인 8 → 6 (남은 것은 인증, 6단계) |

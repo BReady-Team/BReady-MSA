@@ -1,6 +1,6 @@
 # 4단계 첫 서비스 추출 — Place Catalog
 
-> 2026-10-15 시작. 이 단계의 결정은 단계가 끝날 때 ADR로 모은다.
+> 2026-10-15 시작. 이 단계의 결정은 [ADR-0004](../adr/0004-place-catalog-extraction.md)에 모았다.
 
 ## 이 단계의 목표
 
@@ -10,8 +10,8 @@
 |---|---|---|---|
 | 4-1 | 장소 검색(DB 없음)을 `place-catalog-service`로. 모놀리식은 HTTP 어댑터로 부른다. 외부 입구는 모놀리식 그대로 | | 구현·검증 완료 |
 | 4-2 | 장소 저장(`register`)을 HTTP로, 후보에 장소 스냅샷을 두어 조회(`getPlaces`)를 없앤다. DB는 공유하되 `places`를 쓰는 쪽은 Catalog뿐 | | 구현·검증 완료 |
-| 4-3 | Catalog 전용 DB(`catalog-mysql`) 분리 + 데이터 이관 + Flyway 도입 | | 구현·검증 완료 |
-| 4-4 | 모놀리식에 남은 place 코드 삭제 | | |
+| 4-3 | Catalog 전용 DB(`catalog-mysql`) 분리 + 데이터 이관 + Flyway 도입 | #21 | 완료 |
+| 4-4 | 모놀리식에 남은 place 정리: 백업 `places_legacy` 삭제, 남은 `place` 패키지를 Catalog 클라이언트로 정의, 4단계 ADR | | 구현·검증 완료 |
 
 ## 왜 지금
 
@@ -51,6 +51,8 @@ Place Catalog는 나가는 의존이 0이고 호출 방향이 모놀리식 → C
 | 4-3 데이터 이관 | 일회성 스크립트(덤프 → 임시 테이블 → `INSERT … SELECT`) / Flyway `V2` / 앱에서 `register`로 다시 등록 | **일회성 스크립트** | id를 보존해야 한다(`place_candidates.place_id`가 가리키고, 빈 번호가 있다). `V2`는 Catalog DB에만 붙어 있어 다른 서버의 테이블을 읽을 수 없고, 모든 새 DB(테스트 포함)에서 실행된다. `register`는 id를 새로 매긴다 |
 | 4-3 옛 `bready.places`와 외래키 | 바로 삭제 / 이름 바꿔 백업 | **FK는 삭제, 테이블은 `places_legacy`로 바꿔 두고 4-4에서 삭제** | 이관이 틀렸을 때 되돌릴 원본을 남긴다. 이름을 바꾸면 `places`를 읽는 코드가 남아 있을 때 옛 데이터를 조용히 읽지 않고 에러가 난다. 모놀리식에는 Flyway가 없으니 `monolith/db/`의 일회성 SQL로 |
 | 4-3 모놀리식 Flyway | 지금 도입(기존 테이블 baseline) / 나중에 | **나중에** | 모놀리식에 필요한 변경은 FK 삭제와 이름 변경 두 줄뿐이다. `ddl-auto`로 못 하는 변경이 반복될 때 다시 본다 |
+| 4-4 범위 | 데이터 정리 + 단계 마무리 / + 검색 컨트롤러 규칙 정리 / + 검색 입구를 Catalog로 | **데이터 정리 + 단계 마무리** | 모놀리식에 남은 `place`(공개 API 계약 6개, HTTP 어댑터 8개, 검색 입구, ErrorCase)는 장소 기능이 아니라 **Catalog를 부르는 쪽**이다. plan·recommendation·trigger의 17개 파일이 쓴다. 검색 입구를 Catalog로 옮기려면 Gateway가 JWT를 확인해야 하는데 인증은 6단계 전에 손대지 않는다. 컨트롤러 규칙 정리는 경계가 아니라 모양 통일이라 7단계로 |
+| 4-4 `places_legacy` 삭제 방식 | 확인 후 삭제 스크립트 / `DROP TABLE` 한 줄 | **확인 후 삭제 스크립트** | 백업을 지우는 순간이 "원본과 사본이 같다"를 확인할 마지막 기회다. 4-3 이관과 같은 지문으로 백업과 Catalog의 같은 id 행을 비교하고, 같을 때만 지운다. `DROP`은 자동 커밋이라 확인을 전부 앞에 둔다 |
 
 ## 흐름 (before → after)
 
@@ -112,6 +114,24 @@ Catalog 기동
   6. 전체 기동
 ```
 
+```
+before (4-4)
+bready-mysql/bready   : place_candidates, places_legacy (사본, 주인 없음)
+catalog-mysql/catalog : places (원본)
+
+after (4-4)
+bready-mysql/bready   : place_candidates                (place_id는 Catalog id를 가리키는 숫자)
+catalog-mysql/catalog : places (유일한 사본)
+
+삭제 스크립트 (한 번)
+  1. places_legacy 없음 → "이미 지웠다"로 끝. 모놀리식 DB에 places가 있음 → 중단
+  2. 지문: places_legacy 전체 = catalog.places 중 같은 id 행? 다르면 중단
+  3. DROP TABLE places_legacy   ← 자동 커밋, 되돌릴 수 없다
+  4. 테이블 없음, 후보 행 수 확인
+
+요청 흐름은 바뀌지 않는다: Gateway → 모놀리식(로그인 확인, place 클라이언트) → Catalog
+```
+
 ## 구현 파일
 
 ### 4-1 장소 검색을 place-catalog-service로
@@ -156,6 +176,22 @@ Catalog 기동
 | ② | `README.md`, `CLAUDE.md` | 개발 모드 기동에 `catalog-mysql`과 Catalog `bootRun` 추가 |
 | ③ | `place-catalog-service/db/import/2026-11-09-import-places-from-monolith.sh` | 일회성 이관. 실행 전 조건(앱 중지, V1 적용, 대상 비어 있음, 지운 행 없음) → 덤프 → 임시 테이블 → `INSERT … SELECT` → 지문 비교 → 다음 id 확인 |
 | ③ | `monolith/db/cleanup/2026-11-09-detach-places.sql` | FK 삭제, `places` → `places_legacy` |
+
+### 4-4 모놀리식에 남은 place 정리
+
+| 묶음 | 위치 | 내용 |
+|---|---|---|
+| ① | `monolith/db/cleanup/2026-11-12-drop-places-legacy.sh` | 일회성. 실행 전 조건(두 DB 켜짐, `places_legacy` 있음, `places` 없음) → 백업과 Catalog의 같은 id 행 지문 비교 → 같을 때만 `DROP` → 확인 |
+| ② | `docs/architecture/context-map.md`, 이 설계서, `docs/adr/0004-…` | 모놀리식 `place` = Catalog 클라이언트로 정의, 4단계 결정 모음 |
+
+모놀리식 `place` 패키지에 남은 것(지우지 않는다):
+
+| 패키지 | 역할 | 언제까지 |
+|---|---|---|
+| `place.api` | Catalog와 주고받는 계약(`PlaceCatalogApi`, `PlaceSearchApi`, record, `PlaceCategoryType`). Planning·Recommendation이 이것만 안다 | 계속. 서비스 사이 계약 |
+| `place.external` | 계약의 HTTP 구현, Catalog 오류를 상태·코드 그대로 전달(`RelayedErrorCase`), 닿지 못하면 503 `5031` | 계속 |
+| `place.controller.PlaceSearchController` | 외부 입구 `GET /api/v1/places/search`. 로그인 확인 뒤 Catalog를 부르고 빈 결과를 404로 | 6단계에서 Gateway가 JWT를 확인하면 Gateway → Catalog 라우트로 바꾸고 지운다 |
+| `place.exception.PlaceErrorCase` | 좌표 짝(4101), 결과 없음(4102), Catalog 연결 불가(5031) | 위 두 줄을 따라간다 |
 
 ## 검증 증거
 
@@ -220,6 +256,20 @@ Catalog 기동
 | 이관된 장소(`kakao-111`)로 후보 추가 | 200, Catalog가 새로 저장하지 않고 이관된 id **2**를 돌려줌(이름도 원래 값), 후보 `place_id = 2`, Catalog `MAX(id)` 7 그대로 |
 | 플랜 상세 | 200, 후보와 장소 정보(스냅샷) |
 
+### 4-4
+
+- 리허설(실제 DB 두 개를 덤프해 임시 컨테이너 두 개에 복사):
+
+| 경우 | 결과 |
+|---|---|
+| Catalog 복사본의 id 4 이름만 바꿈 | 지문이 달라 중단(종료 코드 1), `places_legacy` 남음 |
+| 되돌리고 실행 | 지문이 같아 삭제, 후보 7행 그대로 |
+| 두 번째 실행 | "이미 지웠다", 종료 코드 0 |
+| 모놀리식 DB에 `places`를 다시 만든 상태 | 조건 확인에서 중단, 아무것도 지우지 않음 |
+
+- 실제 로컬 DB: 백업과 Catalog의 id `1,2,4,5,6` 지문이 둘 다 `5 rows / md5 3a389a291b0a74c9e32b1c730043935f`로 같아 삭제. 4-3 이관 때의 지문과 같은 값이라, 이관 뒤 그 5행은 양쪽 모두 바뀌지 않았다.
+- 삭제 후 모놀리식 DB: `place`로 시작하는 테이블은 `place_candidates` 하나, `places`를 가리키는 FK 0, 후보 7행(`place_id` 1,2,4,5,6,7,2)과 스냅샷 그대로.
+
 ## 워크스루 요약
 
 ### 4-1
@@ -254,7 +304,9 @@ Catalog 기동
 - 4-2: ~~로컬 DB에 `place_candidates.place_id → places` 외래키가 남아 있다.~~ 4-3에서 삭제했다.
 - 4-2: 장소 등록 후 후보 저장이 실패하면 쓰이지 않는 `places` 행이 남는다. 무해하다고 보고 정리하지 않는다.
 - 4-3: 외래키가 없으니 `place_candidates.place_id`가 Catalog에 실제로 있는 id인지 DB는 보장하지 않는다. 지금은 Catalog에 장소를 지우는 기능이 없고, 후보는 스냅샷을 들고 있어 화면은 Catalog 없이도 그려진다. Catalog가 장소를 지우거나 합치게 되면 그 사실을 모놀리식에 알릴 방법(이벤트)이 필요하다.
-- 4-3: 모놀리식 DB에 `places_legacy`(백업)가 남아 있다. 4-4에서 지운다. FK가 쓰던 `place_id` 인덱스(이름 `FK1gt3ynbaiix1ct00baajqtnug`)는 조회용 인덱스라 그대로 뒀다.
+- 4-3: ~~모놀리식 DB에 `places_legacy`(백업)가 남아 있다.~~ 4-4에서 Catalog와 내용이 같은 것을 확인하고 지웠다. FK가 쓰던 `place_id` 인덱스(이름 `FK1gt3ynbaiix1ct00baajqtnug`)는 조회용 인덱스라 그대로 뒀다.
 - 4-3: 이관은 앱을 멈추고 하는 로컬 일회성 절차다. 운영처럼 멈출 수 없다면 같은 서버에서 스키마를 먼저 나누고 복제로 옮기는 단계가 필요하다. 새로 클론한 환경은 옮길 데이터가 없으니 스크립트를 실행하지 않는다(Catalog가 빈 DB에 `V1`을 만든다).
 - 4-3: Catalog는 `catalog-mysql`에 root로 붙는다. 서비스 전용 계정은 6단계 k8s 시크릿을 다룰 때 함께 본다.
+- 4-4: 장소 검색의 외부 입구는 여전히 모놀리식(`PlaceSearchController`)이다. 요청이 Gateway → 모놀리식 → Catalog로 한 번 더 거친다. 6단계에서 Gateway가 JWT를 확인하면 Catalog로 바로 보낸다.
+- 4-4: `PlaceSearchController`는 코딩 규칙(문서 인터페이스 `{Domain}Api`, 컨트롤러는 위임만) 기준선에 남아 있다. 규칙대로 문서 인터페이스를 만들면 이름이 `PlaceSearchApi`인데, 그 이름은 이미 Catalog 공개 API가 쓴다. 공개 API와 Swagger 문서 인터페이스의 이름 체계는 7단계 구조 통일에서 정한다.
 - 4-3: 모놀리식은 여전히 `ddl-auto: update`다. `ddl-auto`로 못 하는 변경이 반복되면 Flyway를 넣는다(그때는 기존 DB라 baseline이 필요하다).
