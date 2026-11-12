@@ -99,18 +99,19 @@ services:
     depends_on:
       - monolith
 
+  # 관측: docker compose --profile monitoring up -d
   prometheus:
+    profiles: ["monitoring"]
     image: prom/prometheus:v2.52.0
     container_name: bready-prometheus
     ports:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   grafana:
+    profiles: ["monitoring"]
     image: grafana/grafana:10.2.3
     container_name: bready-grafana
     ports:
