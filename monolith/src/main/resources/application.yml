@@ -2,6 +2,8 @@
 # 실제 키가 필요하면 application-local.yml(gitignore)에 두고 local 프로파일로 띄운다.
 
 spring:
+  application:
+    name: monolith
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3307/bready?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
@@ -66,7 +68,7 @@ management:
       show-details: always
   metrics:
     tags:
-      application: bready
+      application: ${spring.application.name}
 
 cloud:
   aws:
