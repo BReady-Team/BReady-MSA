@@ -3,6 +3,7 @@
 > **상태**: 확정 (2026-10-12). 결정과 근거는 [ADR-0001](../adr/0001-bounded-contexts-and-extraction-order.md)
 > **2026-10-12 이후**: 장소 후보(`PlaceCandidate`와 그 리포지토리·서비스·컨트롤러·DTO)를 `plan` 패키지로 옮겼다. 아래 1~6번은 분석 시점의 패키지 기준 기록이라 후보가 `place`에 있는 것으로 나온다. 
 > **2026-10-13 이후**: Planning은 Place Catalog와 Identity를 공개 API(`place.api`, `user.api`)로만 쓴다. `PlaceCandidate.place` 연관은 `placeId`가 됐고 플랜 상세는 `places`를 JOIN하지 않는다. 아래 3~6번의 해당 행에 표시했다.
+> **2026-11-09 이후**: `places`는 Place Catalog 전용 DB(`catalog-mysql`, 스키마는 Flyway)에 있다. 모놀리식 DB에는 백업 `places_legacy`만 남았다(4-4에서 삭제). 아래 2번의 `place` 행은 분석 시점 기록이다.
 > **분석 방법**: `com.bready.server.*` 전체 import 그래프 추출 → 엔티티 연관관계·JPQL/Native 쿼리·`@Transactional` 메서드 전수 확인
 > **이 문서의 용도**: 로드맵 1단계(경계 지도)의 출발점. 2단계(모듈러 모놀리스)에서 "무엇을 끊어야 하는지"의 체크리스트
 > 위반을 하나 끊을 때마다 이 문서의 해당 행을 갱신
@@ -145,7 +146,7 @@
 |---|---|---|---|---|
 | `PlaceCandidate` (place) | `category` | `PlanCategory` (plan) | `@ManyToOne LAZY` | ID 참조 또는 같은 컨텍스트로 이동 |
 | `PlanCategory` (plan) | `candidates` | `PlaceCandidate` (place) | `@OneToMany(mappedBy)` | **양방향 → 순환 C1의 원인** |
-| `PlaceCandidate` (place) | ~~`place`~~ | `Place` (place) | ~~`@ManyToOne LAZY`~~ **해결(2026-10-13)**: `Long placeId` | 패키지는 같지만 "후보 ↔ 카탈로그"는 다른 개념 (8번) |
+| `PlaceCandidate` (place) | ~~`place`~~ | `Place` (place) | ~~`@ManyToOne LAZY`~~ **해결(2026-10-13)**: `Long placeId`. **2026-11-09**: 예전 연관이 DB에 남긴 외래키도 삭제, `places`는 Catalog 전용 DB로 | 패키지는 같지만 "후보 ↔ 카탈로그"는 다른 개념 (8번) |
 | `Trigger` (trigger) | `plan` | `Plan` (plan) | `@ManyToOne LAZY` | `planId` (Long) |
 | `Trigger` (trigger) | `category` | `PlanCategory` (plan) | `@ManyToOne LAZY` | `categoryId` (Long) |
 | `SwitchLog` (trigger) | `fromCandidate`, `toCandidate` | `PlaceCandidate` (place) | `@ManyToOne LAZY` | `fromCandidateId`, `toCandidateId` |
@@ -159,7 +160,7 @@
 | `Plan.ownerId` | `User.id` (user) |
 | `Trigger.candidateId` | `PlaceCandidate.id` (place) — 트리거 발생 당시 대표 후보 스냅샷 |
 | `CategoryState.currentCandidateId` | `PlaceCandidate.id` (place) |
-| `PlaceCandidate.placeId` | `Place.id` (Place Catalog). 2026-10-13에 연관에서 ID로 바꿨다 |
+| `PlaceCandidate.placeId` | `Place.id` (Place Catalog). 2026-10-13에 연관에서 ID로 바꿨다. 2026-11-09부터 다른 DB(`catalog-mysql`)의 id라 외래키가 없다. 이관 때 id를 그대로 옮겨 연결을 유지했다 |
 | `CategorySelectionLog.categoryId`, `candidateId` | plan / place |
 | `PlanStats.planId` | `Plan.id` (plan) |
 
@@ -411,6 +412,7 @@ Client          SwitchController   SwitchService              DB (단일 MySQL)
 |---|---|---|
 | 2026-10-08 | v0 | 최초 작성 (코드 수정 없이 분석) |
 | 2026-10-08 | v0.1 | 경계 위반 기준선(ArchUnit) 추가 |
+| 2026-11-09 | v1.11 | 4-3 `places`를 Catalog 전용 DB로 이관(id 보존), `place_candidates.place_id` 외래키 삭제. 경계 위반 기준선 변화 없음 |
 | 2026-10-15 | v1.10 | 4-1 카카오 장소 검색을 place-catalog-service로 이동. 모놀리식은 `PlaceSearchApi`를 HTTP 어댑터로 구현. 코딩 규칙 기준선 71→70, 41→40, 8→4 |
 | 2026-10-13 | v1.9 | 공통 예외 핸들러의 도메인 의존 제거. global → 도메인 8 → 6 (남은 것은 인증, 6단계) |
 | 2026-10-13 | v1.8 | Recommendation이 Planning·Place Catalog를 공개 API로만 쓰게 변경. Recommendation 65 → 0, Catalog `api` 밖 사용 17 → 0. 컨텍스트 사이의 Repository·Entity 직접 사용이 0이 됐다 |
