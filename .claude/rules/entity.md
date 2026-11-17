@@ -35,7 +35,7 @@ public class Plan extends BaseEntity {
 ```
 
 - `@NoArgsConstructor(access = AccessLevel.PROTECTED)` 필수. public 생성자 금지.
-  - BReady 현황: `Trigger`·`SwitchLog`·`PlanStats`는 `@NoArgsConstructor`(public)(`trigger/domain/Trigger.java:14` 외), `User`·`Plan`·`UserProfile`은 생성자를 선언하지 않아 암묵적 public.
+  - BReady 현황: `Trigger`·`SwitchLog`는 `@NoArgsConstructor`(public)(`trigger/domain/Trigger.java:14` 외), `User`·`Plan`·`UserProfile`은 생성자를 선언하지 않아 암묵적 public.
 - 생성은 `public static create(...)` 정적 팩토리만. 의미가 다른 생성 경로는 이름으로 구분한다(`User.createLocal`, `User.createSocial` — BReady 좋은 예).
 - 감사 필드(`createdAt`, `updatedAt`, `deletedAt`)는 `BaseEntity`를 상속해서 얻는다. 직접 선언하지 않는다.
 
