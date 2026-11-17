@@ -66,6 +66,7 @@ services:
       DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-bready-local}
       REDIS_HOST: redis
       PLACE_CATALOG_URI: http://place-catalog:8081
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
     depends_on:
       mysql:
         condition: service_healthy
@@ -84,6 +85,7 @@ services:
       DB_URL: jdbc:mysql://catalog-mysql:3306/catalog?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
       DB_PASSWORD: ${CATALOG_MYSQL_ROOT_PASSWORD:-catalog-local}
       KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-local-dummy-kakao-rest-api-key}
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
     depends_on:
       catalog-mysql:
         condition: service_healthy
@@ -96,31 +98,45 @@ services:
       - "8000:8000"
     environment:
       MONOLITH_URI: http://monolith:8080
+      ZIPKIN_URL: http://zipkin:9411/api/v2/spans
     depends_on:
       - monolith
 
+  # 관측: docker compose --profile monitoring up -d
   prometheus:
+    profiles: ["monitoring"]
     image: prom/prometheus:v2.52.0
     container_name: bready-prometheus
     ports:
       - "9090:9090"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --enable-feature=exemplar-storage
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # 추적 저장은 메모리에, 컨테이너를 내리면 사라지도록
+  zipkin:
+    profiles: ["monitoring"]
+    image: openzipkin/zipkin:3.4.4
+    container_name: bready-zipkin
+    ports:
+      - "9411:9411"
     restart: unless-stopped
 
   grafana:
+    profiles: ["monitoring"]
     image: grafana/grafana:10.2.3
     container_name: bready-grafana
     ports:
       - "3000:3000"
     volumes:
-      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     restart: unless-stopped
 
 volumes:
   mysql-data:
   catalog-mysql-data:
   redis-data:
-  grafana-data:

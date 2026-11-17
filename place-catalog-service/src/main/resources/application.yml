@@ -16,6 +16,9 @@ spring:
 
 server:
   port: ${SERVER_PORT:8081}
+  tomcat:
+    mbeanregistry:
+      enabled: true
 
 kakao:
   base-url: ${KAKAO_BASE_URL:https://dapi.kakao.com}
@@ -25,4 +28,18 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info
+        include: health, info, prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        http.client.requests: true
+        hikaricp.connections: true
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_URL:http://localhost:9411/api/v2/spans}

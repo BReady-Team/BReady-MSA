@@ -16,6 +16,7 @@
 | [T-008](#t-008) | 2026-10-14 | Gateway를 거친 요청에 `X-Forwarded-*` 헤더가 하나도 없음 | 3-2 |
 | [T-009](#t-009) | 2026-10-14 | 모놀리식이 허용하는 Origin인데 Gateway를 거치면 CORS preflight가 403 | 3-2 |
 | [T-010](#t-010) | 2026-10-14 | Gateway 첫 요청 때 `MacOSDnsServerAddressStreamProvider` ERROR 로그 | 3-2 |
+| [T-014](#t-014) | 2026-11-17 | 502를 61번 받았는데 대시보드의 5xx 비율이 0% | 5-1 |
 
 ---
 
@@ -431,3 +432,22 @@ CannotAcquireLockException: Deadlock found when trying to get lock
 **해결**: 저장 트랜잭션의 첫 재확인을 카테고리 행 잠금(`findAliveByIdAndPlanIdForUpdate`)으로 바꿨다. 같은 카테고리의 후보 추가가 줄을 서고, 뒤 요청은 앞 요청이 만든 상태를 본다. 쓸모없는 `catch`는 지웠다. 리뷰가 제안한 "후보 insert 뒤에 카테고리 잠금"은 `updateCategoryType`(카테고리 → 후보)과 락 순서가 엇갈려 쓰지 않았다.
 
 **배운 것**: 없는 행에 거는 `FOR UPDATE`는 아무것도 줄 세우지 못한다. 줄을 세우려면 반드시 존재하는 행(부모)을 잠근다.
+
+---
+
+## T-014
+
+**증상**
+요청 180개(정상 · 장소 검색 502 · 비로그인 401을 1:1:1)를 루프로 보냈다. 502를 61번 받았는데 5xx 비율이 서비스마다 달랐다.
+```
+서비스별 5xx 비율: gateway-service 0 · monolith 0 · place-catalog-service 1
+sum by (application) (http_server_requests_seconds_count{status="502"})  → 세 서비스 모두 61
+sum by (application) (increase(...{status="502"}[1m]))                 → gateway 0 · monolith 0 · place-catalog 33
+```
+카운터는 셋 다 61인데 `increase()`만 달랐다.
+
+**원인**: 요청 180개가 2~3초 만에 끝났다. Prometheus 수집 간격(5초)보다 짧다. `status="502"` 시계열은 첫 502가 났을 때 새로 생긴다. Gateway와 모놀리식은 폭주가 끝난 뒤에야 처음 수집됐고, 그때 첫 값이 이미 61이었다. Prometheus는 그 전 값을 모르니 0에서 61로 늘었다고 보지 않고 61에서 시작했다고 본다. Catalog만 수집 시점이 폭주 중간(28 → 61)에 걸려 33이 잡혔다.
+
+**해결**: 대시보드 문제가 아니라서 쿼리는 그대로 뒀다. 같은 비율로 25초 동안 꾸준히 보내자 5xx 비율이 gateway 33.2% · monolith 33.3% · place-catalog 100%로 맞게 나왔다.
+
+**배운 것**: `rate()`·`increase()`는 새로 생긴 시계열의 첫 증가분을 보지 못한다. 처음 터진 에러처럼 새 이름표 조합이 생기는 순간이 가장 잘 묻힌다. "5xx 비율 0%"는 "에러 없음"이 아니다. 짧은 실험은 수집 간격보다 길게, 꾸준히 보낸다(k6 시나리오도 그렇게 짠다).
