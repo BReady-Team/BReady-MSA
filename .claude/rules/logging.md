@@ -22,8 +22,8 @@
 - `LoggingAspect`는 서비스 메서드의 시작·종료를 **DEBUG**로, 예외를 ERROR로 남긴다. **인자는 남기지 않는다.**
   - 인자를 `toString()`으로 찍으면 DTO가 record가 되는 순간 `LoginRequest[email=…, password=평문]`이 로그에 남는다.
   - 인자 로깅을 다시 넣지 않는다. `LoggingAspectTest`가 인자를 읽지 않는 것을 지킨다.
-  - BReady 현황: `ExecutionTimeAspect`는 아직 요청마다 INFO를 찍는다(`global/aop/ExecutionTimeAspect.java`). 관측성 단계에서 메트릭으로 바꾼다.
-- 요청 단위 추적은 나중에 traceId(MDC)로 한다(5~6단계 관측성).
+- 요청 처리 시간을 로그로 남기지 않는다. 지표(`http_server_requests`)와 Grafana 대시보드로 본다.
+- 요청 단위 추적은 traceId로 한다. 로그 줄에 자동으로 붙고, 같은 traceId로 Zipkin에서 추적을 찾는다.
 
 ## 4. 형식
 
