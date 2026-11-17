@@ -132,11 +132,10 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     restart: unless-stopped
 
 volumes:
   mysql-data:
   catalog-mysql-data:
   redis-data:
-  grafana-data:
