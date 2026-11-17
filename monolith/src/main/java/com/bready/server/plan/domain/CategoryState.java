@@ -1,7 +1,16 @@
 package com.bready.server.plan.domain;
 
 import java.time.LocalDateTime;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -29,12 +38,15 @@ public class CategoryState {
     @JoinColumn(name = "category_id", nullable = false, unique = true)
     private PlanCategory category; // PlanCategory와의 연관관계 설정 (1:1)
 
-    public static CategoryState create(PlanCategory category, Long representativeCandidateId) {
+    public static CategoryState createEmpty(PlanCategory category, LocalDateTime createdAt) {
         CategoryState state = new CategoryState();
         state.category = category;
-        state.currentCandidateId = representativeCandidateId;
-        state.updatedAt = LocalDateTime.now();
+        state.updatedAt = createdAt;
         return state;
+    }
+
+    public boolean hasRepresentative() {
+        return currentCandidateId != null;
     }
 
     public void changeRepresentative(Long representativeCandidateId) {

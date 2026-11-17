@@ -1,5 +1,6 @@
 package com.bready.server.plan.service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.global.exception.ApplicationException;
+import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlaceCandidate;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
@@ -32,6 +34,7 @@ public class PlanCategoryService {
     private final PlanCategoryRepository planCategoryRepository;
     private final CategoryStateRepository categoryStateRepository;
     private final PlaceCandidateRepository placeCandidateRepository;
+    private final Clock clock;
 
     @Transactional
     public PlanCategoryCreateResponse addCategory(Long userId, Long planId, PlanCategoryCreateRequest request) {
@@ -52,6 +55,7 @@ public class PlanCategoryService {
 
         PlanCategory saved =
                 planCategoryRepository.save(PlanCategory.create(plan, request.getCategoryType(), nextSequence));
+        categoryStateRepository.save(CategoryState.createEmpty(saved, LocalDateTime.now(clock)));
 
         return PlanCategoryCreateResponse.builder()
                 .planCategoryId(saved.getId())

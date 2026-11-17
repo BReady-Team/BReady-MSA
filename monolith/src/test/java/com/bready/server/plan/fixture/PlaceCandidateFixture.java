@@ -2,12 +2,15 @@ package com.bready.server.plan.fixture;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.bready.server.place.api.PlaceCategoryType;
 import com.bready.server.place.api.PlaceInfo;
+import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlaceCandidate;
+import com.bready.server.plan.domain.PlaceSnapshot;
 import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.dto.PlaceCandidateCreateRequest;
@@ -22,6 +25,7 @@ public final class PlaceCandidateFixture {
     public static final String ADDRESS = "서울 성동구";
     public static final BigDecimal LATITUDE = new BigDecimal("37.544500");
     public static final BigDecimal LONGITUDE = new BigDecimal("127.055700");
+    public static final LocalDateTime STATE_CREATED_AT = LocalDateTime.of(2026, 10, 20, 9, 0);
 
     private PlaceCandidateFixture() {}
 
@@ -36,6 +40,22 @@ public final class PlaceCandidateFixture {
     public static PlaceCandidate saved(PlaceCandidate candidate, Long id) {
         ReflectionTestUtils.setField(candidate, "id", id);
         return candidate;
+    }
+
+    public static PlaceCandidate candidateOf(PlanCategory category, Long candidateId) {
+        PlaceSnapshot snapshot = new PlaceSnapshot(EXTERNAL_ID, NAME, ADDRESS, LATITUDE, LONGITUDE, true);
+        return saved(PlaceCandidate.create(category, PLACE_ID, snapshot), candidateId);
+    }
+
+    // 카테고리를 만들 때 함께 생기는 대표 없는 상태
+    public static CategoryState emptyState(PlanCategory category) {
+        return CategoryState.createEmpty(category, STATE_CREATED_AT);
+    }
+
+    public static CategoryState stateRepresenting(PlanCategory category, Long candidateId) {
+        CategoryState state = emptyState(category);
+        state.changeRepresentative(candidateId);
+        return state;
     }
 
     public static PlaceCandidateCreateRequest createRequest() {

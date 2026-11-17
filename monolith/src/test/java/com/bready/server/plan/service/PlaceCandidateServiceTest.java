@@ -1,6 +1,5 @@
 package com.bready.server.plan.service;
 
-import java.time.LocalDate;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
@@ -16,10 +15,11 @@ import com.bready.server.place.api.PlaceCatalogApi;
 import com.bready.server.place.api.PlaceInfo;
 import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlaceCandidate;
-import com.bready.server.plan.domain.Plan;
 import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.dto.PlaceCandidateCreateRequest;
 import com.bready.server.plan.dto.PlaceCandidateCreateResponse;
+import com.bready.server.plan.dto.PlaceCandidateDeleteResponse;
+import com.bready.server.plan.dto.PlaceCandidateRepresentativeResponse;
 import com.bready.server.plan.exception.PlaceCandidateErrorCase;
 import com.bready.server.plan.exception.PlanErrorCase;
 import com.bready.server.plan.fixture.PlaceCandidateFixture;
@@ -27,22 +27,21 @@ import com.bready.server.plan.repository.CategorySelectionLogRepository;
 import com.bready.server.plan.repository.CategoryStateRepository;
 import com.bready.server.plan.repository.PlaceCandidateRepository;
 
+import static com.bready.server.plan.fixture.PlaceCandidateFixture.CATEGORY_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.inOrder;
 
 @ExtendWith(MockitoExtension.class)
 class PlaceCandidateServiceTest {
 
     private static final Long USER_ID = 1L;
-
-    private static Plan ownedPlan() {
-        return Plan.create(USER_ID, "제목", LocalDate.of(2026, 10, 20), "서울");
-    }
+    private static final Long CANDIDATE_ID = 100L;
+    private static final Long OTHER_CANDIDATE_ID = 99L;
 
     @InjectMocks
     private PlaceCandidateService placeCandidateService;
@@ -96,76 +95,70 @@ class PlaceCandidateServiceTest {
     }
 
     @Test
-    @DisplayName("대표 장소 후보 최초 선택 성공")
-    void setRepresentative_firstTime() {
-        Long candidateId = 100L;
+    @DisplayName("성공 - 대표가 없는 카테고리에서 후보를 대표로 지정하고 선택 기록을 남긴다")
+    void setRepresentative_noRepresentativeYet() {
+        PlanCategory category = PlaceCandidateFixture.cafeCategoryOwnedBy(USER_ID);
+        CategoryState state = PlaceCandidateFixture.emptyState(category);
+        givenCandidate(category);
+        given(categoryStateRepository.getByCategoryIdForUpdate(CATEGORY_ID)).willReturn(state);
+        given(placeCandidateRepository.existsAliveByIdAndCategoryId(CANDIDATE_ID, CATEGORY_ID))
+                .willReturn(true);
 
-        PlanCategory category = mock(PlanCategory.class);
-        given(category.getPlan()).willReturn(ownedPlan());
-        when(category.getId()).thenReturn(10L);
+        PlaceCandidateRepresentativeResponse response = placeCandidateService.setRepresentative(USER_ID, CANDIDATE_ID);
 
-        PlaceCandidate candidate = mock(PlaceCandidate.class);
-        when(candidate.getCategory()).thenReturn(category);
-
-        when(placeCandidateRepository.findByIdWithCategory(candidateId)).thenReturn(Optional.of(candidate));
-
-        when(categoryStateRepository.findByCategory_IdForUpdate(10L)).thenReturn(Optional.empty());
-        when(placeCandidateRepository.existsAliveByIdAndCategoryId(candidateId, 10L))
-                .thenReturn(true);
-
-        var response = placeCandidateService.setRepresentative(USER_ID, candidateId);
-
-        assertThat(response.representativeCandidateId()).isEqualTo(candidateId);
-        verify(categoryStateRepository).save(any());
-        verify(categorySelectionLogRepository).save(any());
+        assertThat(response.representativeCandidateId()).isEqualTo(CANDIDATE_ID);
+        assertThat(state.getCurrentCandidateId()).isEqualTo(CANDIDATE_ID);
+        then(categorySelectionLogRepository).should().save(any());
     }
 
     @Test
-    @DisplayName("이미 대표 후보 → 예외")
+    @DisplayName("실패 - 이미 대표인 후보를 다시 지정하면 ALREADY_REPRESENTATIVE_CANDIDATE")
     void setRepresentative_alreadyRepresentative() {
-        Long candidateId = 100L;
+        PlanCategory category = PlaceCandidateFixture.cafeCategoryOwnedBy(USER_ID);
+        givenCandidate(category);
+        given(categoryStateRepository.getByCategoryIdForUpdate(CATEGORY_ID))
+                .willReturn(PlaceCandidateFixture.stateRepresenting(category, CANDIDATE_ID));
+        given(placeCandidateRepository.existsAliveByIdAndCategoryId(CANDIDATE_ID, CATEGORY_ID))
+                .willReturn(true);
 
-        PlanCategory category = mock(PlanCategory.class);
-        given(category.getPlan()).willReturn(ownedPlan());
-        when(category.getId()).thenReturn(10L);
-
-        PlaceCandidate candidate = mock(PlaceCandidate.class);
-        when(candidate.getCategory()).thenReturn(category);
-
-        CategoryState state = mock(CategoryState.class);
-        when(state.isRepresentative(candidateId)).thenReturn(true);
-
-        when(placeCandidateRepository.findByIdWithCategory(candidateId)).thenReturn(Optional.of(candidate));
-
-        when(categoryStateRepository.findByCategory_IdForUpdate(10L)).thenReturn(Optional.of(state));
-        when(placeCandidateRepository.existsAliveByIdAndCategoryId(candidateId, 10L))
-                .thenReturn(true);
-
-        assertThatThrownBy(() -> placeCandidateService.setRepresentative(USER_ID, candidateId))
+        assertThatThrownBy(() -> placeCandidateService.setRepresentative(USER_ID, CANDIDATE_ID))
                 .isInstanceOf(ApplicationException.class)
                 .extracting("errorCase")
                 .isEqualTo(PlaceCandidateErrorCase.ALREADY_REPRESENTATIVE_CANDIDATE);
     }
 
     @Test
-    @DisplayName("장소 후보 삭제 성공")
-    void deleteCandidate_success() {
-        Long candidateId = 100L;
+    @DisplayName("성공 - 대표가 아닌 후보를 지우면 soft delete 된다")
+    void deleteCandidate_notRepresentative() {
+        PlanCategory category = PlaceCandidateFixture.cafeCategoryOwnedBy(USER_ID);
+        PlaceCandidate candidate = givenCandidate(category);
+        given(categoryStateRepository.getByCategoryIdForUpdate(CATEGORY_ID))
+                .willReturn(PlaceCandidateFixture.stateRepresenting(category, OTHER_CANDIDATE_ID));
 
-        PlanCategory category = mock(PlanCategory.class);
-        given(category.getPlan()).willReturn(ownedPlan());
-        when(category.getId()).thenReturn(10L);
+        PlaceCandidateDeleteResponse response = placeCandidateService.deleteCandidate(USER_ID, CANDIDATE_ID);
 
-        PlaceCandidate candidate = mock(PlaceCandidate.class);
-        when(candidate.getCategory()).thenReturn(category);
+        assertThat(response.candidateId()).isEqualTo(CANDIDATE_ID);
+        assertThat(candidate.getDeletedAt()).isNotNull();
+    }
 
-        when(placeCandidateRepository.findByIdWithCategory(candidateId)).thenReturn(Optional.of(candidate));
+    @Test
+    @DisplayName("실패 - 대표 후보를 지우면 REPRESENTATIVE_CANDIDATE_CANNOT_DELETE")
+    void deleteCandidate_representative() {
+        PlanCategory category = PlaceCandidateFixture.cafeCategoryOwnedBy(USER_ID);
+        PlaceCandidate candidate = givenCandidate(category);
+        given(categoryStateRepository.getByCategoryIdForUpdate(CATEGORY_ID))
+                .willReturn(PlaceCandidateFixture.stateRepresenting(category, CANDIDATE_ID));
 
-        when(categoryStateRepository.findByCategory_IdForUpdate(10L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> placeCandidateService.deleteCandidate(USER_ID, CANDIDATE_ID))
+                .isInstanceOf(ApplicationException.class)
+                .extracting("errorCase")
+                .isEqualTo(PlaceCandidateErrorCase.REPRESENTATIVE_CANDIDATE_CANNOT_DELETE);
+        assertThat(candidate.getDeletedAt()).isNull();
+    }
 
-        var response = placeCandidateService.deleteCandidate(USER_ID, candidateId);
-
-        assertThat(response.candidateId()).isEqualTo(candidateId);
-        verify(candidate).softDelete();
+    private PlaceCandidate givenCandidate(PlanCategory category) {
+        PlaceCandidate candidate = PlaceCandidateFixture.candidateOf(category, CANDIDATE_ID);
+        given(placeCandidateRepository.findByIdWithCategory(CANDIDATE_ID)).willReturn(Optional.of(candidate));
+        return candidate;
     }
 }

@@ -17,8 +17,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import com.bready.server.global.exception.ApplicationException;
 import com.bready.server.plan.domain.CategorySelectionLog;
+import com.bready.server.plan.domain.CategoryState;
 import com.bready.server.plan.domain.PlaceCandidate;
 import com.bready.server.plan.domain.PlaceSnapshot;
+import com.bready.server.plan.domain.PlanCategory;
 import com.bready.server.plan.dto.PlaceCandidateCreateResponse;
 import com.bready.server.plan.exception.PlaceCandidateErrorCase;
 import com.bready.server.plan.exception.PlanErrorCase;
@@ -35,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class PlaceCandidateTransactionHandlerTest {
@@ -42,6 +45,7 @@ class PlaceCandidateTransactionHandlerTest {
     private static final Long OWNER_ID = 1L;
     private static final Long OTHER_USER_ID = 2L;
     private static final Long CANDIDATE_ID = 100L;
+    private static final Long EXISTING_REPRESENTATIVE_ID = 99L;
     private static final Clock FIXED_CLOCK =
             Clock.fixed(Instant.parse("2026-10-27T01:00:00Z"), ZoneId.of("Asia/Seoul"));
 
@@ -98,13 +102,13 @@ class PlaceCandidateTransactionHandlerTest {
     }
 
     @Test
-    @DisplayName("성공 - 카테고리의 첫 후보면 대표로 지정하고 선택 기록을 Clock 시각으로 남긴다")
+    @DisplayName("성공 - 카테고리의 첫 후보면 이미 있는 상태 행에 대표로 지정하고 선택 기록을 Clock 시각으로 남긴다")
     void create_firstCandidateBecomesRepresentative() {
         // given
-        givenOwnedCategory();
-        given(placeCandidateRepository.saveAndFlush(any()))
-                .willAnswer(invocation -> PlaceCandidateFixture.saved(invocation.getArgument(0), CANDIDATE_ID));
-        given(categoryStateRepository.findByCategory_IdForUpdate(CATEGORY_ID)).willReturn(Optional.empty());
+        PlanCategory category = givenOwnedCategory();
+        givenSavedCandidate();
+        CategoryState state = PlaceCandidateFixture.emptyState(category);
+        given(categoryStateRepository.getByCategoryIdForUpdate(CATEGORY_ID)).willReturn(state);
 
         // when
         PlaceCandidateCreateResponse response = handler.create(
@@ -113,7 +117,8 @@ class PlaceCandidateTransactionHandlerTest {
         // then
         assertThat(response.candidateId()).isEqualTo(CANDIDATE_ID);
         assertThat(response.place().id()).isEqualTo(PlaceCandidateFixture.PLACE_ID);
-        then(categoryStateRepository).should().save(any());
+        assertThat(state.getCurrentCandidateId()).isEqualTo(CANDIDATE_ID);
+        then(categoryStateRepository).should(never()).save(any());
         ArgumentCaptor<CategorySelectionLog> log = ArgumentCaptor.forClass(CategorySelectionLog.class);
         then(categorySelectionLogRepository).should().save(log.capture());
         assertThat(log.getValue().getCandidateId()).isEqualTo(CANDIDATE_ID);
@@ -121,13 +126,30 @@ class PlaceCandidateTransactionHandlerTest {
     }
 
     @Test
+    @DisplayName("성공 - 이미 대표가 있으면 대표를 바꾸지 않고 선택 기록도 남기지 않는다")
+    void create_keepsExistingRepresentative() {
+        // given
+        PlanCategory category = givenOwnedCategory();
+        givenSavedCandidate();
+        CategoryState state = PlaceCandidateFixture.stateRepresenting(category, EXISTING_REPRESENTATIVE_ID);
+        given(categoryStateRepository.getByCategoryIdForUpdate(CATEGORY_ID)).willReturn(state);
+
+        // when
+        handler.create(OWNER_ID, PlaceCandidateFixture.createRequest(), PlaceCandidateFixture.registeredPlace());
+
+        // then
+        assertThat(state.getCurrentCandidateId()).isEqualTo(EXISTING_REPRESENTATIVE_ID);
+        then(categorySelectionLogRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("성공 - 저장하는 후보에 Catalog가 돌려준 장소를 복사한다")
     void create_copiesPlaceSnapshot() {
         // given
-        givenOwnedCategory();
-        given(placeCandidateRepository.saveAndFlush(any()))
-                .willAnswer(invocation -> PlaceCandidateFixture.saved(invocation.getArgument(0), CANDIDATE_ID));
-        given(categoryStateRepository.findByCategory_IdForUpdate(CATEGORY_ID)).willReturn(Optional.empty());
+        PlanCategory category = givenOwnedCategory();
+        givenSavedCandidate();
+        given(categoryStateRepository.getByCategoryIdForUpdate(CATEGORY_ID))
+                .willReturn(PlaceCandidateFixture.emptyState(category));
 
         // when
         handler.create(OWNER_ID, PlaceCandidateFixture.createRequest(), PlaceCandidateFixture.registeredPlace());
@@ -177,8 +199,15 @@ class PlaceCandidateTransactionHandlerTest {
         then(placeCandidateRepository).shouldHaveNoInteractions();
     }
 
-    private void givenOwnedCategory() {
+    private PlanCategory givenOwnedCategory() {
+        PlanCategory category = PlaceCandidateFixture.cafeCategoryOwnedBy(OWNER_ID);
         given(planCategoryRepository.findAliveByIdAndPlanIdForUpdate(CATEGORY_ID, PLAN_ID))
-                .willReturn(Optional.of(PlaceCandidateFixture.cafeCategoryOwnedBy(OWNER_ID)));
+                .willReturn(Optional.of(category));
+        return category;
+    }
+
+    private void givenSavedCandidate() {
+        given(placeCandidateRepository.saveAndFlush(any()))
+                .willAnswer(invocation -> PlaceCandidateFixture.saved(invocation.getArgument(0), CANDIDATE_ID));
     }
 }
