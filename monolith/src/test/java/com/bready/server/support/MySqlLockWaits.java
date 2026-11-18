@@ -21,7 +21,7 @@ public final class MySqlLockWaits {
                 .untilAsserted(() -> assertThat(countWaiters(mysql)).isEqualTo(expected));
     }
 
-    private static int countWaiters(MySQLContainer<?> mysql) throws Exception {
+    public static int countWaiters(MySQLContainer<?> mysql) throws Exception {
         try (Connection connection = DriverManager.getConnection(mysql.getJdbcUrl(), "root", mysql.getPassword());
                 Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery("select count(distinct requesting_engine_transaction_id)"

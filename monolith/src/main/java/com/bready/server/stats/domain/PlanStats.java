@@ -1,15 +1,24 @@
 package com.bready.server.stats.domain;
 
 import java.math.BigDecimal;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import com.bready.server.global.entity.BaseEntity;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(
         name = "plan_stats",
@@ -39,17 +48,6 @@ public class PlanStats extends BaseEntity {
 
     @Column(name = "reliability_score", precision = 5, scale = 2)
     private BigDecimal reliabilityScore;
-
-    public static PlanStats create(
-            Long planId, StatsPeriod period, int totalTriggers, int totalSwitches, BigDecimal reliabilityScore) {
-        PlanStats stats = new PlanStats();
-        stats.planId = planId;
-        stats.period = period;
-        stats.totalTriggers = totalTriggers;
-        stats.totalSwitches = totalSwitches;
-        stats.reliabilityScore = reliabilityScore;
-        return stats;
-    }
 
     public void update(int totalTriggers, int totalSwitches, BigDecimal reliabilityScore) {
         this.totalTriggers = totalTriggers;

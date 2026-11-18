@@ -63,25 +63,17 @@ public class PlaceCandidateService {
         category.getPlan().validateOwner(userId);
         Long categoryId = category.getId();
 
-        CategoryState state =
-                categoryStateRepository.findByCategory_IdForUpdate(categoryId).orElse(null);
+        CategoryState state = categoryStateRepository.getByCategoryIdForUpdate(categoryId);
 
         // 락을 기다리는 동안 후보가 삭제됐을 수 있기에, 위에서 읽은 candidate는 락 이전의 모습이라 다시 확인
         if (!placeCandidateRepository.existsAliveByIdAndCategoryId(candidateId, categoryId)) {
             throw ApplicationException.from(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND);
         }
 
-        if (state == null) {
-            // 첫 대표 지정
-            state = CategoryState.create(category, candidateId);
-            categoryStateRepository.save(state);
-        } else {
-            // 이미 대표인 경우
-            if (state.isRepresentative(candidateId)) {
-                throw ApplicationException.from(PlaceCandidateErrorCase.ALREADY_REPRESENTATIVE_CANDIDATE);
-            }
-            state.changeRepresentative(candidateId);
+        if (state.isRepresentative(candidateId)) {
+            throw ApplicationException.from(PlaceCandidateErrorCase.ALREADY_REPRESENTATIVE_CANDIDATE);
         }
+        state.changeRepresentative(candidateId);
 
         saveSelectionLog(categoryId, candidateId);
 
@@ -101,12 +93,8 @@ public class PlaceCandidateService {
         candidate.getCategory().getPlan().validateOwner(userId);
         Long categoryId = candidate.getCategory().getId();
 
-        CategoryState state =
-                categoryStateRepository.findByCategory_IdForUpdate(categoryId).orElse(null);
-
-        if (state != null
-                && state.getCurrentCandidateId() != null
-                && state.getCurrentCandidateId().equals(candidateId)) {
+        CategoryState state = categoryStateRepository.getByCategoryIdForUpdate(categoryId);
+        if (state.isRepresentative(candidateId)) {
             throw ApplicationException.from(PlaceCandidateErrorCase.REPRESENTATIVE_CANDIDATE_CANNOT_DELETE);
         }
 

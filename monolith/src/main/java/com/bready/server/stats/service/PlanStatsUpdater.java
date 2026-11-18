@@ -2,6 +2,7 @@ package com.bready.server.stats.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
@@ -21,31 +22,27 @@ public class PlanStatsUpdater {
 
     private final PlanStatsRepository planStatsRepository;
     private final ActivityQueryApi activityQueryApi;
+    private final Clock clock;
 
     @Transactional
     public void recalculate(Long planId, StatsPeriod period) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime from = resolveFrom(period, now);
 
-        LocalDateTime from = resolveFrom(period);
-
-        long triggerCount = activityQueryApi.countTriggersOfPlan(planId, from);
-
-        long switchCount = activityQueryApi.countSwitchesOfPlan(planId, from);
-
-        BigDecimal reliability = calculateReliability(triggerCount, switchCount);
-
+        // 행을 먼저 보장한 뒤 잠근다
+        planStatsRepository.insertIfAbsent(planId, period.name(), now);
         PlanStats stats = planStatsRepository
                 .findByPlanIdAndPeriodForUpdate(planId, period)
-                .orElseGet(() -> {
-                    PlanStats newStats = PlanStats.create(planId, period, 0, 0, BigDecimal.ZERO);
-                    return planStatsRepository.save(newStats);
-                });
+                .orElseThrow(() -> new IllegalStateException("방금 보장한 통계 행이 없습니다. planId=" + planId));
+
+        long triggerCount = activityQueryApi.countTriggersOfPlan(planId, from);
+        long switchCount = activityQueryApi.countSwitchesOfPlan(planId, from);
+        BigDecimal reliability = calculateReliability(triggerCount, switchCount);
 
         stats.update((int) triggerCount, (int) switchCount, reliability);
     }
 
-    private LocalDateTime resolveFrom(StatsPeriod period) {
-        LocalDateTime now = LocalDateTime.now();
-
+    private LocalDateTime resolveFrom(StatsPeriod period, LocalDateTime now) {
         return switch (period) {
             case WEEK -> now.minusWeeks(1);
             case MONTH -> now.minusMonths(1);

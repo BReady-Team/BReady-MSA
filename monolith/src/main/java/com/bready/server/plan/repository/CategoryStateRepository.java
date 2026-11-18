@@ -22,6 +22,11 @@ public interface CategoryStateRepository extends JpaRepository<CategoryState, Lo
     """)
     Optional<CategoryState> findByCategory_IdForUpdate(@Param("categoryId") Long categoryId);
 
+    default CategoryState getByCategoryIdForUpdate(Long categoryId) {
+        return findByCategory_IdForUpdate(categoryId)
+                .orElseThrow(() -> new IllegalStateException("카테고리 상태 행이 없습니다. categoryId=" + categoryId));
+    }
+
     // 플랜 상세 조회 - 대표 후보 상태 일괄 조회
     List<CategoryState> findAllByCategory_IdIn(List<Long> categoryIds);
 }
