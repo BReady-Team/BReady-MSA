@@ -7,7 +7,7 @@ Recommendation과 Stats를 모놀리식에서 떼어낸다. 메시지 브로커�
 | 조각 | 내용 | PR | 상태 |
 |---|---|---|---|
 | 5-1 | 관측 기반: 세 서비스(Gateway·모놀리식·Catalog)의 지표·추적을 Prometheus·Grafana·Zipkin으로 | | 구현 완료 |
-| 5-1b | 부하에서 드러난 첫 행 생성 교착(`category_states`·`plan_stats`) 수정 | | |
+| 5-1b | 부하에서 드러난 첫 행 생성 교착(`category_states`·`plan_stats`) 수정 | | 구현 완료 |
 | 5-2 | 추천의 외부 호출이 DB 커넥션을 쥐는 고통 재현 + 트랜잭션 경계 정리(관측으로 전·후 비교) | | |
 | 5-3 | `recommendation-service` 추출 | | |
 | 5-4 | 타임아웃·서킷브레이커·폴백 | | |
@@ -46,6 +46,17 @@ Recommendation과 Stats를 모놀리식에서 떼어낸다. 메시지 브로커�
 
 AI 호출 줄은 5-2로 미뤘다. 더미 카카오 키에서는 추천이 카카오 검색 단계에서 끝나 AI까지 가지 않아 `gen_ai_*` 지표가 없다. 5-2에서 지연을 조절하는 가짜 카카오·OpenAI를 세우면 실제 지표를 보고 추가한다.
 
+### 5-1b 첫 행 생성 교착
+
+5-1의 부하 테스트에서 후보 추가가 500으로 실패했다. "행을 `FOR UPDATE`로 찾고 없으면 insert"하는 코드가 원인이었다. 없는 행을 찾으면 인덱스의 빈 구간에 갭 락이 잡히는데, 새 키는 늘 맨 끝에 붙어서 서로 다른 카테고리·플랜이 같은 구간에서 만난다(T-015).
+
+| 대상 | 고른 것 | 고르지 않은 것과 이유 |
+|---|---|---|
+| `category_states` | 카테고리를 만들 때 대표가 빈 상태 행을 함께 만든다 | 후보 추가 때 upsert: "상태 행이 없을 수 있다"는 분기가 코드에 계속 남는다 |
+| `plan_stats` | `insert ... on duplicate key update`로 행을 먼저 보장한 뒤 잠근다 | 플랜을 만들 때 미리 만들기: Stats의 테이블을 Planning의 트랜잭션에서 쓰게 된다 |
+| 기존 데이터 | 상태 행이 없는 카테고리를 일회성 SQL로 채운다 | 코드에 "없으면 만든다"를 남기기: 교착의 원인이 그 분기다 |
+| 공통 | 원인을 없앤다 | 교착이 나면 재시도: 원인은 그대로 두고 증상만 가린다 |
+
 ## 흐름 (before → after)
 
 ### 5-1
@@ -56,6 +67,22 @@ after:  Grafana p95가 오른다
         → 2줄에서 서비스·URL을 고른다
         → 그래프의 exemplar 점을 누른다 (버킷에 붙은 trace_id)
         → Zipkin에서 그 요청의 구간(gateway → monolith → SQL·place-catalog)을 본다
+```
+
+### 5-1b
+
+```
+before: 후보 추가(카테고리 101)                    후보 추가(카테고리 102)
+        상태 행 FOR UPDATE → 없음, 끝 구간 갭 락
+                                                  상태 행 FOR UPDATE → 없음, 같은 구간 갭 락
+        insert → 상대의 갭 락을 기다림
+                                                  insert → 상대의 갭 락을 기다림 → 교착, 한쪽 500
+
+after:  카테고리 생성 → 카테고리 행 + 빈 상태 행 insert
+        후보 추가(101) → 상태 행 101 잠금 → 대표 지정    후보 추가(102) → 상태 행 102 잠금 → 대표 지정
+        (각자 자기 행만 잠가서 서로 기다리지 않는다)
+
+        통계 계산 → upsert로 행 보장 → 그 행 잠금 → 갱신
 ```
 
 ## 구현 파일
@@ -73,6 +100,20 @@ after:  Grafana p95가 오른다
 | `performance-test/k6/scripts/user_flow.js` | Gateway를 거치는 사용자 흐름 부하(둘러보기 80% · 계획 짜기 20%) |
 | (삭제) `global/aop/ExecutionTimeAspect.java` | 요청마다 찍던 실행 시간 INFO. 지표가 대신한다 |
 
+### 5-1b
+
+| 파일 | 역할 |
+|---|---|
+| `plan/service/PlanCategoryService.java` | 카테고리를 만들 때 빈 상태 행을 함께 저장 |
+| `plan/domain/CategoryState.java` | `createEmpty`, `hasRepresentative` |
+| `plan/repository/CategoryStateRepository.java` | `getByCategoryIdForUpdate`: 상태 행은 반드시 있다고 보고 잠근다 |
+| `plan/service/PlaceCandidateTransactionHandler.java`, `PlaceCandidateService.java` | "상태 행이 없으면 insert" 분기 제거 |
+| `stats/repository/PlanStatsRepository.java` | `insertIfAbsent` (upsert) |
+| `stats/service/PlanStatsUpdater.java` | 행을 먼저 보장한 뒤 잠근다. 시각은 `Clock`에서 |
+| `monolith/db/backfill/2026-11-17-category-states.sql` | 상태 행이 없는 기존 카테고리를 채우는 일회성 SQL |
+| `integration/FirstCandidateAcrossCategoriesRaceIntegrationTest.java` | 서로 다른 카테고리의 첫 후보 동시 추가 재현 |
+| `integration/PlanStatsFirstRowRaceIntegrationTest.java` | 서로 다른 플랜의 첫 통계 동시 계산 재현 |
+
 ## 검증 증거
 
 ### 5-1
@@ -89,6 +130,18 @@ ExecutionTimeAspect 삭제 후: 요청 30개에 INFO 0줄, 같은 URL p95는 지
 
 k6 `user_flow.js`(최대 50명, 3분 20초): 요청 7072개, p95 18ms, 실패 1.32%(임계값 1% 초과). 실패는 모두 후보 추가 500(47) → 트리거 400(47) 연쇄였고, 원인은 `category_states` 첫 행 생성 교착이었다. 5-1b에서 고친다.
 
+### 5-1b
+
+```
+재현 테스트 둘: 수정 전 실패(교착) → 수정 후 통과
+백필 뒤 확인 쿼리: 상태 행이 없는 카테고리 0 · 후보가 있는데 대표가 없는 카테고리 0
+k6 user_flow.js 같은 조건(최대 50명, 3분 20초):
+  요청 7078개 · 실패 1.32% → 0.00% · 체크 7078/7078 · p95 20ms
+  후보 추가 500: 47건 → 0건, 트리거 400: 47건 → 0건
+모놀리식 로그: Deadlock 0건, ERROR 0건
+통계 행: 부하 중 트리거가 생긴 플랜 471개 모두 WEEK · MONTH · ALL 행 있음(누락 0)
+```
+
 ## 워크스루 요약
 
 ### 5-1
@@ -97,6 +150,13 @@ k6 `user_flow.js`(최대 50명, 3분 20초): 요청 7072개, p95 18ms, 실패 1.
 - actuator 요청과 보안 필터 구간은 `ObservationPredicate`로 지표·추적 모두에서 뺀다. 빼지 않으면 5초마다 오는 수집 요청이 요청 수에 섞인다.
 - 요청이 끝나면 걸린 시간이 히스토그램 버킷에 들어가고, 그 버킷에 trace_id가 exemplar로 붙는다. 버킷이 없으면 p95도 exemplar도 없다.
 - Prometheus는 `exemplar-storage`를 켜야 exemplar를 저장하고, Grafana 데이터소스의 `exemplarTraceIdDestinations`가 그 trace_id를 Zipkin으로 잇는다.
+
+### 5-1b
+
+- 카테고리를 만드는 트랜잭션이 카테고리 행과 빈 상태 행을 함께 저장한다. 찾지 않고 바로 insert하므로 갭 락을 쥔 채 기다리는 구간이 없다.
+- 후보 추가는 카테고리 행을 잠그고(같은 카테고리 줄 세우기, T-013), 후보를 저장한 뒤 상태 행을 잠근다. 상태 행은 반드시 있어서 그 행 하나만 잠기고, 대표가 비어 있으면 방금 저장한 후보를 대표로 지정한다.
+- 트리거가 커밋되면 `@Async` 리스너가 기간마다 통계를 다시 계산한다. upsert로 행을 먼저 보장하고 그 행을 잠가 갱신한다. 이미 있으면 upsert는 아무것도 바꾸지 않는다.
+- 두 곳 모두 "갭 락 → insert" 순서가 "insert → 행 락"으로 바뀌었다. 행 락은 자기 키만 잠가서 다른 카테고리·플랜과 만나지 않는다.
 
 ## 알려진 한계
 
@@ -107,3 +167,8 @@ k6 `user_flow.js`(최대 50명, 3분 20초): 요청 7072개, p95 18ms, 실패 1.
 - Grafana 10.2의 Zipkin 데이터소스는 상태 확인에 `Plugin unavailable`을 돌려준다. 브라우저 전용 플러그인이라서다. 연결은 프록시 조회로 확인했다.
 - 새 시계열의 첫 증가분은 `rate()`가 보지 못한다(T-014). 짧은 폭주 실험은 결과가 0으로 보일 수 있다.
 - 추적 표본 100%는 로컬 실험용이다.
+
+### 5-1b
+
+- 백필을 돌리지 않은 DB에서는 옛 카테고리에 후보를 추가하면 500이다. 상태 행이 없는 것을 있을 수 없는 상태로 보기 때문이다.
+- 통계 갱신은 여전히 메모리에만 있는 `@Async` 이벤트다. 교착으로 빠지는 일은 없어졌지만 커밋 직후 프로세스가 죽으면 사라진다. 5-5(Outbox)의 대상이다.
