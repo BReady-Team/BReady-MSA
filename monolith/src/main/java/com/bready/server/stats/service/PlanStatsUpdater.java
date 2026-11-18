@@ -29,17 +29,15 @@ public class PlanStatsUpdater {
         LocalDateTime now = LocalDateTime.now(clock);
         LocalDateTime from = resolveFrom(period, now);
 
-        long triggerCount = activityQueryApi.countTriggersOfPlan(planId, from);
-
-        long switchCount = activityQueryApi.countSwitchesOfPlan(planId, from);
-
-        BigDecimal reliability = calculateReliability(triggerCount, switchCount);
-
         // 행을 먼저 보장한 뒤 잠근다
         planStatsRepository.insertIfAbsent(planId, period.name(), now);
         PlanStats stats = planStatsRepository
                 .findByPlanIdAndPeriodForUpdate(planId, period)
                 .orElseThrow(() -> new IllegalStateException("방금 보장한 통계 행이 없습니다. planId=" + planId));
+
+        long triggerCount = activityQueryApi.countTriggersOfPlan(planId, from);
+        long switchCount = activityQueryApi.countSwitchesOfPlan(planId, from);
+        BigDecimal reliability = calculateReliability(triggerCount, switchCount);
 
         stats.update((int) triggerCount, (int) switchCount, reliability);
     }

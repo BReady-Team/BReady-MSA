@@ -1,5 +1,6 @@
 package com.bready.server.integration;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -75,6 +76,8 @@ class PlanStatsFirstRowRaceIntegrationTest extends IntegrationTestSupport {
         assertThatCode(() -> second.get(TIMEOUT.toSeconds(), TimeUnit.SECONDS)).doesNotThrowAnyException();
         assertThat(statsRowCount(firstPlanId)).isEqualTo(1);
         assertThat(statsRowCount(secondPlanId)).isEqualTo(1);
+        assertThat(reliabilityOf(firstPlanId)).isEqualByComparingTo(BigDecimal.valueOf(100));
+        assertThat(reliabilityOf(secondPlanId)).isEqualByComparingTo(BigDecimal.valueOf(100));
     }
 
     private void holdMissingStatsLock(long planId, CountDownLatch lockHeld, CountDownLatch release) {
@@ -101,6 +104,14 @@ class PlanStatsFirstRowRaceIntegrationTest extends IntegrationTestSupport {
             }
         }
         return done;
+    }
+
+    private BigDecimal reliabilityOf(long planId) {
+        return jdbcTemplate.queryForObject(
+                "select reliability_score from plan_stats where plan_id = ? and period = ?",
+                BigDecimal.class,
+                planId,
+                StatsPeriod.ALL.name());
     }
 
     private long statsRowCount(long planId) {
