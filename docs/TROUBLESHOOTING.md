@@ -17,6 +17,7 @@
 | [T-009](#t-009) | 2026-10-14 | 모놀리식이 허용하는 Origin인데 Gateway를 거치면 CORS preflight가 403 | 3-2 |
 | [T-010](#t-010) | 2026-10-14 | Gateway 첫 요청 때 `MacOSDnsServerAddressStreamProvider` ERROR 로그 | 3-2 |
 | [T-014](#t-014) | 2026-11-17 | 502를 61번 받았는데 대시보드의 5xx 비율이 0% | 5-1 |
+| [T-015](#t-015) | 2026-11-17 | T-013에서 고친 교착이 부하 테스트에서 다시 남: 서로 다른 카테고리끼리 후보 추가 500 | 5-1b |
 
 ---
 
@@ -451,3 +452,37 @@ sum by (application) (increase(...{status="502"}[1m]))                 → gatew
 **해결**: 대시보드 문제가 아니라서 쿼리는 그대로 뒀다. 같은 비율로 25초 동안 꾸준히 보내자 5xx 비율이 gateway 33.2% · monolith 33.3% · place-catalog 100%로 맞게 나왔다.
 
 **배운 것**: `rate()`·`increase()`는 새로 생긴 시계열의 첫 증가분을 보지 못한다. 처음 터진 에러처럼 새 이름표 조합이 생기는 순간이 가장 잘 묻힌다. "5xx 비율 0%"는 "에러 없음"이 아니다. 짧은 실험은 수집 간격보다 길게, 꾸준히 보낸다(k6 시나리오도 그렇게 짠다).
+
+---
+
+## T-015
+
+**증상**
+k6 `user_flow.js`(최대 50명, 3분 20초)에서 요청 7072개 중 1.32%가 실패했다. 전부 후보 추가 500(47건)과 그 뒤를 잇는 트리거 400(47건)이었다.
+```
+CannotAcquireLockException: Deadlock found when trying to get lock
+  [insert into category_states (category_id,current_candidate_id,updated_at) values (?,?,?)]
+```
+T-013에서 고친 것과 같은 에러였다.
+
+**원인을 좁힌 과정**
+1. T-013 수정은 들어 있었다. 다만 T-013은 카테고리 행을 잠가 **같은 카테고리**의 요청만 줄 세운다. k6의 사용자는 각자 새 플랜과 새 카테고리를 만들기 때문에, 부딪힌 것은 **서로 다른 카테고리**였다.
+2. 대시보드의 커넥션 풀 패널은 정상이었다. 교착은 커넥션을 하나씩만 쥐고 MySQL이 바로 한쪽을 롤백하므로 풀 지표에 드러나지 않는다. 증상은 실패 엔드포인트(500)에, 원인은 로그에만 있었다.
+
+**원인**: 후보 저장은 `category_states`에서 행을 `FOR UPDATE`로 찾고, 없으면 insert했다. 없는 행을 찾으면 그 키가 들어갈 인덱스의 빈 구간에 갭 락이 잡힌다. 새 카테고리의 ID는 언제나 가장 크기 때문에, 카테고리가 달라도 모두 인덱스 맨 끝의 같은 구간을 잠근다. 갭 락끼리는 서로 막지 않아 둘 다 잡고, 이어지는 insert는 상대의 갭 락을 기다린다. 서로를 기다리니 교착이다.
+
+`plan_stats`의 첫 행 생성(`PlanStatsUpdater.recalculate`)도 같은 구조였다. 이쪽은 `@Async` 리스너 안이라 500도 없이 통계만 빠졌다.
+
+**해결**: 없는 행을 `FOR UPDATE`로 찾는 일을 없앴다.
+- `category_states`: 카테고리를 만들 때 대표가 빈 상태 행을 함께 만든다(`PlanCategoryService.addCategory`). 후보 추가는 언제나 있는 행 하나만 잠근다.
+- `plan_stats`: `insert ... on duplicate key update`로 행을 먼저 보장한 뒤 잠근다(`PlanStatsRepository.insertIfAbsent`).
+- 기존 데이터: 상태 행이 없던 카테고리를 일회성 SQL로 채웠다(`monolith/db/backfill/2026-11-17-category-states.sql`).
+
+```
+재현 테스트: FirstCandidateAcrossCategoriesRaceIntegrationTest, PlanStatsFirstRowRaceIntegrationTest 실패 → 통과
+k6 같은 시나리오: 요청 7078개, 실패 0.00%, 체크 7078/7078, p95 20ms
+모놀리식 로그: Deadlock 0건
+통계 행: 트리거가 생긴 플랜 471개 모두 WEEK · MONTH · ALL 행 있음
+```
+
+**배운 것**: 갭 락은 키 하나가 아니라 구간을 잠근다. 그래서 "없으면 만든다"를 `FOR UPDATE`로 짜면 관계없는 키끼리도 부딪히고, 새 키가 늘 맨 끝에 붙는 테이블에서는 전부가 한 구간에서 만난다. 행은 부모와 함께 미리 만들거나 upsert로 먼저 보장한 뒤 잠근다. 같은 키끼리의 경쟁만 재현한 테스트는 이 경우를 놓쳤고, 여러 사용자가 각자 새 데이터를 만드는 부하 테스트가 찾아냈다.
