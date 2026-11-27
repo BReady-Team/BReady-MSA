@@ -9,6 +9,7 @@ import com.bready.recommendation.planning.api.RepresentativePlace;
 import com.bready.recommendation.planning.api.TriggerContext;
 import com.bready.recommendation.planning.api.TriggerContextApi;
 import com.bready.recommendation.planning.api.TriggerType;
+import com.bready.recommendation.recommendation.cache.PlaceRecommendationCacheKey;
 import com.bready.recommendation.recommendation.cache.PlaceRecommendationCacheService;
 import com.bready.recommendation.recommendation.dto.PlaceRecommendationQuery;
 import com.bready.recommendation.recommendation.dto.PlaceRecommendationRequest;
@@ -61,9 +62,17 @@ public class PlaceRecommendationService {
 
         Coordinate base = resolved.coordinate();
 
-        // 캐시 key 생성
-        String cacheKey = placeRecommendationCacheService.generateKey(
-                category.categoryType().name(), base.latitude, base.longitude);
+        // 결과를 바꾸는 입력을 전부 키에 넣는다.
+        String cacheKey = new PlaceRecommendationCacheKey(
+                        category.categoryType(),
+                        triggerType,
+                        region,
+                        base.latitude(),
+                        base.longitude(),
+                        radius,
+                        limit,
+                        resolved.excludeExternalId())
+                .toRedisKey();
 
         // 캐시 조회
         List<PlaceRecommendationResponse.RecommendationItem> cachedItems =

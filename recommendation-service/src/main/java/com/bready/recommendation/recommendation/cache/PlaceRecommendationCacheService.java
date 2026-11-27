@@ -1,7 +1,5 @@
 package com.bready.recommendation.recommendation.cache;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Duration;
 import java.util.List;
 
@@ -25,11 +23,6 @@ public class PlaceRecommendationCacheService {
     @Value("${recommendation.ai.cache.place-ttl-seconds:180}")
     private long placeCacheTtlSeconds;
 
-    // 캐시 키 생성
-    public String generateKey(String categoryType, Double latitude, Double longitude) {
-        return "reco:place:%s:%s:%s".formatted(categoryType, roundCoordinate(latitude), roundCoordinate(longitude));
-    }
-
     // 캐시 조회
     public List<PlaceRecommendationResponse.RecommendationItem> get(String key) {
         Object value = redisTemplate.opsForValue().get(key);
@@ -45,14 +38,5 @@ public class PlaceRecommendationCacheService {
     // 캐시 저장
     public void put(String key, List<PlaceRecommendationResponse.RecommendationItem> items) {
         redisTemplate.opsForValue().set(key, items, Duration.ofSeconds(placeCacheTtlSeconds));
-    }
-
-    // 좌표 반올림 헬퍼 메서드
-    private String roundCoordinate(Double value) {
-        if (value == null) {
-            return "null";
-        }
-
-        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 }
