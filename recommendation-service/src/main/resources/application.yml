@@ -1,0 +1,54 @@
+# 기본 설정, 실제 키를 넣지 않음
+
+spring:
+  application:
+    name: recommendation-service
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:local-dummy-openai-key}
+
+recommendation:
+  ai:
+    enabled: ${RECOMMENDATION_AI_ENABLED:false}
+
+# 트리거 상황과 대표 장소는 모놀리식(Planning)에 묻는다
+planning:
+  base-url: ${MONOLITH_URI:http://localhost:8080}
+  connect-timeout: 2s
+  read-timeout: 3s
+
+# 주변 장소 검색은 place-catalog-service가 한다
+place-catalog:
+  base-url: ${PLACE_CATALOG_URI:http://localhost:8081}
+  connect-timeout: 2s
+  read-timeout: 8s
+
+server:
+  port: ${SERVER_PORT:8082}
+  tomcat:
+    mbeanregistry:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        http.client.requests: true
+        gen_ai.client.operation: true
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_URL:http://localhost:9411/api/v2/spans}
