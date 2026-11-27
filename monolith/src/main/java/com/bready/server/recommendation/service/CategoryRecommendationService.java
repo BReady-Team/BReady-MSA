@@ -3,7 +3,6 @@ package com.bready.server.recommendation.service;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.recommendation.cache.CategoryRecommendationCacheService;
 import com.bready.server.recommendation.dto.CategoryRecommendationRequest;
@@ -24,7 +23,7 @@ public class CategoryRecommendationService {
     private final TriggerContextApi triggerContextApi;
     private final CategoryRecommendationCacheService categoryRecommendationCacheService;
 
-    @Transactional(readOnly = true)
+    // 외부 응답을 기다리는 동안 DB 커넥션을 쥐지 않도록 트랜잭션 제거
     public CategoryRecommendationResponse recommendCategories(Long userId, CategoryRecommendationRequest request) {
 
         long start = System.currentTimeMillis();

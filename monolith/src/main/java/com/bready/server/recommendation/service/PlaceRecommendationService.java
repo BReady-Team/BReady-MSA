@@ -3,7 +3,6 @@ package com.bready.server.recommendation.service;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.bready.server.recommendation.cache.PlaceRecommendationCacheService;
 import com.bready.server.recommendation.dto.PlaceRecommendationQuery;
@@ -32,7 +31,7 @@ public class PlaceRecommendationService {
     private final PlaceRecommendationPort placeRecommendationPort;
     private final PlaceRecommendationCacheService placeRecommendationCacheService;
 
-    @Transactional(readOnly = true)
+    // 외부 응답을 기다리는 동안 DB 커넥션을 쥐지 않도록 트랜잭션 제거
     public PlaceRecommendationResponse recommendPlaces(
             Long userId, PlaceRecommendationRequest request, PlaceRecommendationQuery query) {
 
