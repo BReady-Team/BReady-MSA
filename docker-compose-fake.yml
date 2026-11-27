@@ -1,0 +1,35 @@
+# 느린 외부 API 실험용
+# 지연 조절: curl -X POST localhost:8089/__admin/settings -d '{"fixedDelay":3000}'
+services:
+  fake-kakao:
+    profiles: ["app"]
+    image: wiremock/wiremock:3.9.1
+    container_name: bready-fake-kakao
+    ports:
+      - "8089:8080"
+    volumes:
+      - ./performance-test/fake/kakao/mappings:/home/wiremock/mappings:ro
+
+  fake-openai:
+    profiles: ["app"]
+    image: wiremock/wiremock:3.9.1
+    container_name: bready-fake-openai
+    ports:
+      - "8090:8080"
+    volumes:
+      - ./performance-test/fake/openai/mappings:/home/wiremock/mappings:ro
+
+  place-catalog:
+    environment:
+      KAKAO_BASE_URL: http://fake-kakao:8080
+    depends_on:
+      fake-kakao:
+        condition: service_started
+
+  monolith:
+    environment:
+      SPRING_AI_OPENAI_BASE_URL: http://fake-openai:8080
+      RECOMMENDATION_AI_ENABLED: ${RECOMMENDATION_AI_ENABLED:-false}
+    depends_on:
+      fake-openai:
+        condition: service_started

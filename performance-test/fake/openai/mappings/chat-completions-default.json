@@ -1,0 +1,34 @@
+{
+  "priority": 5,
+  "request": {
+    "method": "POST",
+    "urlPath": "/v1/chat/completions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "id": "chatcmpl-fake-default",
+      "object": "chat.completion",
+      "created": 1764200000,
+      "model": "gpt-4o-mini",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\"rankedIds\":[],\"reasonsById\":{}}"
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 200,
+        "completion_tokens": 10,
+        "total_tokens": 210
+      }
+    }
+  }
+}
