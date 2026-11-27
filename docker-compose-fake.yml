@@ -5,6 +5,8 @@ services:
     profiles: ["app"]
     image: wiremock/wiremock:3.9.1
     container_name: bready-fake-kakao
+    # 느린 응답이 동시에 쌓여도 가짜 서버가 병목이 되지 않게
+    command: ["--container-threads", "300", "--async-response-enabled", "true", "--async-response-threads", "50", "--no-request-journal"]
     ports:
       - "8089:8080"
     volumes:
@@ -14,6 +16,7 @@ services:
     profiles: ["app"]
     image: wiremock/wiremock:3.9.1
     container_name: bready-fake-openai
+    command: ["--container-threads", "300", "--async-response-enabled", "true", "--async-response-threads", "50", "--no-request-journal"]
     ports:
       - "8090:8080"
     volumes:
