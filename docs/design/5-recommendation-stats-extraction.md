@@ -93,6 +93,7 @@ AI 호출 줄은 5-2로 미뤘다. 더미 카카오 키에서는 추천이 카�
 | 모놀리식의 추천 코드 | 지우지 않는다. 한 PR 동안 같은 코드가 두 곳에 있다 | 같이 지우기: 라우트를 돌리기 전에 지우면 추천이 멈춘다. 삭제는 라우트 전환(5-3c)과 함께 한다 |
 | Planning·Catalog 계약 | 값 record와 enum을 새 서비스에 복사하고(`planning.api`, `catalog.api`), 인터페이스 이름은 그대로 둔다. 구현만 HTTP 어댑터다 | 공유 라이브러리: ADR-0004의 방침대로 지킬 것은 같은 클래스가 아니라 같은 JSON 모양이다 |
 | 다른 서비스의 오류 | 상대가 준 오류는 상태·코드·문구 그대로 전달, 닿지 못하면 503(Planning `5033`, Catalog `5031`) | 추천의 오류로 바꿔 내기: 클라이언트가 받던 403 `4002`, 404 `7001`이 달라진다 |
+| 장소 추천 캐시 키(리뷰에서 발견) | 결과를 바꾸는 입력 전부: 카테고리 · 트리거 종류 · 지역 · 좌표(소수 둘째 자리) · 반경 · 개수 · 제외할 대표 장소 | 카테고리와 좌표만(옮겨 온 그대로): 같은 위치의 다른 사용자가 받은 결과가 그대로 나가서, 내 대표 장소가 내 추천에 나오고 `size`와 트리거 사유가 무시된다 / 후보 목록만 캐시하고 요청마다 제외·개수·사유를 다시 적용: 캐시를 추천 포트 안쪽으로 옮기는 구조 변경이라 이번 범위를 넘는다 |
 | Planning 호출 타임아웃 | 연결 2초 · 읽기 3초 | 타임아웃 없음: 모놀리식이 느려지면 추천 스레드가 무한정 잡힌다. 값을 다듬는 것은 5-4에서 한다 |
 
 ## 흐름 (before → after)
@@ -244,7 +245,8 @@ POST :8082/api/v1/recommendations/places  + Authorization
 | `planning/api/` | Planning 계약 사본. `TriggerContextApi`는 사용자 ID 대신 `Authorization` 값을 받는다 |
 | `planning/external/` | `PlanningHttpClient`(`@HttpExchange`, 헤더 전달), `TriggerContextHttpAdapter` |
 | `catalog/api/`, `catalog/external/` | Catalog 계약 사본과 검색 HTTP 어댑터 |
-| `recommendation/` | 모놀리식의 추천 코드 22개 파일. 내용이 다른 것은 컨트롤러와 서비스 둘(사용자 ID → 토큰) |
+| `recommendation/` | 모놀리식의 추천 코드 22개 파일. 내용이 다른 것은 컨트롤러와 서비스 둘(사용자 ID → 토큰), 그리고 장소 캐시 키(`PlaceRecommendationCacheKey` 추가) |
+| `integration/PlaceRecommendationCacheIntegrationTest.java` | 같은 위치의 두 사용자가 서로의 캐시를 받지 않는지, 같은 조건은 캐시를 다시 쓰는지 |
 | `architecture/ArchitectureTest.java`, `archunit_store/` | 경계 규칙 7개 + 옛 위반 기준선 3개 규칙(4건) |
 | `integration/*ContractIntegrationTest.java` | 모놀리식의 계약 테스트와 같은 기대값을 새 서비스에서 검증 |
 | `planning/external/TriggerContextHttpAdapterTest.java` | 토큰이 실제 헤더로 나가는지, 오류가 어떻게 번역되는지 |
@@ -314,8 +316,9 @@ k6 `recommendation_slow_external.js`(추천 초당 12 · 플랜 목록 초당 20
 ### 5-3b
 
 ```
-테스트: gateway 8 · monolith 217 · place-catalog 53 · recommendation 34 통과
-새 서비스 34개: 아키텍처 10 · 계약 통합 10(장소 6, 카테고리 4) · Planning 어댑터 6 · Catalog 어댑터 5 · 옮겨 온 어댑터 단위 3
+테스트: gateway 8 · monolith 217 · place-catalog 53 · recommendation 38 통과
+캐시 재현 테스트 4개: 수정 전 3개 실패(남의 캐시로 내 대표 장소가 추천됨, size 무시, 다른 트리거의 사유) → 수정 후 통과
+처음 34개: 아키텍처 10 · 계약 통합 10(장소 6, 카테고리 4) · Planning 어댑터 6 · Catalog 어댑터 5 · 옮겨 온 어댑터 단위 3
 옮긴 코드의 차이: 패키지 이름을 맞춰 비교하면 22개 파일 중 내용이 다른 것은 3개(컨트롤러, 서비스 둘)이고 전부 사용자 ID → 토큰이다
 ArchUnit 기준선: 필드 주입 2(캐시 서비스의 @Value) · DTO 이름 1(PlaceRecommendationQuery) · 문서 인터페이스 없음 1(RecommendationController)
 ```
@@ -405,6 +408,8 @@ ArchUnit 기준선: 필드 주입 2(캐시 서비스의 @Value) · DTO 이름 1(
 ### 5-3b
 
 - 추천 코드가 모놀리식과 새 서비스 두 곳에 있다. 5-3c에서 라우트를 돌리고 모놀리식 쪽을 지울 때까지 한쪽만 고치면 어긋난다.
+- 장소 캐시 키는 새 서비스에서만 고쳤다. 지금 트래픽을 받는 모놀리식의 추천에는 같은 버그가 남아 있고, 5-3c에서 그 코드를 지우면 없어진다. 키 형식이 달라서(`reco:place:v2:`) 두 쪽이 서로의 장소 캐시를 읽지 않는다.
+- 현재 위치로 추천받는 트리거(체력 저하, 거리 부담)는 좌표를 소수 둘째 자리로 묶어 캐시하므로, 약 1km 안의 다른 요청이 계산한 거리(`distanceMeters`)를 받을 수 있다.
 - 토큰이 없거나 틀릴 때 상태는 같은 401이지만 본문이 다르다. 모놀리식은 보안 필터가 본문 없이 답하고, 새 서비스는 `CommonResponse` 모양으로 답한다. 라우트를 돌리기 전(5-3c)에 어느 쪽으로 맞출지 정한다.
 - `PlaceCategoryType`과 `TriggerType`이 서비스마다 복사돼 있다. 값을 추가하면 모놀리식·Catalog·추천을 함께 고쳐야 하고, 빠뜨리면 모르는 값을 받은 쪽이 역직렬화에서 실패한다.
 - 새 서비스에는 인증이 없다. Planning을 부르지 않는 엔드포인트가 생기면 누구에게나 열린다. 지금 두 엔드포인트는 계약 테스트가 "토큰 없이는 401, Catalog는 불리지 않음"을 지킨다.
