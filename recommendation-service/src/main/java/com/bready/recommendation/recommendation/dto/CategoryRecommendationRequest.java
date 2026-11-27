@@ -1,0 +1,5 @@
+package com.bready.recommendation.recommendation.dto;
+
+import jakarta.validation.constraints.NotNull;
+
+public record CategoryRecommendationRequest(@NotNull Long triggerId) {}

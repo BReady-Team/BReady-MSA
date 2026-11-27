@@ -1,0 +1,84 @@
+package com.bready.recommendation.recommendation.controller;
+
+import jakarta.validation.Valid;
+
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.http.HttpHeaders;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import com.bready.recommendation.global.response.CommonResponse;
+import com.bready.recommendation.recommendation.dto.*;
+import com.bready.recommendation.recommendation.service.CategoryRecommendationService;
+import com.bready.recommendation.recommendation.service.PlaceRecommendationService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import lombok.RequiredArgsConstructor;
+
+// 받은 Authorization 헤더를 Planning 호출에 그대로 넘김
+@RestController
+@RequestMapping("/api/v1/recommendations")
+@Validated
+@RequiredArgsConstructor
+public class RecommendationController {
+
+    private final PlaceRecommendationService recommendationService;
+    private final CategoryRecommendationService categoryRecommendationService;
+
+    @PostMapping("/places")
+    @Operation(summary = "전환 장소 추천", description = "트리거 발생 이후, 특정 플랜/카테고리 기준으로 대체 장소 추천")
+    @ApiResponses({
+        @ApiResponse(
+                responseCode = "200",
+                description = "추천 성공",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "400",
+                description = "잘못된 요청",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "403",
+                description = "플랜 접근 권한 없음",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "404",
+                description = "플랜/카테고리/트리거/추천결과 없음",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "502",
+                description = "외부 장소 검색 실패 (API 장애/요청 오류)",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class)))
+    })
+    public CommonResponse<PlaceRecommendationResponse> recommendPlaces(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @ParameterObject @ModelAttribute PlaceRecommendationQuery query,
+            @RequestBody @Valid PlaceRecommendationRequest request) {
+        return CommonResponse.success(recommendationService.recommendPlaces(authorization, request, query));
+    }
+
+    @PostMapping("/categories")
+    @Operation(summary = "전환 카테고리 추천", description = "트리거 발생 이후, 플랜 전체 흐름을 고려한 카테고리 대체 추천")
+    @ApiResponses({
+        @ApiResponse(
+                responseCode = "200",
+                description = "추천 성공",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "403",
+                description = "플랜 접근 권한 없음",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))),
+        @ApiResponse(
+                responseCode = "404",
+                description = "플랜/카테고리/트리거 없음",
+                content = @Content(schema = @Schema(implementation = CommonResponse.class)))
+    })
+    public CommonResponse<CategoryRecommendationResponse> recommendCategories(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @RequestBody @Valid CategoryRecommendationRequest request) {
+        return CommonResponse.success(categoryRecommendationService.recommendCategories(authorization, request));
+    }
+}

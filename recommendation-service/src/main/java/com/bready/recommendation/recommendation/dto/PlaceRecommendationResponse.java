@@ -1,0 +1,17 @@
+package com.bready.recommendation.recommendation.dto;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+public record PlaceRecommendationResponse(List<RecommendationItem> items) {
+
+    public record RecommendationItem(
+            String externalId,
+            String name,
+            String address,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            Boolean isIndoor,
+            Integer distanceMeters,
+            String reason) {}
+}
