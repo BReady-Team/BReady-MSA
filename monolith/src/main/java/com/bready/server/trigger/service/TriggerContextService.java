@@ -37,12 +37,8 @@ public class TriggerContextService implements TriggerContextApi {
 
     @Override
     public TriggerContext getTriggerContext(Long userId, Long triggerId) {
-        Trigger trigger = triggerRepository
-                .findByIdAndDeletedAtIsNull(triggerId)
-                .orElseThrow(() -> ApplicationException.from(TriggerErrorCase.TRIGGER_NOT_FOUND));
-
+        Trigger trigger = getOwnedTrigger(userId, triggerId);
         Plan plan = trigger.getPlan();
-        plan.validateOwner(userId);
 
         List<CategoryInfo> planCategories =
                 planCategoryRepository.findAllByPlan_IdAndDeletedAtIsNullOrderBySequenceAsc(plan.getId()).stream()
@@ -58,9 +54,11 @@ public class TriggerContextService implements TriggerContextApi {
     }
 
     @Override
-    public RepresentativePlace getRepresentativePlace(Long categoryId) {
+    public RepresentativePlace getRepresentativePlace(Long userId, Long triggerId) {
+        Trigger trigger = getOwnedTrigger(userId, triggerId);
+
         Long representativeCandidateId = categoryStateRepository
-                .findByCategory_Id(categoryId)
+                .findByCategory_Id(trigger.getCategory().getId())
                 .map(CategoryState::getCurrentCandidateId)
                 .orElseThrow(() -> ApplicationException.from(TriggerErrorCase.CATEGORY_STATE_NOT_FOUND));
 
@@ -69,6 +67,14 @@ public class TriggerContextService implements TriggerContextApi {
                 .map(PlaceCandidate::getPlaceSnapshot)
                 .map(this::toRepresentativePlace)
                 .orElseThrow(() -> ApplicationException.from(PlaceCandidateErrorCase.PLACE_CANDIDATE_NOT_FOUND));
+    }
+
+    private Trigger getOwnedTrigger(Long userId, Long triggerId) {
+        Trigger trigger = triggerRepository
+                .findByIdAndDeletedAtIsNull(triggerId)
+                .orElseThrow(() -> ApplicationException.from(TriggerErrorCase.TRIGGER_NOT_FOUND));
+        trigger.getPlan().validateOwner(userId);
+        return trigger;
     }
 
     private CategoryInfo toInfo(PlanCategory category) {

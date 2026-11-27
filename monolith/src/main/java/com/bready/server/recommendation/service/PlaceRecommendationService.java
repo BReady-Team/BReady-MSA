@@ -52,7 +52,7 @@ public class PlaceRecommendationService {
         int limit = normalizeSize(query.size());
         int radius = (query.radius() != null) ? query.radius() : DEFAULT_RADIUS;
 
-        ResolvedBase resolved = resolveBase(triggerType, category.categoryId(), query);
+        ResolvedBase resolved = resolveBase(userId, context, query);
         long t2 = System.currentTimeMillis();
 
         String region = firstNonBlank(
@@ -106,7 +106,8 @@ public class PlaceRecommendationService {
         return new PlaceRecommendationResponse(items);
     }
 
-    private ResolvedBase resolveBase(TriggerType triggerType, Long categoryId, PlaceRecommendationQuery query) {
+    private ResolvedBase resolveBase(Long userId, TriggerContext context, PlaceRecommendationQuery query) {
+        TriggerType triggerType = context.triggerType();
 
         // trigger 중 현재 위치 기반으로 탐색해야 하는 trigger
         if (triggerType == TriggerType.FATIGUE || triggerType == TriggerType.DISTANCE_TOO_FAR) {
@@ -116,7 +117,7 @@ public class PlaceRecommendationService {
         }
 
         // 대표 후보의 장소 스냅샷 기준
-        RepresentativePlace place = triggerContextApi.getRepresentativePlace(categoryId);
+        RepresentativePlace place = triggerContextApi.getRepresentativePlace(userId, context.triggerId());
 
         Coordinate coordinate =
                 new Coordinate(place.latitude().doubleValue(), place.longitude().doubleValue());
