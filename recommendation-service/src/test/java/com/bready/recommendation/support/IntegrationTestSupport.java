@@ -23,7 +23,7 @@ import com.bready.recommendation.planning.external.PlanningHttpClient;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-@SpringBootTest
+@SpringBootTest(properties = "recommendation.ai.enabled=false")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 public abstract class IntegrationTestSupport {
