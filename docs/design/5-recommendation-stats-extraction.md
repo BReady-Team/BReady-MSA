@@ -9,7 +9,7 @@ Recommendation과 Stats를 모놀리식에서 떼어낸다. 메시지 브로커�
 | 5-1 | 관측 기반: 세 서비스(Gateway·모놀리식·Catalog)의 지표·추적을 Prometheus·Grafana·Zipkin으로 | | 구현 완료 |
 | 5-1b | 부하에서 드러난 첫 행 생성 교착(`category_states`·`plan_stats`) 수정 | | 구현 완료 |
 | 5-2 | 추천의 외부 호출이 DB 커넥션을 쥐는 고통 재현 + 트랜잭션 경계 정리(관측으로 전·후 비교) | | 구현 완료 |
-| 5-3 | `recommendation-service` 추출 | | |
+| 5-3 | `recommendation-service` 추출 (a Planning 조회 HTTP 입구 → b 서비스와 코드 이동 → c 라우트 전환·삭제·관측) | | 5-3a 구현 완료 |
 | 5-4 | 타임아웃·서킷브레이커·폴백 | | |
 | 5-5~ | Stats 추출, Kafka + Outbox | | |
 
@@ -71,6 +71,19 @@ AI 호출 줄은 5-2로 미뤘다. 더미 카카오 키에서는 추천이 카�
 
 지연 3초는 Catalog의 카카오 읽기 타임아웃(5초)보다 짧게 잡았다. 그보다 길면 503으로 끊겨 "느리지만 성공하는 외부"가 아니라 "실패하는 외부" 실험이 된다.
 
+### 5-3 recommendation-service 추출
+
+5-2로 커넥션은 풀렸지만 외부를 기다리는 요청 스레드는 모놀리식의 것이었다(지연 3초 · 초당 12건에 38개, 초당 70건쯤이면 200개가 다 찬다). 스레드 풀은 프로세스에 하나라서 같은 프로세스 안에서는 추천만 느려지게 가둘 수 없다. Catalog와 달리 추천은 모놀리식(Planning)의 데이터가 필요해서, 떼어낸 서비스가 모놀리식을 부르는 첫 사례다.
+
+| 결정 | 고른 것 | 고르지 않은 것과 이유 |
+|---|---|---|
+| 입구와 호출 방향 | Gateway가 추천 서비스로 바로 보내고, 추천 서비스가 사용자의 토큰을 그대로 붙여 모놀리식의 Planning 조회를 부른다(Gateway → 추천 → 모놀리식·Catalog) | 모놀리식이 입구가 되어 조회 결과를 실어 보내기: 모놀리식 스레드가 계속 추천을 기다려 떼어낸 효과가 없다 / 모놀리식이 입구이고 추천이 되부르기: 호출이 순환하고 요청 하나가 모놀리식 스레드를 둘 잡는다 |
+| 인증 | 손대지 않는다. 추천은 첫 단계에서 Planning에 "이 사용자의 트리거인가"를 물어야 하므로, 그 호출에 실린 토큰을 모놀리식의 JWT 필터와 소유권 검증이 그대로 판정한다 | 추천 서비스가 JWT를 직접 검증: 인증 분리는 6단계다 |
+| Planning 조회의 모양 | 엔드포인트 둘(트리거 상황, 대표 장소). 둘 다 트리거 ID로 묻고 둘 다 소유권을 확인한다 | 하나로 묶고 대표 장소를 비워서 주기: "대표가 아직 없다"는 Planning의 오류를 추천 서비스가 대신 판단해야 한다 / 카테고리 ID로 대표 장소 묻기: 혼자 불리면 남의 플랜의 장소를 볼 수 있다 |
+| Catalog | 추천 서비스가 직접 부른다 | 모놀리식을 거치기: 느린 구간이 다시 모놀리식 스레드를 잡는다 |
+| Redis | 지금 인스턴스를 같이 쓴다(`reco:*`는 추천만 쓴다) | 전용 Redis: 캐시라 옮길 데이터가 없고 아직 서로 방해한 적이 없다 |
+| 진행 | 세 조각: Planning 조회 입구(5-3a) → 서비스와 코드 이동(5-3b) → 라우트 전환·삭제·관측(5-3c) | 한 번에: 기계적인 이동과 흐름이 바뀌는 지점이 섞여 실패의 원인을 가리기 어렵다 |
+
 ## 흐름 (before → after)
 
 ### 5-1
@@ -117,6 +130,31 @@ after:  장소 추천 요청 (트랜잭션 없음)
           (AI를 켜면) OpenAI HTTP          커넥션 없음
 ```
 
+### 5-3
+
+```
+before: Client → Gateway → 모놀리식 [Tomcat 스레드 하나를 끝까지 잡는다]
+                             JWT 필터 → RecommendationController
+                             getTriggerContext        BEGIN → 조회 → COMMIT (수 ms, 메서드 호출)
+                             getRepresentativePlace   BEGIN → 조회 → COMMIT (수 ms)
+                             Redis 캐시
+                             Catalog HTTP → 카카오    (느릴 수 있다)
+                             (AI를 켜면) OpenAI HTTP
+
+after:  Client → Gateway ─(/api/v1/recommendations/**)→ 추천 서비스 [추천 서비스의 스레드]
+                             Authorization 헤더를 그대로 붙여
+                             ── GET /internal/v1/triggers/{id}/context → 모놀리식
+                                    JWT 필터 → 소유권 확인 → BEGIN → 조회 → COMMIT (수 ms)
+                                    401 · 403 · 404면 그대로 전달하고 끝
+                             ── GET /internal/v1/triggers/{id}/representative-place → 모놀리식 (필요할 때만)
+                             Redis 캐시
+                             ── Catalog HTTP → 카카오   (느려도 모놀리식 스레드와 무관)
+                             (AI를 켜면) OpenAI HTTP
+        Client → Gateway ─(나머지)→ 모놀리식
+```
+
+5-3a까지는 before 그대로다. 모놀리식에 조회 입구만 생겼고 아직 아무도 부르지 않는다.
+
 ## 구현 파일
 
 ### 5-1
@@ -156,6 +194,17 @@ after:  장소 추천 요청 (트랜잭션 없음)
 | `performance-test/fake/` | WireMock 응답 정의: 키워드 검색(장소 15개), 재정렬 응답 |
 | `performance-test/k6/scripts/recommendation_slow_external.js` | 추천과 플랜 목록을 고정 도착률로 보내고 가운데 구간에서 카카오 지연을 켰다 끈다 |
 | `monitoring/grafana/dashboards/bready-recommendation-experiment.json` | 실험 대시보드(패널 8개) |
+
+### 5-3a
+
+| 파일 | 역할 |
+|---|---|
+| `trigger/api/TriggerContextApi.java`, `trigger/service/TriggerContextService.java` | 대표 장소 조회가 카테고리 ID 대신 사용자·트리거 ID를 받아 소유권을 스스로 확인 |
+| `recommendation/service/PlaceRecommendationService.java` | 바뀐 시그니처로 호출 |
+| `trigger/controller/TriggerContextQueryController.java` | `TriggerContextApi`의 HTTP 입구(`/internal/v1/triggers/{triggerId}/context`, `/representative-place`) |
+| `trigger/controller/TriggerContextQueryApi.java` | Swagger 문서와 파라미터 제약 |
+| `trigger/controller/TriggerContextQueryControllerTest.java` | 응답 JSON 필드(추천 서비스가 읽을 계약)와 오류 코드 |
+| `integration/TriggerContextQueryIntegrationTest.java` | 실제 토큰으로: 소유자 200, 토큰 없음 401, 남의 트리거 403 |
 
 ## 검증 증거
 
@@ -209,6 +258,14 @@ k6 `recommendation_slow_external.js`(추천 초당 12 · 플랜 목록 초당 20
 
 평소·회복 구간은 전·후 모두 플랜 목록 p95 7~9ms, 추천 p95 14~16ms였다. 수정 전에도 실패는 0%였다. 에러율만 보면 이 장애는 보이지 않는다.
 
+### 5-3a
+
+```
+테스트: gateway 8 · monolith 207 → 217 · place-catalog 53 통과 (아키텍처 테스트 포함, 기준선 변화 없음)
+새 테스트 10개: 컨트롤러 5(응답 필드, 7001 · 7005, 양수가 아닌 ID 400) · 통합 5(소유자 200 둘, 토큰 없음 401, 남의 트리거 403 둘)
+추천 응답 계약 테스트(장소 · 카테고리)와 트랜잭션 경계 테스트: 시그니처 변경 뒤에도 통과
+```
+
 ## 워크스루 요약
 
 ### 5-1
@@ -231,6 +288,14 @@ k6 `recommendation_slow_external.js`(추천 초당 12 · 플랜 목록 초당 20
 - Planning 조회(`TriggerContextService`)는 자기 트랜잭션 선언이 있지만, 이미 열린 트랜잭션이 있으면 새로 열지 않고 합류한다. 그래서 조회가 끝나도 커넥션은 바깥 메서드가 끝날 때까지 반납되지 않았다. 바깥 선언을 떼자 조회가 각자 열고 닫는다.
 - 캐시에 없으면 추천 포트 → Catalog HTTP → 카카오로 나간다. 이 구간에서 쥔 커넥션이 없다. 기다리는 것은 요청 스레드뿐이다.
 - 통합 테스트는 Catalog 클라이언트가 불리는 순간 열린 트랜잭션이 있는지 기록해 단언한다. 선언을 되살리면 이 테스트가 실패한다.
+
+### 5-3a
+
+- 요청(`GET /internal/v1/triggers/{triggerId}/context`)은 다른 API와 같은 JWT 필터를 지난다. 토큰이 없으면 컨트롤러에 닿기 전에 401이다. 부르는 서비스는 토큰을 해석하지 않고 붙여 보내기만 한다.
+- 컨트롤러는 `@CurrentUser`로 받은 사용자 ID와 경로의 트리거 ID를 `TriggerContextApi`에 넘기고 결과를 감싸기만 한다. 응답 본문은 `trigger.api`의 record 그대로라서, 메서드 호출로 주고받던 값과 HTTP로 나가는 값이 같은 모양이다.
+- `TriggerContextService`의 두 메서드는 모두 `getOwnedTrigger`로 시작한다. 트리거를 찾고 그 플랜의 소유자인지 확인한다. 대표 장소 조회는 예전에 카테고리 ID만 받아 앞선 호출의 확인에 기대고 있었는데, HTTP로 열리면 혼자 불릴 수 있어 스스로 확인하게 바꿨다.
+- 대표 장소는 트리거가 가리키는 카테고리에서 찾는다. 부르는 쪽이 카테고리를 고를 수 없으므로 "내 트리거로 남의 카테고리를 묻는" 요청이 성립하지 않는다.
+- 파라미터 제약(`@Positive`)은 문서 인터페이스에 둔다. 구현한 컨트롤러 쪽에 붙이면 Bean Validation이 선언 오류로 500을 낸다(T-017).
 
 ## 알려진 한계
 
@@ -255,3 +320,9 @@ k6 `recommendation_slow_external.js`(추천 초당 12 · 플랜 목록 초당 20
 - OpenAI 호출에는 타임아웃이 없다. AI를 켠 상태의 지연 실험과 대시보드의 AI 패널은 5-4로 넘겼다. 이번에는 가짜 OpenAI에 연결되는 것만 확인했다.
 - Redis 캐시 조회·저장도 트랜잭션 밖이 됐다. 캐시가 느려져도 커넥션을 쥐지 않지만 스레드는 잡힌다.
 - Catalog의 장소 검색은 트랜잭션이 없어 같은 문제가 없다(Catalog 풀은 10개).
+
+### 5-3a
+
+- 장소 추천은 Planning을 두 번 부른다(트리거 상황, 대표 장소). 지금은 메서드 호출이라 차이가 없지만 5-3c부터는 네트워크 왕복 두 번이고, 두 번 다 트리거 조회와 소유권 확인을 한다.
+- `/internal/**` 경로도 Gateway의 `/**` 라우트를 타서 밖에서 닿는다. 토큰과 소유권 확인이 있어 남의 데이터는 볼 수 없지만, 화면이 부를 경로가 아니다. Gateway에서 막는 것은 라우트를 손보는 5-3c에서 한다.
+- 실제 기동 후 curl로는 확인하지 않았다. 통합 테스트가 실제 보안 필터와 토큰으로 검증하고, 다른 프로세스가 부르는 것은 5-3c에서 확인한다.
