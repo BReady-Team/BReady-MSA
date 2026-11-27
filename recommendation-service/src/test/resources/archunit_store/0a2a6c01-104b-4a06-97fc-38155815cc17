@@ -1,0 +1,2 @@
+Field <com.bready.recommendation.recommendation.cache.CategoryRecommendationCacheService.categoryCacheTtlSeconds> is annotated with @Value in (CategoryRecommendationCacheService.java:0)
+Field <com.bready.recommendation.recommendation.cache.PlaceRecommendationCacheService.placeCacheTtlSeconds> is annotated with @Value in (PlaceRecommendationCacheService.java:0)

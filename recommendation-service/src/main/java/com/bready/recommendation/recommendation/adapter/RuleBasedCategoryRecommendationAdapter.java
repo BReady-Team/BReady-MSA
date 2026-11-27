@@ -1,0 +1,69 @@
+package com.bready.recommendation.recommendation.adapter;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+import org.springframework.stereotype.Component;
+
+import com.bready.recommendation.catalog.api.PlaceCategoryType;
+import com.bready.recommendation.planning.api.CategoryInfo;
+import com.bready.recommendation.planning.api.TriggerType;
+import com.bready.recommendation.recommendation.dto.CategoryRecommendationResponse;
+import com.bready.recommendation.recommendation.port.CategoryRecommendationPort;
+
+import lombok.RequiredArgsConstructor;
+
+@Component
+@RequiredArgsConstructor
+public class RuleBasedCategoryRecommendationAdapter implements CategoryRecommendationPort {
+
+    @Override
+    public List<CategoryRecommendationResponse.CategoryItem> recommendCategories(
+            List<CategoryInfo> planCategories, CategoryInfo currentCategory, TriggerType triggerType) {
+
+        PlaceCategoryType currentType = currentCategory.categoryType();
+
+        PlaceCategoryType prevType = null;
+        PlaceCategoryType nextType = null;
+
+        for (int i = 0; i < planCategories.size(); i++) {
+            if (Objects.equals(planCategories.get(i).categoryId(), currentCategory.categoryId())) {
+                if (i - 1 >= 0) prevType = planCategories.get(i - 1).categoryType();
+                if (i + 1 < planCategories.size())
+                    nextType = planCategories.get(i + 1).categoryType();
+                break;
+            }
+        }
+
+        List<CategoryRecommendationResponse.CategoryItem> result = new ArrayList<>();
+
+        // 화이트리스트
+        for (PlaceCategoryType type : PlaceCategoryType.values()) {
+
+            if (type == currentType) continue;
+
+            if (prevType != null && type == prevType) continue;
+            if (nextType != null && type == nextType) continue;
+
+            if (triggerType == TriggerType.FATIGUE && type == PlaceCategoryType.WALK) continue;
+
+            if (triggerType == TriggerType.WEATHER_BAD && !type.isIndoor()) continue;
+
+            result.add(
+                    new CategoryRecommendationResponse.CategoryItem(type, type.getLabel(), buildReason(triggerType)));
+        }
+
+        return result;
+    }
+
+    private String buildReason(TriggerType triggerType) {
+        return switch (triggerType) {
+            case WEATHER_BAD -> "날씨 악화로 인해 실내 활동이 적합합니다.";
+            case WAITING_TOO_LONG -> "혼잡을 피할 수 있는 대체 활동입니다.";
+            case PLACE_CLOSED -> "영업 종료 상황을 고려한 대안입니다.";
+            case FATIGUE -> "체력 부담이 적은 활동을 추천합니다.";
+            case DISTANCE_TOO_FAR -> "이동 부담을 줄일 수 있는 대안입니다.";
+        };
+    }
+}

@@ -9,7 +9,7 @@ Recommendation과 Stats를 모놀리식에서 떼어낸다. 메시지 브로커�
 | 5-1 | 관측 기반: 세 서비스(Gateway·모놀리식·Catalog)의 지표·추적을 Prometheus·Grafana·Zipkin으로 | | 구현 완료 |
 | 5-1b | 부하에서 드러난 첫 행 생성 교착(`category_states`·`plan_stats`) 수정 | | 구현 완료 |
 | 5-2 | 추천의 외부 호출이 DB 커넥션을 쥐는 고통 재현 + 트랜잭션 경계 정리(관측으로 전·후 비교) | | 구현 완료 |
-| 5-3 | `recommendation-service` 추출 (a Planning 조회 HTTP 입구 → b 서비스와 코드 이동 → c 라우트 전환·삭제·관측) | | 5-3a 구현 완료 |
+| 5-3 | `recommendation-service` 추출 (a Planning 조회 HTTP 입구 → b 서비스와 코드 이동 → c 라우트 전환·삭제·관측) | | 5-3a · 5-3b 구현 완료 |
 | 5-4 | 타임아웃·서킷브레이커·폴백 | | |
 | 5-5~ | Stats 추출, Kafka + Outbox | | |
 
@@ -84,6 +84,18 @@ AI 호출 줄은 5-2로 미뤘다. 더미 카카오 키에서는 추천이 카�
 | Redis | 지금 인스턴스를 같이 쓴다(`reco:*`는 추천만 쓴다) | 전용 Redis: 캐시라 옮길 데이터가 없고 아직 서로 방해한 적이 없다 |
 | 진행 | 세 조각: Planning 조회 입구(5-3a) → 서비스와 코드 이동(5-3b) → 라우트 전환·삭제·관측(5-3c) | 한 번에: 기계적인 이동과 흐름이 바뀌는 지점이 섞여 실패의 원인을 가리기 어렵다 |
 
+5-3b에서 더한 결정이다.
+
+| 결정 | 고른 것 | 고르지 않은 것과 이유 |
+|---|---|---|
+| 토큰을 Planning 호출까지 넘기는 법 | 컨트롤러가 `Authorization` 헤더를 받아 서비스 → Planning 클라이언트로 인자로 넘긴다 | 인터셉터가 현재 요청에서 꺼내 붙이기: 현재 요청은 스레드에 묶여 있어 다른 스레드에서 부르면 토큰이 조용히 빠진다. 부르는 곳이 둘뿐이라 숨겨서 얻는 것이 적다 |
+| 옮기는 범위 | 추천 코드 22개 파일을 그대로 복사하고, 떼어내느라 바뀌는 것(패키지, 사용자 ID → 토큰)만 고친다 | 옮기면서 규칙에 맞게 정리: 응답이 달라지면 이동 탓인지 정리 탓인지 가릴 수 없다. 따라온 옛 위반 4건은 ArchUnit 기준선에 두고 7단계에서 정리한다 |
+| 모놀리식의 추천 코드 | 지우지 않는다. 한 PR 동안 같은 코드가 두 곳에 있다 | 같이 지우기: 라우트를 돌리기 전에 지우면 추천이 멈춘다. 삭제는 라우트 전환(5-3c)과 함께 한다 |
+| Planning·Catalog 계약 | 값 record와 enum을 새 서비스에 복사하고(`planning.api`, `catalog.api`), 인터페이스 이름은 그대로 둔다. 구현만 HTTP 어댑터다 | 공유 라이브러리: ADR-0004의 방침대로 지킬 것은 같은 클래스가 아니라 같은 JSON 모양이다 |
+| 다른 서비스의 오류 | 상대가 준 오류는 상태·코드·문구 그대로 전달, 닿지 못하면 503(Planning `5033`, Catalog `5031`) | 추천의 오류로 바꿔 내기: 클라이언트가 받던 403 `4002`, 404 `7001`이 달라진다 |
+| 장소 추천 캐시 키(리뷰에서 발견) | 결과를 바꾸는 입력 전부: 카테고리 · 트리거 종류 · 지역 · 좌표(소수 둘째 자리) · 반경 · 개수 · 제외할 대표 장소 | 카테고리와 좌표만(옮겨 온 그대로): 같은 위치의 다른 사용자가 받은 결과가 그대로 나가서, 내 대표 장소가 내 추천에 나오고 `size`와 트리거 사유가 무시된다 / 후보 목록만 캐시하고 요청마다 제외·개수·사유를 다시 적용: 캐시를 추천 포트 안쪽으로 옮기는 구조 변경이라 이번 범위를 넘는다 |
+| Planning 호출 타임아웃 | 연결 2초 · 읽기 3초 | 타임아웃 없음: 모놀리식이 느려지면 추천 스레드가 무한정 잡힌다. 값을 다듬는 것은 5-4에서 한다 |
+
 ## 흐름 (before → after)
 
 ### 5-1
@@ -155,6 +167,21 @@ after:  Client → Gateway ─(/api/v1/recommendations/**)→ 추천 서비스 [
 
 5-3a까지는 before 그대로다. 모놀리식에 조회 입구만 생겼고 아직 아무도 부르지 않는다.
 
+5-3b가 끝난 상태다. 실제 트래픽은 before 그대로이고, 새 서비스는 떠 있지만 8082로 직접 불러야만 닿는다.
+
+```
+POST :8082/api/v1/recommendations/places  + Authorization
+  RecommendationController          헤더를 꺼내 넘긴다 (해석하지 않는다)
+  PlaceRecommendationService        (DB 없음, 트랜잭션 없음)
+    TriggerContextHttpAdapter ── GET 모놀리식 /internal/v1/triggers/{id}/context  + Authorization
+        403 · 404 → 상태·코드·문구 그대로 / 401 → 401 / 닿지 못함 → 503 5033
+    TriggerContextHttpAdapter ── GET 모놀리식 /internal/v1/triggers/{id}/representative-place  (필요할 때만)
+    Redis reco:* 조회
+    PlaceSearchHttpAdapter ── GET Catalog /internal/v1/places/search → 카카오
+    (AI를 켜면) OpenAI
+    Redis reco:* 저장
+```
+
 ## 구현 파일
 
 ### 5-1
@@ -205,6 +232,26 @@ after:  Client → Gateway ─(/api/v1/recommendations/**)→ 추천 서비스 [
 | `trigger/controller/TriggerContextQueryApi.java` | Swagger 문서와 파라미터 제약 |
 | `trigger/controller/TriggerContextQueryControllerTest.java` | 응답 JSON 필드(추천 서비스가 읽을 계약)와 오류 코드 |
 | `integration/TriggerContextQueryIntegrationTest.java` | 실제 토큰으로: 소유자 200, 토큰 없음 401, 남의 트리거 403 |
+
+### 5-3b
+
+새 서비스 `recommendation-service/`(패키지 `com.bready.recommendation`, 포트 8082).
+
+| 위치 | 역할 |
+|---|---|
+| `build.gradle`, `application.yml`, `Dockerfile` | 독립 Gradle 프로젝트. DB 없이 web · Redis · Spring AI · 관측 |
+| `global/` | 응답 봉투·예외·핸들러(Catalog에서 복사, 405 추가), Redis 직렬화 설정(모놀리식과 같은 JSON), AI 설정 |
+| `global/client/` | 다른 서비스 호출 공통: `RemoteResponse`(상대의 응답 모양), `RemoteErrorTranslator`(오류 전달·503 번역), `HttpClientFactory` |
+| `planning/api/` | Planning 계약 사본. `TriggerContextApi`는 사용자 ID 대신 `Authorization` 값을 받는다 |
+| `planning/external/` | `PlanningHttpClient`(`@HttpExchange`, 헤더 전달), `TriggerContextHttpAdapter` |
+| `catalog/api/`, `catalog/external/` | Catalog 계약 사본과 검색 HTTP 어댑터 |
+| `recommendation/` | 모놀리식의 추천 코드 22개 파일. 내용이 다른 것은 컨트롤러와 서비스 둘(사용자 ID → 토큰), 그리고 장소 캐시 키(`PlaceRecommendationCacheKey` 추가) |
+| `integration/PlaceRecommendationCacheIntegrationTest.java` | 같은 위치의 두 사용자가 서로의 캐시를 받지 않는지, 같은 조건은 캐시를 다시 쓰는지 |
+| `architecture/ArchitectureTest.java`, `archunit_store/` | 경계 규칙 7개 + 옛 위반 기준선 3개 규칙(4건) |
+| `integration/*ContractIntegrationTest.java` | 모놀리식의 계약 테스트와 같은 기대값을 새 서비스에서 검증 |
+| `planning/external/TriggerContextHttpAdapterTest.java` | 토큰이 실제 헤더로 나가는지, 오류가 어떻게 번역되는지 |
+
+모놀리식 코드는 바꾸지 않았다.
 
 ## 검증 증거
 
@@ -266,6 +313,29 @@ k6 `recommendation_slow_external.js`(추천 초당 12 · 플랜 목록 초당 20
 추천 응답 계약 테스트(장소 · 카테고리)와 트랜잭션 경계 테스트: 시그니처 변경 뒤에도 통과
 ```
 
+### 5-3b
+
+```
+테스트: gateway 8 · monolith 217 · place-catalog 53 · recommendation 38 통과
+캐시 재현 테스트 4개: 수정 전 3개 실패(남의 캐시로 내 대표 장소가 추천됨, size 무시, 다른 트리거의 사유) → 수정 후 통과
+처음 34개: 아키텍처 10 · 계약 통합 10(장소 6, 카테고리 4) · Planning 어댑터 6 · Catalog 어댑터 5 · 옮겨 온 어댑터 단위 3
+옮긴 코드의 차이: 패키지 이름을 맞춰 비교하면 22개 파일 중 내용이 다른 것은 3개(컨트롤러, 서비스 둘)이고 전부 사용자 ID → 토큰이다
+ArchUnit 기준선: 필드 주입 2(캐시 서비스의 @Value) · DTO 이름 1(PlaceRecommendationQuery) · 문서 인터페이스 없음 1(RecommendationController)
+```
+
+세 서비스를 실제로 띄우고(가짜 카카오 사용) 같은 요청을 모놀리식(8080)과 새 서비스(8082)에 보내 비교했다.
+
+| 요청 | 모놀리식 | 추천 서비스 | 본문 |
+|---|---|---|---|
+| 장소 추천, 소유자 | 200 | 200 | 같음 (2610바이트) |
+| 카테고리 추천, 소유자 | 200 | 200 | 같음 (362바이트) |
+| 장소 추천, 남의 토큰 | 403 | 403 | 같음 (`4002`) |
+| 카테고리 추천, 없는 트리거 | 404 | 404 | 같음 (`7001`) |
+| 장소 추천, 토큰 없음 | 401 | 401 | 다름: 모놀리식은 본문 없음, 추천 서비스는 `{"errorCode":401,"message":"로그인이 필요합니다."}` |
+| 장소 추천, 틀린 토큰 | 401 | 401 | 위와 같음 |
+
+모놀리식의 지표에 추천 서비스가 부른 흔적이 남았다: `/internal/v1/triggers/{triggerId}/context` 200 4건 · 401 2건 · 403 1건 · 404 1건, `/representative-place` 200 2건.
+
 ## 워크스루 요약
 
 ### 5-1
@@ -297,6 +367,14 @@ k6 `recommendation_slow_external.js`(추천 초당 12 · 플랜 목록 초당 20
 - 대표 장소는 트리거가 가리키는 카테고리에서 찾는다. 부르는 쪽이 카테고리를 고를 수 없으므로 "내 트리거로 남의 카테고리를 묻는" 요청이 성립하지 않는다.
 - 파라미터 제약(`@Positive`)은 문서 인터페이스에 둔다. 구현한 컨트롤러 쪽에 붙이면 Bean Validation이 선언 오류로 500을 낸다(T-017).
 
+### 5-3b
+
+- 요청(`POST /api/v1/recommendations/places`)이 컨트롤러에 오면 `Authorization` 헤더를 문자열로 꺼낸다. 해석하지 않고, 없어도 막지 않는다.
+- 서비스는 첫 줄에서 그 값을 들고 `TriggerContextApi`를 부른다. 모놀리식 안에서는 이 호출이 메서드 호출이었고 여기서는 `TriggerContextHttpAdapter`가 HTTP로 나간다. 서비스 코드는 인터페이스만 알아서 그 차이를 모른다.
+- `PlanningHttpClient`가 받은 값을 `Authorization` 헤더에 그대로 실어 모놀리식의 내부 엔드포인트를 부른다. 인증과 소유권 확인은 모놀리식이 한다.
+- 모놀리식이 오류로 답하면 어댑터가 상태·코드·문구를 그대로 옮긴 예외로 바꾸고, 닿지 못하면 503으로 바꾼다. 그 뒤의 캐시 조회나 Catalog 호출은 실행되지 않는다.
+- 통과하면 Redis 캐시를 보고, 없으면 `PlaceSearchHttpAdapter`로 Catalog를 부른다. 이 부분은 모놀리식에 있던 코드와 한 줄도 다르지 않다.
+
 ## 알려진 한계
 
 ### 5-1
@@ -326,3 +404,14 @@ k6 `recommendation_slow_external.js`(추천 초당 12 · 플랜 목록 초당 20
 - 장소 추천은 Planning을 두 번 부른다(트리거 상황, 대표 장소). 지금은 메서드 호출이라 차이가 없지만 5-3c부터는 네트워크 왕복 두 번이고, 두 번 다 트리거 조회와 소유권 확인을 한다.
 - `/internal/**` 경로도 Gateway의 `/**` 라우트를 타서 밖에서 닿는다. 토큰과 소유권 확인이 있어 남의 데이터는 볼 수 없지만, 화면이 부를 경로가 아니다. Gateway에서 막는 것은 라우트를 손보는 5-3c에서 한다.
 - 실제 기동 후 curl로는 확인하지 않았다. 통합 테스트가 실제 보안 필터와 토큰으로 검증하고, 다른 프로세스가 부르는 것은 5-3c에서 확인한다.
+
+### 5-3b
+
+- 추천 코드가 모놀리식과 새 서비스 두 곳에 있다. 5-3c에서 라우트를 돌리고 모놀리식 쪽을 지울 때까지 한쪽만 고치면 어긋난다.
+- 장소 캐시 키는 새 서비스에서만 고쳤다. 지금 트래픽을 받는 모놀리식의 추천에는 같은 버그가 남아 있고, 5-3c에서 그 코드를 지우면 없어진다. 키 형식이 달라서(`reco:place:v2:`) 두 쪽이 서로의 장소 캐시를 읽지 않는다.
+- 현재 위치로 추천받는 트리거(체력 저하, 거리 부담)는 좌표를 소수 둘째 자리로 묶어 캐시하므로, 약 1km 안의 다른 요청이 계산한 거리(`distanceMeters`)를 받을 수 있다.
+- 토큰이 없거나 틀릴 때 상태는 같은 401이지만 본문이 다르다. 모놀리식은 보안 필터가 본문 없이 답하고, 새 서비스는 `CommonResponse` 모양으로 답한다. 라우트를 돌리기 전(5-3c)에 어느 쪽으로 맞출지 정한다.
+- `PlaceCategoryType`과 `TriggerType`이 서비스마다 복사돼 있다. 값을 추가하면 모놀리식·Catalog·추천을 함께 고쳐야 하고, 빠뜨리면 모르는 값을 받은 쪽이 역직렬화에서 실패한다.
+- 새 서비스에는 인증이 없다. Planning을 부르지 않는 엔드포인트가 생기면 누구에게나 열린다. 지금 두 엔드포인트는 계약 테스트가 "토큰 없이는 401, Catalog는 불리지 않음"을 지킨다.
+- compose · Prometheus 수집 · Gateway 라우트에는 아직 없다(5-3c). 지금은 `./gradlew bootRun`으로만 뜬다.
+- Planning 호출에 재시도·차단이 없다. 모놀리식이 느리면 읽기 타임아웃 3초까지 추천 스레드가 잡힌다(5-4).

@@ -1,0 +1,5 @@
+#
+#Fri Nov 27 17:16:13 KST 2026
+classes\ that\ are\ annotated\ with\ @RestController\ should\ implement\ {Domain}Api\ interface,\ because\ Swagger\ \uBB38\uC11C\uB294\ {Domain}Api\ \uC778\uD130\uD398\uC774\uC2A4\uC5D0\ \uB454\uB2E4\ (controller-api.md\ 2\uBC88)=10382915-2772-4940-b709-2f8a33fa32a6
+classes\ that\ reside\ in\ a\ package\ '..dto..'\ and\ are\ top\ level\ classes\ should\ be\ a\ record\ named\ *Request\ or\ *Response,\ because\ DTO\uB294\ {Resource}{Action}Request/Response\ record\uB2E4\ (dto.md\ 1\u00B72\uBC88)=5c4a8150-0165-4a6d-b130-1c0724fa3711
+no\ classes\ should\ use\ field\ injection,\ because\ field\ injection\ is\ considered\ harmful;\ use\ constructor\ injection\ or\ setter\ injection\ instead;\ see\ https\://stackoverflow.com/q/39890849\ for\ detailed\ explanations,\ because\ \uC0DD\uC131\uC790\ \uC8FC\uC785\uB9CC\ \uC4F4\uB2E4\ (@RequiredArgsConstructor)=0a2a6c01-104b-4a06-97fc-38155815cc17
