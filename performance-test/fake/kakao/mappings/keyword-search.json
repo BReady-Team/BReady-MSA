@@ -1,0 +1,36 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/v2/local/search/keyword.json"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json;charset=UTF-8"
+    },
+    "jsonBody": {
+      "meta": {
+        "total_count": 15,
+        "pageable_count": 15,
+        "is_end": true
+      },
+      "documents": [
+        { "id": "1001", "place_name": "가짜 장소 01", "address_name": "서울 강남구 역삼동 1", "road_address_name": "서울 강남구 테헤란로 101", "x": "127.0286", "y": "37.4989" },
+        { "id": "1002", "place_name": "가짜 장소 02", "address_name": "서울 강남구 역삼동 2", "road_address_name": "서울 강남구 테헤란로 102", "x": "127.0296", "y": "37.4993" },
+        { "id": "1003", "place_name": "가짜 장소 03", "address_name": "서울 강남구 역삼동 3", "road_address_name": "서울 강남구 테헤란로 103", "x": "127.0306", "y": "37.4997" },
+        { "id": "1004", "place_name": "가짜 장소 04", "address_name": "서울 강남구 역삼동 4", "road_address_name": "서울 강남구 테헤란로 104", "x": "127.0316", "y": "37.5001" },
+        { "id": "1005", "place_name": "가짜 장소 05", "address_name": "서울 강남구 역삼동 5", "road_address_name": "서울 강남구 테헤란로 105", "x": "127.0326", "y": "37.5005" },
+        { "id": "1006", "place_name": "가짜 장소 06", "address_name": "서울 강남구 역삼동 6", "road_address_name": "서울 강남구 테헤란로 106", "x": "127.0336", "y": "37.5009" },
+        { "id": "1007", "place_name": "가짜 장소 07", "address_name": "서울 강남구 역삼동 7", "road_address_name": "서울 강남구 테헤란로 107", "x": "127.0346", "y": "37.5013" },
+        { "id": "1008", "place_name": "가짜 장소 08", "address_name": "서울 강남구 역삼동 8", "road_address_name": "서울 강남구 테헤란로 108", "x": "127.0356", "y": "37.5017" },
+        { "id": "1009", "place_name": "가짜 장소 09", "address_name": "서울 강남구 역삼동 9", "road_address_name": "서울 강남구 테헤란로 109", "x": "127.0366", "y": "37.5021" },
+        { "id": "1010", "place_name": "가짜 장소 10", "address_name": "서울 강남구 역삼동 10", "road_address_name": "서울 강남구 테헤란로 110", "x": "127.0376", "y": "37.5025" },
+        { "id": "1011", "place_name": "가짜 장소 11", "address_name": "서울 강남구 역삼동 11", "road_address_name": "서울 강남구 테헤란로 111", "x": "127.0386", "y": "37.5029" },
+        { "id": "1012", "place_name": "가짜 장소 12", "address_name": "서울 강남구 역삼동 12", "road_address_name": "서울 강남구 테헤란로 112", "x": "127.0396", "y": "37.5033" },
+        { "id": "1013", "place_name": "가짜 장소 13", "address_name": "서울 강남구 역삼동 13", "road_address_name": "서울 강남구 테헤란로 113", "x": "127.0406", "y": "37.5037" },
+        { "id": "1014", "place_name": "가짜 장소 14", "address_name": "서울 강남구 역삼동 14", "road_address_name": "서울 강남구 테헤란로 114", "x": "127.0416", "y": "37.5041" },
+        { "id": "1015", "place_name": "가짜 장소 15", "address_name": "서울 강남구 역삼동 15", "road_address_name": "", "x": "127.0426", "y": "37.5045" }
+      ]
+    }
+  }
+}
